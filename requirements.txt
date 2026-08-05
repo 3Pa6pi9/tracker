@@ -1,0 +1,6 @@
+feedparser
+requests
+schedule
+fastapi
+uvicorn
+jinja2
