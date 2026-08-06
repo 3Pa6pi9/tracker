@@ -56,9 +56,18 @@ def get_db_connection():
 # --- ROOT ROUTE (SERVES DASHBOARD) ---
 @app.get("/", response_class=FileResponse)
 def read_root():
-    """Serves index.html at the root URL."""
-    if os.path.exists("index.html"):
-        return FileResponse("index.html")
+    """Serves index.html using absolute pathing."""
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    
+    # Check both the root directory and a potential templates directory
+    root_path = os.path.join(BASE_DIR, "index.html")
+    template_path = os.path.join(BASE_DIR, "templates", "index.html")
+    
+    if os.path.exists(root_path):
+        return FileResponse(root_path)
+    elif os.path.exists(template_path):
+        return FileResponse(template_path)
+        
     raise HTTPException(status_code=404, detail="index.html not found on server")
 
 # --- WEBSOCKET ENDPOINT ---
