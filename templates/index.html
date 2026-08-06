@@ -25,7 +25,7 @@
 <body class="bg-darkBg text-slate-300 font-sans antialiased p-6 min-h-screen">
 
     <div class="max-w-7xl mx-auto">
-        <!-- Header & Action Triggers -->
+        <!-- Header -->
         <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-4 gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-white tracking-tight">Geopolitical Command Center</h1>
@@ -36,6 +36,9 @@
                 <span id="ws-status" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-950 text-red-400 border border-red-900">
                     ● Disconnected
                 </span>
+                <button onclick="forceSync()" class="text-xs bg-blue-900 hover:bg-blue-800 border border-blue-700 text-blue-200 py-2 px-3 rounded transition-all font-medium shadow-lg animate-pulse">
+                    ⚡ Force Sync Data
+                </button>
                 <button onclick="exportCSV()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white py-2 px-3 rounded transition-all font-medium">
                     📥 Export CSV
                 </button>
@@ -45,12 +48,15 @@
             </div>
         </header>
 
-        <!-- Visualization Panel (Chart.js) -->
-        <div class="w-full bg-cardBg border border-slate-700 rounded-lg p-4 mb-8 h-64">
+        <!-- Chart Container -->
+        <div class="w-full bg-cardBg border border-slate-700 rounded-lg p-4 mb-8 h-64 relative">
             <canvas id="telemetryChart"></canvas>
+            <div id="chart-empty" class="absolute inset-0 flex items-center justify-center text-slate-500 font-mono hidden">
+                Awaiting Data Telemetry...
+            </div>
         </div>
 
-        <!-- Filtering Console & Tabs -->
+        <!-- Filters -->
         <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <div class="flex space-x-2 w-full md:w-auto">
                 <button id="btn-red" onclick="switchTab('RED')" class="px-6 py-2 rounded-md font-semibold transition-all bg-redTab text-white shadow-lg shadow-red-500/20 text-sm">
@@ -60,9 +66,8 @@
                     GREEN Stream
                 </button>
             </div>
-            
             <div class="relative w-full md:w-1/3">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Filter by keywords or handle..." class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg py-2 px-4 focus:ring-blue-500 focus:border-blue-500">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Filter by keywords or handle..." class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg py-2 px-4 focus:ring-blue-500">
             </div>
         </div>
 
@@ -78,7 +83,6 @@
     </div>
 
     <script>
-        // --- DYNAMIC HOST CONFIGURATION ---
         const API_BASE = window.location.origin;
         const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/news`;
@@ -89,7 +93,6 @@
         let telemetryChart = null;
         let ws = null;
 
-        // --- WEBSOCKET INITIALIZATION ---
         function connectWebSocket() {
             ws = new WebSocket(WS_URL);
             const statusBadge = document.getElementById('ws-status');
@@ -114,12 +117,20 @@
             };
         }
 
-        // --- FETCH & PAGINATION ---
+        async function forceSync() {
+            try {
+                alert("Sync initiated! The server is scraping the web. Wait 10-15 seconds for the data to populate automatically via WebSockets.");
+                await fetch(`${API_BASE}/api/sync`, { method: 'POST' });
+            } catch(e) {
+                console.error("Sync trigger failed.");
+            }
+        }
+
         async function fetchNews(category, page = 1, search = '', overwrite = false) {
             const container = document.getElementById('news-container');
             const loadMoreBtn = document.getElementById('load-more-btn');
             
-            if (overwrite) container.innerHTML = '';
+            if (overwrite) container.innerHTML = '<p class="col-span-full text-center text-slate-500 py-8 animate-pulse">Scanning database...</p>';
             
             try {
                 const url = new URL(`${API_BASE}/api/news`);
@@ -131,6 +142,8 @@
                 const response = await fetch(url);
                 const data = await response.json();
                 
+                if (overwrite) container.innerHTML = '';
+
                 if (data.length < 15) {
                     loadMoreBtn.classList.add('hidden');
                 } else {
@@ -138,7 +151,10 @@
                 }
 
                 if (data.length === 0 && page === 1) {
-                    container.innerHTML = `<p class="col-span-full text-center text-slate-500 py-8">No intel found.</p>`;
+                    container.innerHTML = `
+                        <div class="col-span-full bg-slate-900/50 border border-slate-800 rounded p-12 text-center text-slate-500">
+                            No intel records exist for ${category}.<br>Click 'Force Sync Data' at the top to scrape immediately.
+                        </div>`;
                     return;
                 }
 
@@ -163,7 +179,7 @@
                     container.insertAdjacentHTML('beforeend', card);
                 });
             } catch (error) {
-                console.error("Fetch error:", error);
+                container.innerHTML = `<p class="col-span-full text-center text-red-500 py-8">Error loading data. Is the backend running?</p>`;
             }
         }
 
@@ -217,14 +233,20 @@
             }
         }
 
-        // --- CHART.JS VISUALIZATION ---
         async function loadChartData() {
             try {
                 const response = await fetch(`${API_BASE}/api/stats`);
                 const data = await response.json();
                 
+                const emptyState = document.getElementById('chart-empty');
+                if (data.dates.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    return;
+                } else {
+                    emptyState.classList.add('hidden');
+                }
+
                 const ctx = document.getElementById('telemetryChart').getContext('2d');
-                
                 if(telemetryChart) telemetryChart.destroy();
                 
                 telemetryChart = new Chart(ctx, {
@@ -258,7 +280,7 @@
                         plugins: { legend: { labels: { color: '#94a3b8' } } },
                         scales: {
                             x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
-                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', stepSize: 5 } }
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', stepSize: 1 } }
                         }
                     }
                 });
