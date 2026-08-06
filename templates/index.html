@@ -37,7 +37,7 @@
                 <span id="ws-status" class="px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono">
                     ● Disconnected
                 </span>
-                <button onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-1.5">
+                <button id="sync-btn" onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-1.5">
                     ⚡ Sync Live Feed
                 </button>
                 <button onclick="exportCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors">
@@ -49,8 +49,9 @@
         <!-- Dynamic Visualization Chart -->
         <div class="bg-card/80 border border-bordercolor rounded-2xl p-4 mb-6 h-60 relative shadow-xl backdrop-blur-md">
             <canvas id="telemetryChart"></canvas>
-            <div id="chart-empty" class="absolute inset-0 flex items-center justify-center text-slate-500 font-mono text-xs hidden">
-                Awaiting Data Telemetry... Click 'Sync Live Feed' to build velocity charts.
+            <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 font-mono text-xs hidden bg-card/90 rounded-xl">
+                <span>Awaiting Data Telemetry...</span>
+                <span class="mt-1 opacity-75">Click 'Sync Live Feed' above to ingest streams.</span>
             </div>
         </div>
 
@@ -149,6 +150,7 @@
         function connectWebSocket() {
             ws = new WebSocket(WS_URL);
             const statusBadge = document.getElementById('ws-status');
+            const syncBtn = document.getElementById('sync-btn');
             
             ws.onopen = () => {
                 statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
@@ -157,10 +159,25 @@
             
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                if (data.event === "new_intel") {
+                
+                if (data.event === "sync_started") {
+                    syncBtn.innerHTML = "⏳ Scraping live feeds... (Est: 45s)";
+                    syncBtn.classList.replace('bg-indigo-600', 'bg-slate-600');
+                    syncBtn.disabled = true;
+                } 
+                else if (data.event === "new_intel") {
+                    syncBtn.innerHTML = "⚡ Sync Live Feed";
+                    syncBtn.classList.replace('bg-slate-600', 'bg-indigo-600');
+                    syncBtn.disabled = false;
                     fetchNews(true); 
                     loadChartData();
                     populateHandleDropdown();
+                }
+                else if (data.event === "sync_finished_no_data") {
+                    syncBtn.innerHTML = "⚡ Sync Live Feed";
+                    syncBtn.classList.replace('bg-slate-600', 'bg-indigo-600');
+                    syncBtn.disabled = false;
+                    alert("Scraping complete. No new intelligence matched your strict keyword rules.");
                 }
             };
 
@@ -186,7 +203,7 @@
         }
 
         async function forceSync() {
-            alert("Background sync started! Fetching latest Google News, Reddit, Hacker News, and X target posts...");
+            // Trigger backend scraper
             await fetch(`${API_BASE}/api/sync`, { method: 'POST' });
         }
 
@@ -225,7 +242,7 @@
                     grid.innerHTML = `
                         <div class="col-span-full text-center text-slate-500 py-16 bg-card/20 rounded-2xl border border-bordercolor">
                             <p class="text-xs font-medium text-slate-400">No records found matching your active filter criteria.</p>
-                            <p class="text-[11px] text-slate-600 mt-1">Click 'Sync Live Feed' above to ingest global streams.</p>
+                            <p class="text-[11px] text-slate-600 mt-1">If feeds are empty, click 'Sync Live Feed' above.</p>
                         </div>`;
                     return;
                 }
@@ -235,7 +252,7 @@
                     const dateObj = new Date(item.published_date || item.fetched_at);
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
-                    const handleBadge = (item.handle && item.handle !== 'N/A') ? `<span class="text-[10px] text-indigo-400 font-mono bg-indigo-500/10 px-1.5 py-0.5 rounded">${item.handle}</span>` : '';
+                    const handleBadge = (item.handle && item.handle !== 'N/A') ? `<span class="text-[10px] text-indigo-400 font-mono bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">${item.handle}</span>` : '';
 
                     const card = `
                         <a href="${item.link}" target="_blank" class="block group">

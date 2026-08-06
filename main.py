@@ -11,12 +11,16 @@ import os
 import asyncio
 import feedparser
 import urllib.parse
+import time
 from datetime import datetime, timedelta
+
+# Fix Reddit/Google Blockers by masking the bot as a real browser
+feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="5.1")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="6.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,24 +34,15 @@ DB_NAME = "tracker_data.db"
 
 # --- TARGET HANDLES & REGION MATRICES ---
 RED_TARGETS = [
-    {"handle": "@KingSalman", "region": "Middle East"},
-    {"handle": "@MohamedBinZayed", "region": "Middle East"},
-    {"handle": "@HHShkMohd", "region": "Middle East"},
-    {"handle": "@TamimBinHamad", "region": "Middle East"},
-    {"handle": "@RTErdogan", "region": "Middle East"},
-    {"handle": "@netanyahu", "region": "Middle East"},
-    {"handle": "@FaisalbinFarhan", "region": "Middle East"},
-    {"handle": "@KSAMOFA", "region": "Middle East"},
-    {"handle": "@KSAmofaEN", "region": "Middle East"},
-    {"handle": "@ABZayed", "region": "Middle East"},
-    {"handle": "@mofauae", "region": "Middle East"},
-    {"handle": "@OFMUAE", "region": "Middle East"},
-    {"handle": "@MBA_AlThani_", "region": "Middle East"},
-    {"handle": "@MofaQatar_EN", "region": "Middle East"},
-    {"handle": "@IsraelMFA", "region": "Middle East"},
-    {"handle": "@araghchi", "region": "Middle East"},
-    {"handle": "@IRIMFA_EN", "region": "Middle East"},
-    {"handle": "@MFATurkiye", "region": "Middle East"}
+    {"handle": "@KingSalman", "region": "Middle East"}, {"handle": "@MohamedBinZayed", "region": "Middle East"},
+    {"handle": "@HHShkMohd", "region": "Middle East"}, {"handle": "@TamimBinHamad", "region": "Middle East"},
+    {"handle": "@RTErdogan", "region": "Middle East"}, {"handle": "@netanyahu", "region": "Middle East"},
+    {"handle": "@FaisalbinFarhan", "region": "Middle East"}, {"handle": "@KSAMOFA", "region": "Middle East"},
+    {"handle": "@KSAmofaEN", "region": "Middle East"}, {"handle": "@ABZayed", "region": "Middle East"},
+    {"handle": "@mofauae", "region": "Middle East"}, {"handle": "@OFMUAE", "region": "Middle East"},
+    {"handle": "@MBA_AlThani_", "region": "Middle East"}, {"handle": "@MofaQatar_EN", "region": "Middle East"},
+    {"handle": "@IsraelMFA", "region": "Middle East"}, {"handle": "@araghchi", "region": "Middle East"},
+    {"handle": "@IRIMFA_EN", "region": "Middle East"}, {"handle": "@MFATurkiye", "region": "Middle East"}
 ]
 
 RED_KEYWORDS = [
@@ -58,34 +53,19 @@ RED_KEYWORDS = [
 ]
 
 GREEN_TARGETS = [
-    # Africa
-    {"handle": "@WilliamsRuto", "region": "Africa"},
-    {"handle": "@PaulKagame", "region": "Africa"},
-    {"handle": "@CyrilRamaphosa", "region": "Africa"},
-    {"handle": "@officialABAT", "region": "Africa"},
-    {"handle": "@AlsisiOfficial", "region": "Africa"},
-    {"handle": "@MFAEthiopia", "region": "Africa"},
-    {"handle": "@MusaliaMudavadi", "region": "Africa"},
-    {"handle": "@ForeignOfficeKE", "region": "Africa"},
-    {"handle": "@RonaldLamola", "region": "Africa"},
-    {"handle": "@DIRCO_ZA", "region": "Africa"},
-    {"handle": "@NigeriaMFA", "region": "Africa"},
-    {"handle": "@MFAEgOfficial", "region": "Africa"},
-    {"handle": "@MfaEgypt", "region": "Africa"},
-    {"handle": "@UrugwiroVillage", "region": "Africa"},
-    {"handle": "@NGRPresident", "region": "Africa"},
-    # Europe
-    {"handle": "@EmmanuelMacron", "region": "Europe"},
-    {"handle": "@GiorgiaMeloni", "region": "Europe"},
-    {"handle": "@sanchezcastejon", "region": "Europe"},
-    {"handle": "@donaldtusk", "region": "Europe"},
-    {"handle": "@_FriedrichMerz", "region": "Europe"},
-    {"handle": "@bundeskanzler", "region": "Europe"},
-    {"handle": "@AussenMinDE", "region": "Europe"},
-    {"handle": "@AuswaertigesAmt", "region": "Europe"},
-    {"handle": "@GermanyDiplo", "region": "Europe"},
-    {"handle": "@Ed_Miliband", "region": "Europe"},
-    {"handle": "@FCDOGovUK", "region": "Europe"}
+    {"handle": "@WilliamsRuto", "region": "Africa"}, {"handle": "@PaulKagame", "region": "Africa"},
+    {"handle": "@CyrilRamaphosa", "region": "Africa"}, {"handle": "@officialABAT", "region": "Africa"},
+    {"handle": "@AlsisiOfficial", "region": "Africa"}, {"handle": "@MFAEthiopia", "region": "Africa"},
+    {"handle": "@MusaliaMudavadi", "region": "Africa"}, {"handle": "@ForeignOfficeKE", "region": "Africa"},
+    {"handle": "@RonaldLamola", "region": "Africa"}, {"handle": "@DIRCO_ZA", "region": "Africa"},
+    {"handle": "@NigeriaMFA", "region": "Africa"}, {"handle": "@MFAEgOfficial", "region": "Africa"},
+    {"handle": "@MfaEgypt", "region": "Africa"}, {"handle": "@UrugwiroVillage", "region": "Africa"},
+    {"handle": "@NGRPresident", "region": "Africa"}, {"handle": "@EmmanuelMacron", "region": "Europe"},
+    {"handle": "@GiorgiaMeloni", "region": "Europe"}, {"handle": "@sanchezcastejon", "region": "Europe"},
+    {"handle": "@donaldtusk", "region": "Europe"}, {"handle": "@_FriedrichMerz", "region": "Europe"},
+    {"handle": "@bundeskanzler", "region": "Europe"}, {"handle": "@AussenMinDE", "region": "Europe"},
+    {"handle": "@AuswaertigesAmt", "region": "Europe"}, {"handle": "@GermanyDiplo", "region": "Europe"},
+    {"handle": "@Ed_Miliband", "region": "Europe"}, {"handle": "@FCDOGovUK", "region": "Europe"}
 ]
 
 GREEN_KEYWORDS = [
@@ -153,6 +133,7 @@ def init_db():
 
 # --- SCRAPING ENGINE ---
 def save_items(items):
+    if not items: return 0
     conn = get_db_connection()
     c = conn.cursor()
     added = 0
@@ -176,20 +157,20 @@ def save_items(items):
     conn.close()
     return added
 
-def fetch_feed_items(query, source_label, category, handle="N/A", region="Global", limit=8):
+def fetch_feed_items(query, source_label, category, handle="N/A", region="Global", limit=8, keywords=None):
     encoded = urllib.parse.quote(query)
     items = []
     
     if source_label == "Google News":
         url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
     elif source_label == "X (Twitter)":
-        url = f"https://news.google.com/rss/search?q=site:x.com+OR+site:twitter.com+{encoded}&hl=en-US&gl=US&ceid=US:en"
+        url = f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
     elif source_label == "Hacker News":
         url = f"https://hnrss.org/newest?q={encoded}"
     elif source_label == "Reddit":
         url = f"https://www.reddit.com/search.rss?q={encoded}&sort=new"
     else:
-        url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
+        return items
 
     try:
         feed = feedparser.parse(url)
@@ -197,7 +178,14 @@ def fetch_feed_items(query, source_label, category, handle="N/A", region="Global
             title = getattr(entry, 'title', '')
             link = getattr(entry, 'link', '')
             pub_date = getattr(entry, 'published', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            
             if title and link:
+                # Apply strict keyword filtering for RED and GREEN
+                if keywords:
+                    text_lower = title.lower()
+                    if not any(kw.lower() in text_lower for kw in keywords):
+                        continue # Skip if no keywords match
+
                 items.append({
                     'title': title.replace(" - X", "").replace(" on X", ""),
                     'link': link,
@@ -220,30 +208,40 @@ def run_full_intel_sweep():
         total_new += save_items(fetch_feed_items(topic, "Google News", "ALL", region="Global"))
         total_new += save_items(fetch_feed_items(topic, "Reddit", "ALL", region="Global"))
         total_new += save_items(fetch_feed_items(topic, "Hacker News", "ALL", region="Global"))
+        time.sleep(0.5) # Prevent rate-limiting
 
     # 2. RED Zone Targets
     for target in RED_TARGETS:
         h = target["handle"]
         r = target["region"]
         query = f'"{h}"'
-        total_new += save_items(fetch_feed_items(query, "X (Twitter)", "RED", handle=h, region=r))
-        total_new += save_items(fetch_feed_items(query, "Google News", "RED", handle=h, region=r))
+        total_new += save_items(fetch_feed_items(query, "X (Twitter)", "RED", handle=h, region=r, keywords=RED_KEYWORDS))
+        total_new += save_items(fetch_feed_items(query, "Google News", "RED", handle=h, region=r, keywords=RED_KEYWORDS))
+        time.sleep(0.5)
 
     # 3. GREEN Zone Targets
     for target in GREEN_TARGETS:
         h = target["handle"]
         r = target["region"]
         query = f'"{h}"'
-        total_new += save_items(fetch_feed_items(query, "X (Twitter)", "GREEN", handle=h, region=r))
-        total_new += save_items(fetch_feed_items(query, "Google News", "GREEN", handle=h, region=r))
+        total_new += save_items(fetch_feed_items(query, "X (Twitter)", "GREEN", handle=h, region=r, keywords=GREEN_KEYWORDS))
+        total_new += save_items(fetch_feed_items(query, "Google News", "GREEN", handle=h, region=r, keywords=GREEN_KEYWORDS))
+        time.sleep(0.5)
 
     logger.info(f"Sweep completed. {total_new} new items indexed.")
     return total_new
 
 async def async_sweep_task():
+    # Notify UI that scraping started
+    await manager.broadcast(json.dumps({"event": "sync_started"}))
+    
     added = await asyncio.to_thread(run_full_intel_sweep)
+    
+    # Notify UI that scraping finished
     if added > 0:
         await manager.broadcast(json.dumps({"event": "new_intel"}))
+    else:
+        await manager.broadcast(json.dumps({"event": "sync_finished_no_data"}))
 
 async def background_loop():
     while True:
@@ -282,14 +280,10 @@ async def trigger_manual_sync(background_tasks: BackgroundTasks):
 
 @app.get("/api/news")
 def get_news(
-    category: str = Query("ALL"),
-    source: str = Query("All"),
-    region: str = Query("All"),
-    handle: str = Query("All"),
-    time_filter: str = Query("all"),
-    q: str = Query(None),
-    page: int = Query(1),
-    limit: int = Query(30)
+    category: str = Query("ALL"), source: str = Query("All"),
+    region: str = Query("All"), handle: str = Query("All"),
+    time_filter: str = Query("all"), q: str = Query(None),
+    page: int = Query(1), limit: int = Query(30)
 ):
     offset = (page - 1) * limit
     conn = get_db_connection()
