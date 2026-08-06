@@ -20,7 +20,7 @@ feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="7.5")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="8.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -84,7 +84,6 @@ GLOBAL_SEARCH_TOPICS = [
     "Migration Crisis", "Foreign Policy", "Defense Treaty"
 ]
 
-# --- WEBSOCKET CONNECTION MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -131,7 +130,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- SCRAPING ENGINE ---
 def save_items(items):
     if not items: return 0
     conn = get_db_connection()
@@ -178,7 +176,6 @@ def fetch_feed_items(query, source_label, category, handle="N/A", region="Global
             title = getattr(entry, 'title', '')
             link = getattr(entry, 'link', '')
             
-            # --- DATE FORMAT FIX FOR SQLITE MATH ---
             try:
                 if hasattr(entry, 'published_parsed') and entry.published_parsed:
                     pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
@@ -237,33 +234,36 @@ def run_green_sweep():
         time.sleep(0.3)
     return total_new
 
-
 is_syncing = False
 
-async def async_sweep_task():
+async def async_sweep_task(silent=False):
     global is_syncing
-    if is_syncing:
-        return
+    if is_syncing: return
         
     is_syncing = True
-    await manager.broadcast(json.dumps({"event": "sync_started"}))
+    
+    # Broadcast appropriate start message based on manual vs auto mode
+    if not silent:
+        await manager.broadcast(json.dumps({"event": "sync_started"}))
+    else:
+        await manager.broadcast(json.dumps({"event": "sync_started_silent"}))
     
     try:
         total_added = 0
         
-        await manager.broadcast(json.dumps({"event": "sync_progress", "step": "Global & Trend Streams"}))
+        if not silent: await manager.broadcast(json.dumps({"event": "sync_progress", "step": "Global & Trend Streams"}))
         total_added += await asyncio.to_thread(run_global_sweep)
         
-        await manager.broadcast(json.dumps({"event": "sync_progress", "step": "RED Target Handles (Middle East)"}))
+        if not silent: await manager.broadcast(json.dumps({"event": "sync_progress", "step": "RED Target Handles (Middle East)"}))
         total_added += await asyncio.to_thread(run_red_sweep)
         
-        await manager.broadcast(json.dumps({"event": "sync_progress", "step": "GREEN Target Handles (Diplomacy)"}))
+        if not silent: await manager.broadcast(json.dumps({"event": "sync_progress", "step": "GREEN Target Handles (Diplomacy)"}))
         total_added += await asyncio.to_thread(run_green_sweep)
         
         if total_added > 0:
-            await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added}))
+            await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent}))
         else:
-            await manager.broadcast(json.dumps({"event": "sync_finished_no_data"}))
+            await manager.broadcast(json.dumps({"event": "sync_finished_no_data", "silent": silent}))
             
     except Exception as e:
         logger.error(f"Sweep failed: {e}")
@@ -273,14 +273,14 @@ async def async_sweep_task():
 
 async def background_loop():
     while True:
-        await asyncio.sleep(1800) # 30 minutes interval
-        await async_sweep_task()
+        await asyncio.sleep(900) # Auto-Pilot runs every 15 minutes
+        await async_sweep_task(silent=True)
 
 @app.on_event("startup")
 async def startup_event():
     init_db()
     asyncio.create_task(background_loop())
-    asyncio.create_task(async_sweep_task())
+    asyncio.create_task(async_sweep_task(silent=True)) # Initial silent boot sweep
 
 # --- REST ENDPOINTS ---
 @app.get("/", response_class=FileResponse)
@@ -292,6 +292,11 @@ def read_root():
     elif os.path.exists(template_path): return FileResponse(template_path)
     raise HTTPException(status_code=404, detail="index.html not found on server")
 
+@app.get("/api/ping")
+def ping():
+    """Keep-alive heartbeat endpoint to prevent Render from sleeping."""
+    return {"status": "awake"}
+
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -302,11 +307,11 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 @app.post("/api/sync")
-async def trigger_manual_sync(background_tasks: BackgroundTasks):
+async def trigger_manual_sync(background_tasks: BackgroundTasks, silent: bool = False):
     global is_syncing
     if is_syncing:
         return {"status": "Sync already in progress."}
-    background_tasks.add_task(async_sweep_task)
+    background_tasks.add_task(async_sweep_task, silent)
     return {"status": "Sync process initiated."}
 
 @app.get("/api/news")
@@ -339,7 +344,6 @@ def get_news(
         query += " AND handle = ?"
         params.append(handle)
 
-    # --- STRICT PUBLISHED DATE FILTERING FOR SQLITE ---
     if time_filter == "1d":
         query += " AND datetime(published_date) >= datetime('now', '-1 day')"
     elif time_filter == "7d":
