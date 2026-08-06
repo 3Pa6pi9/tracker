@@ -14,13 +14,13 @@ import urllib.parse
 import time
 from datetime import datetime, timedelta
 
-# Fix Reddit/Google Blockers by masking the bot as a real browser
+# User-Agent mask to bypass scraping blocks
 feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="6.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="7.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -84,7 +84,7 @@ GLOBAL_SEARCH_TOPICS = [
     "Migration Crisis", "Foreign Policy", "Defense Treaty"
 ]
 
-# --- WEBSOCKET MANAGER ---
+# --- WEBSOCKET CONNECTION MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -98,11 +98,11 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
 
     async def broadcast(self, message: str):
-        for connection in self.active_connections:
+        for connection in self.active_connections.copy():
             try:
                 await connection.send_text(message)
             except Exception:
-                pass
+                self.disconnect(connection)
 
 manager = ConnectionManager()
 
@@ -177,14 +177,21 @@ def fetch_feed_items(query, source_label, category, handle="N/A", region="Global
         for entry in feed.entries[:limit]:
             title = getattr(entry, 'title', '')
             link = getattr(entry, 'link', '')
-            pub_date = getattr(entry, 'published', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            
+            # --- DATE FORMAT FIX FOR SQLITE MATH ---
+            try:
+                if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                    pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                else:
+                    pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             if title and link:
-                # Apply strict keyword filtering for RED and GREEN
                 if keywords:
                     text_lower = title.lower()
                     if not any(kw.lower() in text_lower for kw in keywords):
-                        continue # Skip if no keywords match
+                        continue
 
                 items.append({
                     'title': title.replace(" - X", "").replace(" on X", ""),
@@ -195,57 +202,78 @@ def fetch_feed_items(query, source_label, category, handle="N/A", region="Global
                     'region': region,
                     'published_date': pub_date
                 })
-    except Exception as e:
-        logger.error(f"Error fetching {source_label} for query '{query}': {e}")
+    except Exception:
+        pass
     return items
 
-def run_full_intel_sweep():
-    logger.info("Executing comprehensive multi-source intelligence sweep...")
+def run_global_sweep():
     total_new = 0
-    
-    # 1. Global / ALL Streams
     for topic in GLOBAL_SEARCH_TOPICS:
         total_new += save_items(fetch_feed_items(topic, "Google News", "ALL", region="Global"))
         total_new += save_items(fetch_feed_items(topic, "Reddit", "ALL", region="Global"))
         total_new += save_items(fetch_feed_items(topic, "Hacker News", "ALL", region="Global"))
-        time.sleep(0.5) # Prevent rate-limiting
+        time.sleep(0.3)
+    return total_new
 
-    # 2. RED Zone Targets
+def run_red_sweep():
+    total_new = 0
     for target in RED_TARGETS:
         h = target["handle"]
         r = target["region"]
         query = f'"{h}"'
         total_new += save_items(fetch_feed_items(query, "X (Twitter)", "RED", handle=h, region=r, keywords=RED_KEYWORDS))
         total_new += save_items(fetch_feed_items(query, "Google News", "RED", handle=h, region=r, keywords=RED_KEYWORDS))
-        time.sleep(0.5)
+        time.sleep(0.3)
+    return total_new
 
-    # 3. GREEN Zone Targets
+def run_green_sweep():
+    total_new = 0
     for target in GREEN_TARGETS:
         h = target["handle"]
         r = target["region"]
         query = f'"{h}"'
         total_new += save_items(fetch_feed_items(query, "X (Twitter)", "GREEN", handle=h, region=r, keywords=GREEN_KEYWORDS))
         total_new += save_items(fetch_feed_items(query, "Google News", "GREEN", handle=h, region=r, keywords=GREEN_KEYWORDS))
-        time.sleep(0.5)
-
-    logger.info(f"Sweep completed. {total_new} new items indexed.")
+        time.sleep(0.3)
     return total_new
 
+
+is_syncing = False
+
 async def async_sweep_task():
-    # Notify UI that scraping started
+    global is_syncing
+    if is_syncing:
+        return
+        
+    is_syncing = True
     await manager.broadcast(json.dumps({"event": "sync_started"}))
     
-    added = await asyncio.to_thread(run_full_intel_sweep)
-    
-    # Notify UI that scraping finished
-    if added > 0:
-        await manager.broadcast(json.dumps({"event": "new_intel"}))
-    else:
-        await manager.broadcast(json.dumps({"event": "sync_finished_no_data"}))
+    try:
+        total_added = 0
+        
+        await manager.broadcast(json.dumps({"event": "sync_progress", "step": "Global & Trend Streams"}))
+        total_added += await asyncio.to_thread(run_global_sweep)
+        
+        await manager.broadcast(json.dumps({"event": "sync_progress", "step": "RED Target Handles (Middle East)"}))
+        total_added += await asyncio.to_thread(run_red_sweep)
+        
+        await manager.broadcast(json.dumps({"event": "sync_progress", "step": "GREEN Target Handles (Diplomacy)"}))
+        total_added += await asyncio.to_thread(run_green_sweep)
+        
+        if total_added > 0:
+            await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added}))
+        else:
+            await manager.broadcast(json.dumps({"event": "sync_finished_no_data"}))
+            
+    except Exception as e:
+        logger.error(f"Sweep failed: {e}")
+        await manager.broadcast(json.dumps({"event": "sync_error"}))
+    finally:
+        is_syncing = False
 
 async def background_loop():
     while True:
-        await asyncio.sleep(1200) # 20 minutes interval
+        await asyncio.sleep(1800) # 30 minutes interval
         await async_sweep_task()
 
 @app.on_event("startup")
@@ -275,8 +303,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.post("/api/sync")
 async def trigger_manual_sync(background_tasks: BackgroundTasks):
+    global is_syncing
+    if is_syncing:
+        return {"status": "Sync already in progress."}
     background_tasks.add_task(async_sweep_task)
-    return {"status": "Sync process initiated in background."}
+    return {"status": "Sync process initiated."}
 
 @app.get("/api/news")
 def get_news(
@@ -308,12 +339,13 @@ def get_news(
         query += " AND handle = ?"
         params.append(handle)
 
+    # --- STRICT PUBLISHED DATE FILTERING FOR SQLITE ---
     if time_filter == "1d":
-        query += " AND (datetime(fetched_at) >= datetime('now', '-1 day') OR datetime(published_date) >= datetime('now', '-1 day'))"
+        query += " AND datetime(published_date) >= datetime('now', '-1 day')"
     elif time_filter == "7d":
-        query += " AND (datetime(fetched_at) >= datetime('now', '-7 days') OR datetime(published_date) >= datetime('now', '-7 days'))"
+        query += " AND datetime(published_date) >= datetime('now', '-7 days')"
     elif time_filter == "30d":
-        query += " AND (datetime(fetched_at) >= datetime('now', '-30 days') OR datetime(published_date) >= datetime('now', '-30 days'))"
+        query += " AND datetime(published_date) >= datetime('now', '-30 days')"
 
     if q:
         query += " AND (title LIKE ? OR handle LIKE ?)"
