@@ -101,6 +101,23 @@
                 <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search global intel database by keywords..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner">
             </div>
 
+            <!-- Fully Exposed Media Outlet Buttons -->
+            <div class="flex flex-wrap gap-1.5 border-b border-slate-800 pb-3" id="sourceFilters">
+                <button onclick="filterSource('All')" class="src-btn active px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-colors">All Sources</button>
+                <button onclick="filterSource('Google News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Google News</button>
+                <button onclick="filterSource('X (Twitter)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">X (Twitter)</button>
+                <button onclick="filterSource('Reddit')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Reddit</button>
+                <button onclick="filterSource('Hacker News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Hacker News</button>
+                <button onclick="filterSource('Al Jazeera')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Al Jazeera</button>
+                <button onclick="filterSource('Middle East Eye')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Middle East Eye</button>
+                <button onclick="filterSource('Arab News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Arab News</button>
+                <button onclick="filterSource('Times of Israel')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Times of Israel</button>
+                <button onclick="filterSource('Africanews')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Africanews</button>
+                <button onclick="filterSource('AllAfrica')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">AllAfrica</button>
+                <button onclick="filterSource('DW News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">DW News</button>
+                <button onclick="filterSource('BBC World')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">BBC World</button>
+            </div>
+
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs">
                 <!-- Date Filters -->
                 <div class="flex flex-wrap gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800" id="dateFilters">
@@ -110,12 +127,8 @@
                     <button onclick="filterDate('30d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 30d</button>
                 </div>
 
-                <!-- Dropdowns for Media Outlet, Region, and Handle -->
+                <!-- Dropdowns for Regions and Handles -->
                 <div class="flex flex-wrap gap-2">
-                    <select id="sourceSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none max-w-[180px]">
-                        <option value="All">All Outlets / Sources</option>
-                    </select>
-
                     <select id="regionSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none">
                         <option value="All">All Regions / Continents</option>
                         <option value="Middle East">Middle East</option>
@@ -124,7 +137,7 @@
                         <option value="Global">Global</option>
                     </select>
 
-                    <select id="handleSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none max-w-[180px]">
+                    <select id="handleSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none max-w-[200px]">
                         <option value="All">All Target Handles</option>
                     </select>
                 </div>
@@ -165,10 +178,13 @@
             'Arab News': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
             'Times of Israel': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
             'Africanews': 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+            'AllAfrica': 'bg-green-600/10 text-green-400 border-green-600/20',
+            'DW News': 'bg-blue-600/10 text-blue-300 border-blue-600/20',
             'BBC World': 'bg-red-600/10 text-red-300 border-red-600/20',
             'X (Twitter)': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
             'Google News': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
-            'Reddit': 'bg-orange-600/10 text-orange-500 border-orange-600/20'
+            'Reddit': 'bg-orange-600/10 text-orange-500 border-orange-600/20',
+            'Hacker News': 'bg-orange-500/10 text-orange-400 border-orange-500/20'
         };
 
         setInterval(() => { fetch(`${API_BASE}/api/ping`).catch(() => {}); }, 300000);
@@ -279,11 +295,6 @@
                 const res = await fetch(`${API_BASE}/api/meta/filters`);
                 const meta = await res.json();
                 
-                const sourceSelect = document.getElementById('sourceSelect');
-                let srcHtml = '<option value="All">All Outlets / Sources</option>';
-                meta.sources.forEach(s => { srcHtml += `<option value="${s}">${s}</option>`; });
-                sourceSelect.innerHTML = srcHtml;
-
                 const handleSelect = document.getElementById('handleSelect');
                 let hHtml = '<option value="All">All Target Handles</option>';
                 meta.handles.forEach(h => { hHtml += `<option value="${h}">${h}</option>`; });
@@ -294,6 +305,29 @@
         async function forceSync() {
             try { await fetch(`${API_BASE}/api/sync`, { method: 'POST' }); }
             catch(e) { showToast("❌ Could not communicate with server API.", "error"); }
+        }
+
+        function filterSource(src) {
+            currentSource = src;
+            
+            // STRICT EXACT STRING MATCHING (Avoids 'All' triggering 'AllAfrica')
+            document.querySelectorAll('.src-btn').forEach(btn => {
+                const btnText = btn.innerText.trim();
+                if (btnText === src || (src === 'All' && btnText === 'All Sources')) {
+                    btn.classList.replace('bg-slate-900', 'bg-indigo-600');
+                    btn.classList.replace('text-slate-400', 'text-white');
+                } else {
+                    btn.classList.replace('bg-indigo-600', 'bg-slate-900');
+                    btn.classList.replace('text-white', 'text-slate-400');
+                }
+            });
+            fetchNews(true);
+        }
+
+        function applyDropdownFilters() {
+            currentRegion = document.getElementById('regionSelect').value;
+            currentHandle = document.getElementById('handleSelect').value;
+            fetchNews(true);
         }
 
         async function fetchNews(overwrite = false) {
@@ -390,13 +424,6 @@
                     btn.classList.add('text-slate-400');
                 }
             });
-            fetchNews(true);
-        }
-
-        function applyDropdownFilters() {
-            currentSource = document.getElementById('sourceSelect').value;
-            currentRegion = document.getElementById('regionSelect').value;
-            currentHandle = document.getElementById('handleSelect').value;
             fetchNews(true);
         }
 

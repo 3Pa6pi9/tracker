@@ -19,7 +19,7 @@ feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="9.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="9.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -159,7 +159,6 @@ def parse_rss_url(url, source_label, category, handle="N/A", region="Global", li
             title = getattr(entry, 'title', '')
             link = getattr(entry, 'link', '')
             
-            # Format published date cleanly into YYYY-MM-DD HH:MM:SS
             try:
                 if hasattr(entry, 'published_parsed') and entry.published_parsed:
                     pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
@@ -186,36 +185,30 @@ def run_bulletproof_sweep():
     logger.info("Executing bulletproof multi-source sweep...")
     total_new = 0
 
-    # 1. Direct Media Outlets Ingestion (Al Jazeera, Middle East Eye, BBC, Arab News, Africanews, etc.)
     for feed in DIRECT_FEEDS:
         total_new += save_items(parse_rss_url(feed["url"], feed["source"], feed["category"], region=feed["region"], limit=15))
         time.sleep(0.2)
 
-    # 2. Reddit & Hacker News Global Ingestion
     for topic in GLOBAL_SEARCH_TOPICS:
         encoded = urllib.parse.quote(topic)
         total_new += save_items(parse_rss_url(f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", limit=8))
         total_new += save_items(parse_rss_url(f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", limit=8))
         time.sleep(0.2)
 
-    # 3. RED Target Handles (Middle East)
     for target in RED_TARGETS:
         h = target["handle"]
         r = target["region"]
         query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
         total_new += save_items(parse_rss_url(query_url, "Google News", "RED", handle=h, region=r, limit=8))
-        
         twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
         total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "RED", handle=h, region=r, limit=8))
         time.sleep(0.2)
 
-    # 4. GREEN Target Handles (Diplomacy / Africa / Europe)
     for target in GREEN_TARGETS:
         h = target["handle"]
         r = target["region"]
         query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
         total_new += save_items(parse_rss_url(query_url, "Google News", "GREEN", handle=h, region=r, limit=8))
-        
         twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
         total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "GREEN", handle=h, region=r, limit=8))
         time.sleep(0.2)
@@ -252,7 +245,7 @@ async def async_sweep_task(silent=False):
 
 async def background_loop():
     while True:
-        await asyncio.sleep(900) # 15 minutes auto-pilot interval
+        await asyncio.sleep(900)
         await async_sweep_task(silent=True)
 
 @app.on_event("startup")
@@ -343,14 +336,12 @@ def get_news(
 def get_filter_metadata():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT source FROM news WHERE source IS NOT NULL")
-    sources = [s[0] for s in cursor.fetchall()]
     cursor.execute("SELECT DISTINCT region FROM news WHERE region IS NOT NULL AND region != ''")
     regions = [r[0] for r in cursor.fetchall()]
     cursor.execute("SELECT DISTINCT handle FROM news WHERE handle IS NOT NULL AND handle != 'N/A'")
     handles = [h[0] for h in cursor.fetchall()]
     conn.close()
-    return {"sources": sources, "regions": regions, "handles": handles}
+    return {"regions": regions, "handles": handles}
 
 @app.get("/api/stats")
 def get_stats():
