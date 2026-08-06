@@ -1,32 +1,34 @@
 import sqlite3
+import pandas as pd
+import os
 
-def view_database():
-    conn = sqlite3.connect('tracker_data.db')
-    cursor = conn.cursor()
+DB_NAME = "tracker_data.db"
+
+def inspect_database():
+    if not os.path.exists(DB_NAME):
+        print(f"[!] Error: Database file '{DB_NAME}' does not exist yet. Run tracker.py first.")
+        return
+
+    conn = sqlite3.connect(DB_NAME)
     
-    try:
-        cursor.execute('''
-            SELECT source, title, published_at, link 
-            FROM content_tracker 
-            ORDER BY id DESC LIMIT 10
-        ''')
-        rows = cursor.fetchall()
-        
-        print(f"\n{'SOURCE':<15} | {'TITLE':<50} | {'PUBLISHED'}")
-        print("-" * 100)
-        
-        for row in rows:
-            source, title, date, link = row
-            short_title = (title[:47] + '...') if len(title) > 50 else title
-            
-            print(f"{source:<15} | {short_title:<50} | {date}")
-            print(f"🔗 {link}\n")
-            
-    except sqlite3.OperationalError:
-        print("Database not found. Please run tracker.py first to generate data.")
-        
-    finally:
-        conn.close()
+    print("\n" + "="*50)
+    print(" 📊 GEOPOLITICAL INTEL DATABASE DIAGNOSTIC TOOL ")
+    print("="*50)
+    
+    # Total count check
+    total_rows = pd.read_sql_query("SELECT COUNT(*) as total FROM news", conn).iloc[0]['total']
+    print(f"Total Logged Intelligence Items: {total_rows}\n")
+    
+    print("--- RED TAB BREAKDOWN (Middle East) ---")
+    red_df = pd.read_sql_query("SELECT source, COUNT(*) as record_count FROM news WHERE category='RED' GROUP BY source ORDER BY record_count DESC", conn)
+    print(red_df.to_string(index=False) if not red_df.empty else "No records found in RED category.")
+    
+    print("\n--- GREEN TAB BREAKDOWN (Global/Diplomatic) ---")
+    green_df = pd.read_sql_query("SELECT source, COUNT(*) as record_count FROM news WHERE category='GREEN' GROUP BY source ORDER BY record_count DESC", conn)
+    print(green_df.to_string(index=False) if not green_df.empty else "No records found in GREEN category.")
+    
+    print("\n" + "="*50)
+    conn.close()
 
 if __name__ == "__main__":
-    view_database()
+    inspect_database()
