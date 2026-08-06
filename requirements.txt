@@ -1,6 +1,7 @@
-feedparser
-requests
-schedule
 fastapi
 uvicorn
-jinja2
+websockets
+feedparser
+schedule
+pandas
+requests

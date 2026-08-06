@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Intelligence Dashboard</title>
+    <title>High-Performance Intel Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -24,142 +25,250 @@
 <body class="bg-darkBg text-slate-300 font-sans antialiased p-6 min-h-screen">
 
     <div class="max-w-7xl mx-auto">
-        <!-- Header Section -->
+        <!-- Header & Action Triggers -->
         <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-700 pb-4 gap-4">
             <div>
-                <h1 class="text-3xl font-bold text-white tracking-tight">Geopolitical Intelligence Hub</h1>
-                <p class="text-sm text-slate-400 mt-1">Multi-Tier Handle Telemetry & Context Filtering System</p>
+                <h1 class="text-3xl font-bold text-white tracking-tight">Geopolitical Command Center</h1>
+                <p class="text-sm text-slate-400 mt-1">Real-Time WebSockets • Telemetry Charting • Advanced Filtering</p>
             </div>
             
-            <div class="flex items-center gap-3">
-                <span id="system-status" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-900">
-                    ● Live Feed Active
+            <div class="flex flex-wrap items-center gap-3">
+                <span id="ws-status" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-950 text-red-400 border border-red-900">
+                    ● Disconnected
                 </span>
-                <button onclick="cleanupUAE()" class="text-xs bg-slate-800 hover:bg-red-950 border border-red-900/60 text-red-400 hover:text-red-300 py-2 px-3 rounded transition-all font-medium shadow-sm">
-                    ⚠️ Purge UAE Records
+                <button onclick="exportCSV()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white py-2 px-3 rounded transition-all font-medium">
+                    📥 Export CSV
+                </button>
+                <button onclick="cleanupUAE()" class="text-xs bg-slate-800 hover:bg-red-950 border border-red-900 text-red-400 py-2 px-3 rounded transition-all font-medium">
+                    ⚠️ Purge UAE Data
                 </button>
             </div>
         </header>
 
-        <!-- Navigation Switcher Tabs -->
-        <div class="flex space-x-4 mb-8">
-            <button id="btn-red" onclick="switchTab('RED')" class="px-6 py-3 rounded-md font-semibold transition-all bg-redTab text-white shadow-lg shadow-red-500/20 flex items-center gap-2">
-                <span>RED Stream</span>
-                <span class="text-xs bg-red-900/60 px-2 py-0.5 rounded-full font-mono">Middle East</span>
-            </button>
-            <button id="btn-green" onclick="switchTab('GREEN')" class="px-6 py-3 rounded-md font-semibold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700 flex items-center gap-2">
-                <span>GREEN Stream</span>
-                <span class="text-xs bg-slate-900 px-2 py-0.5 rounded-full font-mono">Global / Diplomatic</span>
-            </button>
+        <!-- Visualization Panel (Chart.js) -->
+        <div class="w-full bg-cardBg border border-slate-700 rounded-lg p-4 mb-8 h-64">
+            <canvas id="telemetryChart"></canvas>
         </div>
 
-        <!-- Dynamic Data Grid -->
-        <div id="news-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Populated via asynchronous JavaScript injections -->
+        <!-- Filtering Console & Tabs -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div class="flex space-x-2 w-full md:w-auto">
+                <button id="btn-red" onclick="switchTab('RED')" class="px-6 py-2 rounded-md font-semibold transition-all bg-redTab text-white shadow-lg shadow-red-500/20 text-sm">
+                    RED Stream
+                </button>
+                <button id="btn-green" onclick="switchTab('GREEN')" class="px-6 py-2 rounded-md font-semibold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700 text-sm">
+                    GREEN Stream
+                </button>
+            </div>
+            
+            <div class="relative w-full md:w-1/3">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Filter by keywords or handle..." class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg py-2 px-4 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+        </div>
+
+        <!-- Feed Container -->
+        <div id="news-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6"></div>
+
+        <!-- Pagination -->
+        <div class="flex justify-center mb-12">
+            <button id="load-more-btn" onclick="loadMore()" class="hidden px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white rounded shadow transition-all font-medium text-sm">
+                Load More Intel ↓
+            </button>
         </div>
     </div>
 
     <script>
-        const API_BASE_URL = 'http://localhost:8000';
+        const API_BASE = 'http://localhost:8000';
+        const WS_URL = 'ws://localhost:8000/ws/news';
         let currentTab = 'RED';
+        let currentPage = 1;
+        let currentSearch = '';
+        let telemetryChart = null;
+        let ws = null;
 
-        async function fetchNews(category) {
+        // --- WEBSOCKET INITIALIZATION ---
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            const statusBadge = document.getElementById('ws-status');
+            
+            ws.onopen = () => {
+                statusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-900";
+                statusBadge.innerHTML = "● Live WebSocket Active";
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.event === "new_intel") {
+                    // Refresh current page seamlessly
+                    fetchNews(currentTab, 1, currentSearch, true); 
+                    loadChartData();
+                }
+            };
+
+            ws.onclose = () => {
+                statusBadge.className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-950 text-red-400 border border-red-900";
+                statusBadge.innerHTML = "● Reconnecting...";
+                setTimeout(connectWebSocket, 5000);
+            };
+        }
+
+        // --- FETCH & PAGINATION ---
+        async function fetchNews(category, page = 1, search = '', overwrite = false) {
             const container = document.getElementById('news-container');
-            container.innerHTML = `
-                <div class="col-span-full text-center py-24">
-                    <div class="inline-block animate-spin rounded-full h-8 border-4 border-solid border-slate-500 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite] mb-4"></div>
-                    <p class="text-slate-400 font-medium">Decrypting and compiling telemetry streams for ${category}...</p>
-                </div>
-            `;
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            
+            if (overwrite) container.innerHTML = '';
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/news?category=${category}`);
-                if (!response.ok) throw new Error("Server failed to respond with valid telemetry data.");
-                
+                const url = new URL(`${API_BASE}/api/news`);
+                url.searchParams.append('category', category);
+                url.searchParams.append('page', page);
+                url.searchParams.append('limit', 15);
+                if (search) url.searchParams.append('search', search);
+
+                const response = await fetch(url);
                 const data = await response.json();
-                container.innerHTML = '';
                 
-                if (data.length === 0) {
-                    container.innerHTML = `
-                        <div class="col-span-full bg-cardBg border border-slate-800 rounded-lg p-12 text-center">
-                            <p class="text-slate-400 text-lg font-medium">No matching intel archives found in the ${category} feed.</p>
-                            <p class="text-slate-600 text-sm mt-1">Check back after the next scheduled ingestion worker sweep.</p>
-                        </div>
-                    `;
+                if (data.length < 15) {
+                    loadMoreBtn.classList.add('hidden');
+                } else {
+                    loadMoreBtn.classList.remove('hidden');
+                }
+
+                if (data.length === 0 && page === 1) {
+                    container.innerHTML = `<p class="col-span-full text-center text-slate-500 py-8">No intel found.</p>`;
                     return;
                 }
 
                 data.forEach(item => {
-                    const badgeColor = category === 'RED' 
-                        ? 'bg-red-950/80 text-red-400 border-red-900/80' 
-                        : 'bg-emerald-950/80 text-emerald-400 border-emerald-900/80';
-                    
+                    const badgeColor = category === 'RED' ? 'bg-red-950 text-red-400 border-red-900' : 'bg-emerald-950 text-emerald-400 border-emerald-900';
                     const formattedDate = new Date(item.published_date).toLocaleString();
                     
                     const card = `
-                        <div class="bg-cardBg border border-slate-700/80 rounded-lg p-5 shadow-md hover:border-slate-500 transition-all flex flex-col justify-between group">
+                        <div class="bg-cardBg border border-slate-700/80 rounded-lg p-5 shadow-sm hover:border-slate-500 transition-all flex flex-col justify-between group">
                             <div>
                                 <div class="flex justify-between items-center mb-3">
-                                    <span class="text-xs font-mono border px-2.5 py-1 rounded-md ${badgeColor}">
-                                        ${item.source}
-                                    </span>
-                                    <span class="text-[10px] text-slate-500 font-mono">${item.category}</span>
+                                    <span class="text-xs font-mono border px-2.5 py-0.5 rounded ${badgeColor}">${item.source}</span>
                                 </div>
-                                <h2 class="text-sm font-medium text-slate-100 mb-3 leading-relaxed group-hover:text-white">
-                                    ${item.title}
-                                </h2>
+                                <h2 class="text-sm font-medium text-slate-200 mb-3">${item.title}</h2>
                             </div>
-                            <div class="mt-4 flex justify-between items-center text-xs text-slate-500 border-t border-slate-800/80 pt-3">
+                            <div class="mt-3 flex justify-between items-center text-xs text-slate-500 border-t border-slate-800/80 pt-3">
                                 <span class="font-mono">${formattedDate}</span>
-                                <a href="${item.link}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors">
-                                    Source Link &rarr;
-                                </a>
+                                <a href="${item.link}" target="_blank" class="text-blue-400 hover:text-blue-300">View &rarr;</a>
                             </div>
                         </div>
                     `;
                     container.insertAdjacentHTML('beforeend', card);
                 });
             } catch (error) {
-                container.innerHTML = `
-                    <div class="col-span-full bg-red-950/20 border border-red-900/50 rounded-lg p-8 text-center">
-                        <p class="text-red-400 font-semibold">Connection Error</p>
-                        <p class="text-slate-400 text-sm mt-1">Unable to establish a link with the FastAPI background daemon at ${API_BASE_URL}. Verify backend status.</p>
-                    </div>
-                `;
+                console.error("Fetch error:", error);
             }
         }
 
         function switchTab(category) {
             currentTab = category;
-            const btnRed = document.getElementById('btn-red');
-            const btnGreen = document.getElementById('btn-green');
+            currentPage = 1;
+            document.getElementById('searchInput').value = '';
+            currentSearch = '';
+            
+            document.getElementById('btn-red').className = category === 'RED' 
+                ? "px-6 py-2 rounded-md font-semibold transition-all bg-redTab text-white shadow-lg shadow-red-500/20 text-sm" 
+                : "px-6 py-2 rounded-md font-semibold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700 text-sm";
+                
+            document.getElementById('btn-green').className = category === 'GREEN' 
+                ? "px-6 py-2 rounded-md font-semibold transition-all bg-greenTab text-white shadow-lg shadow-green-500/20 text-sm" 
+                : "px-6 py-2 rounded-md font-semibold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700 text-sm";
 
-            if (category === 'RED') {
-                btnRed.className = "px-6 py-3 rounded-md font-semibold transition-all bg-redTab text-white shadow-lg shadow-red-500/20 flex items-center gap-2";
-                btnGreen.className = "px-6 py-3 rounded-md font-semibold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700 flex items-center gap-2";
-            } else {
-                btnGreen.className = "px-6 py-3 rounded-md font-semibold transition-all bg-greenTab text-white shadow-lg shadow-green-500/20 flex items-center gap-2";
-                btnRed.className = "px-6 py-3 rounded-md font-semibold transition-all bg-slate-800 text-slate-400 hover:bg-slate-700 flex items-center gap-2";
-            }
+            fetchNews(currentTab, currentPage, currentSearch, true);
+        }
 
-            fetchNews(category);
+        let searchTimeout;
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentSearch = document.getElementById('searchInput').value;
+                currentPage = 1;
+                fetchNews(currentTab, currentPage, currentSearch, true);
+            }, 400);
+        }
+
+        function loadMore() {
+            currentPage++;
+            fetchNews(currentTab, currentPage, currentSearch, false);
+        }
+
+        function exportCSV() {
+            window.location.href = `${API_BASE}/api/export?category=${currentTab}`;
         }
 
         async function cleanupUAE() {
-            if(confirm("SECURITY WARNING: This will permanently wipe all stored posts linked to UAE handles from the RED tab database. Proceed?")) {
+            if(confirm("Permanently wipe UAE records from the RED tab?")) {
                 try {
-                    const res = await fetch(`${API_BASE_URL}/api/cleanup/uae`, { method: 'DELETE' });
+                    const res = await fetch(`${API_BASE}/api/cleanup/uae`, { method: 'DELETE' });
                     const result = await res.json();
                     alert(result.message);
-                    fetchNews(currentTab);
+                    fetchNews(currentTab, 1, '', true);
+                    loadChartData();
                 } catch(e) {
-                    alert("Error: Failed to transmit cleanup command to the API server.");
+                    alert("Error executing cleanup.");
                 }
             }
         }
 
-        // Initialize display context on boot
-        fetchNews('RED');
+        // --- CHART.JS VISUALIZATION ---
+        async function loadChartData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stats`);
+                const data = await response.json();
+                
+                const ctx = document.getElementById('telemetryChart').getContext('2d');
+                
+                if(telemetryChart) telemetryChart.destroy();
+                
+                telemetryChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            {
+                                label: 'RED Stream Volume',
+                                data: data.RED,
+                                borderColor: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'GREEN Stream Volume',
+                                data: data.GREEN,
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#94a3b8' } } },
+                        scales: {
+                            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', stepSize: 5 } }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Chart loading failed.", error);
+            }
+        }
+
+        // --- BOOTSTRAP ---
+        connectWebSocket();
+        loadChartData();
+        fetchNews('RED', 1, '', true);
     </script>
 </body>
 </html>

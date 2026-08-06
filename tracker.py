@@ -2,15 +2,16 @@ import sqlite3
 import feedparser
 import schedule
 import time
+import requests
 import logging
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 DB_NAME = "tracker_data.db"
+WEBHOOK_URL = "http://localhost:8000/api/internal/trigger_update"
 
-# --- CONFIGURATION: RED TAB (Middle East & Sensitive Watchlist) ---
+# --- RED TAB (Middle East) ---
 RED_HANDLES = [
     "@KingSalman", "@MohamedBinZayed", "@HHShkMohd", "@TamimBinHamad", 
     "@RTErdogan", "@netanyahu", "@FaisalbinFarhan", "@KSAMOFA", 
@@ -25,38 +26,28 @@ RED_KEYWORDS = [
     "Africa", "Western"
 ]
 
-# --- CONFIGURATION: GREEN TAB (Global, Africa, Europe Diplomacy) ---
+# --- GREEN TAB (Global / Africa / Europe) ---
 GREEN_HANDLES = [
-    # Africa Leaders & Ministries
     "@WilliamsRuto", "@PaulKagame", "@CyrilRamaphosa", "@officialABAT", "@AlsisiOfficial",
-    "@MFAEthiopia", "@MusaliaMudavadi", "@ForeignOfficeKE", "@RonaldLamola", 
-    "@DIRCO_ZA", "@NigeriaMFA", "@MFAEgOfficial", "@MfaEgypt",
-    # Europe Leaders & Ministries
-    "@EmmanuelMacron", "@GiorgiaMeloni", "@sanchezcastejon", "@donaldtusk", 
-    "@_FriedrichMerz", "@bundeskanzler", "@AussenMinDE", "@AuswaertigesAmt", 
-    "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK"
+    "@MFAEthiopia", "@MusaliaMudavadi", "@ForeignOfficeKE", "@RonaldLamola", "@DIRCO_ZA", 
+    "@NigeriaMFA", "@MFAEgOfficial", "@MfaEgypt", "@EmmanuelMacron", "@GiorgiaMeloni", 
+    "@sanchezcastejon", "@donaldtusk", "@_FriedrichMerz", "@bundeskanzler", "@AussenMinDE", 
+    "@AuswaertigesAmt", "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK", "@UrugwiroVillage", "@NGRPresident"
 ]
 
 GREEN_KEYWORDS = [
-    # Diplomatic & Bilateral Relations
-    "bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", 
-    "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks",
-    # Trade Agreements & Economic Diplomacy
-    "trade agreement", "foreign direct investment", "foreign investment", 
-    "economic partnership", "tariff", "sanctions", "trade deal", "memorandum of understanding", "MoU",
-    # Security Partnerships & Defense Pacts
-    "security partnership", "defense pact", "military agreement", 
-    "joint military exercise", "security cooperation", "defense treaty",
-    # Global Treaties & International Summits
-    "treaty signed", "international summit", "global governance", 
-    "UN resolution", "international convention", "multilateral agreement",
-    # Geopolitical Shifts & Foreign Influence
+    "bilateral relations", "state visit", "diplomatic ties", "strategic dialogue", 
+    "ambassador meeting", "foreign ministry", "trade agreement", "foreign investment", 
+    "economic partnership", "trade deal", "sanctions", "memorandum of understanding", 
+    "MoU", "security partnership", "defense pact", "military agreement", 
+    "joint military exercise", "security cooperation", "defense treaty", 
+    "treaty signed", "international summit", "multilateral agreement", 
+    "UN resolution", "international convention", "global governance", 
     "geopolitical shift", "resource diplomacy", "foreign influence", 
-    "strategic alliance", "international relations", "diplomatic shift", "strategic dialogue"
+    "strategic alliance", "international relations"
 ]
 
 def init_db():
-    """Initialize SQLite database tables and indices for rapid querying."""
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute('''
@@ -69,94 +60,73 @@ def init_db():
             published_date TEXT
         )
     ''')
-    # Create an index on category and date for high-performance dashboard loading
-    c.execute('CREATE INDEX IF NOT EXISTS idx_category_date ON news (category, published_date);')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_cat_date ON news (category, published_date);')
     conn.commit()
     conn.close()
-    logger.info("Database initialized successfully with schema and indices.")
 
 def matches_keywords(text: str, keywords: list) -> bool:
-    """Strict evaluation to ensure content matches targeted keyword frameworks."""
-    if not text:
-        return False
+    if not text: return False
     text_lower = text.lower()
-    for kw in keywords:
-        if kw.lower() in text_lower:
-            return True
-    return False
+    return any(kw.lower() in text_lower for kw in keywords)
 
-def fetch_rss_feed(handle: str, category: str, keywords: list):
-    """Parses individual user handles via RSS endpoints and commits filtered rows."""
+def fetch_rss_feed(handle: str, category: str, keywords: list) -> int:
     clean_handle = handle.replace('@', '')
     rss_url = f"https://nitter.net/{clean_handle}/rss"
-    logger.info(f"Scanning stream [{category}] for target source: {handle}")
     
     try:
         feed = feedparser.parse(rss_url)
-        if not feed.entries:
-            logger.debug(f"No entries parsed or network timeout for {handle}.")
-            return
+        if not feed.entries: return 0
 
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
-        
         added_count = 0
+        
         for entry in feed.entries:
-            title = getattr(entry, 'title', 'Untitled Post')
-            link = getattr(entry, 'link', '#')
+            title = getattr(entry, 'title', '')
+            link = getattr(entry, 'link', '')
             pub_date = getattr(entry, 'published', time.strftime("%Y-%m-%d %H:%M:%S"))
             
             if matches_keywords(title, keywords):
                 try:
                     c.execute(
-                        """
-                        INSERT OR IGNORE INTO news (title, link, source, category, published_date) 
-                        VALUES (?, ?, ?, ?, ?)
-                        """,
+                        "INSERT INTO news (title, link, source, category, published_date) VALUES (?, ?, ?, ?, ?)",
                         (title, link, handle, category, pub_date)
                     )
-                    if c.rowcount > 0:
-                        added_count += 1
-                except sqlite3.Error as db_err:
-                    logger.error(f"Database insertion error for item from {handle}: {db_err}")
-                    
+                    added_count += 1
+                except sqlite3.IntegrityError:
+                    pass
         conn.commit()
         conn.close()
-        if added_count > 0:
-            logger.info(f"-> Saved {added_count} new entries for {handle} under [{category}]")
+        return added_count
     except Exception as e:
-        logger.error(f"Critical exception processing RSS feed for {handle}: {e}")
+        logger.error(f"Error fetching {handle}: {e}")
+        return 0
 
-def run_intelligence_sweep():
-    """Executes a full cycle sweep across all RED and GREEN handles."""
-    logger.info("=============================================")
-    logger.info(f"STARTING INTELLIGENCE SWEEP: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info("=============================================")
+def run_sweep():
+    logger.info(f"--- STARTING BACKGROUND WORKER SWEEP ---")
+    total_new = 0
     
-    logger.info("Processing RED (Middle East) streams...")
     for handle in RED_HANDLES:
-        fetch_rss_feed(handle, "RED", RED_KEYWORDS)
-        time.sleep(1.5) # Prevent rate-limiting blocks
+        total_new += fetch_rss_feed(handle, "RED", RED_KEYWORDS)
+        time.sleep(1)
         
-    logger.info("Processing GREEN (Diplomatic/Global) streams...")
     for handle in GREEN_HANDLES:
-        fetch_rss_feed(handle, "GREEN", GREEN_KEYWORDS)
-        time.sleep(1.5)
+        total_new += fetch_rss_feed(handle, "GREEN", GREEN_KEYWORDS)
+        time.sleep(1)
 
-    logger.info("=============================================")
-    logger.info("INTELLIGENCE SWEEP COMPLETED SUCCESSFULLY")
-    logger.info("=============================================")
+    if total_new > 0:
+        logger.info(f"Sweep completed. {total_new} new items indexed. Pinging WebSockets...")
+        try:
+            requests.post(WEBHOOK_URL, timeout=5)
+        except Exception:
+            logger.warning("Could not reach webhook to broadcast WebSockets.")
+    else:
+        logger.info("Sweep completed. No new intel.")
 
 if __name__ == "__main__":
     init_db()
-    logger.info("Tracker engine boot sequence completed. Executing initial sweep...")
-    
-    # Run immediately on launch
-    run_intelligence_sweep()
-    
-    # Schedule subsequent sweeps every 30 minutes
-    schedule.every(30).minutes.do(run_intelligence_sweep)
-    
+    run_sweep()
+    schedule.every(30).minutes.do(run_sweep)
     while True:
         schedule.run_pending()
         time.sleep(1)
