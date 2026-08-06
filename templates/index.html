@@ -43,9 +43,6 @@
                 <button onclick="exportCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors">
                     📥 Export CSV
                 </button>
-                <button onclick="cleanupUAE()" class="px-3 py-1.5 bg-slate-900 hover:bg-red-950 text-red-400 rounded-lg border border-red-900/60 transition-colors">
-                    ⚠️ Purge UAE Data
-                </button>
             </div>
         </header>
 
@@ -84,6 +81,14 @@
                     <button onclick="filterSource('X (Twitter)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800">X / Twitter</button>
                     <button onclick="filterSource('Reddit')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800">Reddit</button>
                     <button onclick="filterSource('Hacker News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800">Hacker News</button>
+                </div>
+
+                <!-- Date Range Filters -->
+                <div class="flex flex-wrap gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800" id="dateFilters">
+                    <button onclick="filterDate('all')" class="date-btn px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-all">All Time</button>
+                    <button onclick="filterDate('1d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 24h</button>
+                    <button onclick="filterDate('7d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 7d</button>
+                    <button onclick="filterDate('30d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 30d</button>
                 </div>
 
                 <!-- Dropdowns for Region and Target Handle -->
@@ -127,6 +132,7 @@
         let currentSource = 'All';
         let currentRegion = 'All';
         let currentHandle = 'All';
+        let currentTimeFilter = 'all';
         let searchQuery = '';
         let currentPage = 1;
 
@@ -199,6 +205,7 @@
                 url.searchParams.append('source', currentSource);
                 url.searchParams.append('region', currentRegion);
                 url.searchParams.append('handle', currentHandle);
+                url.searchParams.append('time_filter', currentTimeFilter);
                 url.searchParams.append('page', currentPage);
                 url.searchParams.append('limit', 15);
                 if (searchQuery) url.searchParams.append('q', searchQuery);
@@ -288,6 +295,20 @@
             fetchNews(true);
         }
 
+        function filterDate(rangeKey) {
+            currentTimeFilter = rangeKey;
+            document.querySelectorAll('.date-btn').forEach(btn => {
+                if (btn.getAttribute('onclick').includes(rangeKey)) {
+                    btn.classList.add('bg-indigo-600', 'text-white');
+                    btn.classList.remove('text-slate-400');
+                } else {
+                    btn.classList.remove('bg-indigo-600', 'text-white');
+                    btn.classList.add('text-slate-400');
+                }
+            });
+            fetchNews(true);
+        }
+
         function applyDropdownFilters() {
             currentRegion = document.getElementById('regionSelect').value;
             currentHandle = document.getElementById('handleSelect').value;
@@ -310,16 +331,6 @@
 
         function exportCSV() {
             window.location.href = `${API_BASE}/api/export?category=${currentCategory}`;
-        }
-
-        async function cleanupUAE() {
-            if(confirm("Confirm: Wipe all UAE handle posts and UAE titles from database?")) {
-                const res = await fetch(`${API_BASE}/api/cleanup/uae`, { method: 'DELETE' });
-                const resData = await res.json();
-                alert(resData.message);
-                fetchNews(true);
-                loadChartData();
-            }
         }
 
         async function loadChartData() {

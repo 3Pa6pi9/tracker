@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="5.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="5.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,7 +28,7 @@ app.add_middleware(
 
 DB_NAME = "tracker_data.db"
 
-# --- HANDLE & MATRIX CONFIGURATIONS ---
+# --- TARGET HANDLES & REGION MATRICES ---
 RED_TARGETS = [
     {"handle": "@KingSalman", "region": "Middle East"},
     {"handle": "@MohamedBinZayed", "region": "Middle East"},
@@ -104,7 +104,7 @@ GLOBAL_SEARCH_TOPICS = [
     "Migration Crisis", "Foreign Policy", "Defense Treaty"
 ]
 
-# --- WEBSOCKET CONNECTION MANAGER ---
+# --- WEBSOCKET MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -151,12 +151,12 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- SCRAPING ROUTINES ---
+# --- SCRAPING ENGINE ---
 def save_items(items):
     conn = get_db_connection()
     c = conn.cursor()
     added = 0
-    now_iso = datetime.now().isoformat()
+    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for item in items:
         try:
             c.execute('''
@@ -215,13 +215,13 @@ def run_full_intel_sweep():
     logger.info("Executing comprehensive multi-source intelligence sweep...")
     total_new = 0
     
-    # 1. Scraping Global / ALL Streams
+    # 1. Global / ALL Streams
     for topic in GLOBAL_SEARCH_TOPICS:
         total_new += save_items(fetch_feed_items(topic, "Google News", "ALL", region="Global"))
         total_new += save_items(fetch_feed_items(topic, "Reddit", "ALL", region="Global"))
         total_new += save_items(fetch_feed_items(topic, "Hacker News", "ALL", region="Global"))
 
-    # 2. Scraping RED Zone Targets (X & Google Fallbacks)
+    # 2. RED Zone Targets
     for target in RED_TARGETS:
         h = target["handle"]
         r = target["region"]
@@ -229,7 +229,7 @@ def run_full_intel_sweep():
         total_new += save_items(fetch_feed_items(query, "X (Twitter)", "RED", handle=h, region=r))
         total_new += save_items(fetch_feed_items(query, "Google News", "RED", handle=h, region=r))
 
-    # 3. Scraping GREEN Zone Targets (X & Google Fallbacks)
+    # 3. GREEN Zone Targets
     for target in GREEN_TARGETS:
         h = target["handle"]
         r = target["region"]
@@ -286,6 +286,7 @@ def get_news(
     source: str = Query("All"),
     region: str = Query("All"),
     handle: str = Query("All"),
+    time_filter: str = Query("all"),
     q: str = Query(None),
     page: int = Query(1),
     limit: int = Query(30)
@@ -312,7 +313,14 @@ def get_news(
     if handle != "All":
         query += " AND handle = ?"
         params.append(handle)
-        
+
+    if time_filter == "1d":
+        query += " AND (datetime(fetched_at) >= datetime('now', '-1 day') OR datetime(published_date) >= datetime('now', '-1 day'))"
+    elif time_filter == "7d":
+        query += " AND (datetime(fetched_at) >= datetime('now', '-7 days') OR datetime(published_date) >= datetime('now', '-7 days'))"
+    elif time_filter == "30d":
+        query += " AND (datetime(fetched_at) >= datetime('now', '-30 days') OR datetime(published_date) >= datetime('now', '-30 days'))"
+
     if q:
         query += " AND (title LIKE ? OR handle LIKE ?)"
         params.extend([f"%{q}%", f"%{q}%"])
@@ -385,18 +393,6 @@ def export_csv(category: str = Query("ALL")):
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{category}_{datetime.now().strftime('%Y%m%d')}.csv"
     return response
-
-@app.delete("/api/cleanup/uae")
-def trigger_uae_cleanup():
-    uae_handles = ["@MohamedBinZayed", "@HHShkMohd", "@ABZayed", "@mofauae", "@OFMUAE"]
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    placeholders = ', '.join(['?'] * len(uae_handles))
-    cursor.execute(f"DELETE FROM news WHERE handle IN ({placeholders}) OR title LIKE '%UAE%'", uae_handles)
-    deleted_count = cursor.rowcount
-    conn.commit()
-    conn.close()
-    return {"status": "success", "message": f"Successfully purged {deleted_count} UAE records from database."}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
