@@ -1,14 +1,16 @@
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 import sqlite3
 import uvicorn
 import logging
 import csv
 import io
 import json
+import os
 from datetime import datetime, timedelta
 
+# Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,8 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast(self, message: str):
         for connection in self.active_connections:
@@ -50,6 +53,15 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+# --- ROOT ROUTE (SERVES DASHBOARD) ---
+@app.get("/", response_class=FileResponse)
+def read_root():
+    """Serves index.html at the root URL."""
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    raise HTTPException(status_code=404, detail="index.html not found on server")
+
+# --- WEBSOCKET ENDPOINT ---
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -97,11 +109,10 @@ def get_news(
 
 @app.get("/api/stats")
 def get_stats():
-    """Cache-friendly endpoint for Chart.js telemetry visualization."""
+    """Endpoint for Chart.js telemetry visualization."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Get counts for the last 7 days
     seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
     
     cursor.execute("""
@@ -154,7 +165,7 @@ def export_csv(category: str = Query(..., description="Select RED or GREEN")):
 
 @app.delete("/api/cleanup/uae")
 def trigger_uae_cleanup():
-    """Purge UAE content."""
+    """Purge UAE content from database."""
     uae_handles = ["@MohamedBinZayed", "@HHShkMohd", "@ABZayed", "@mofauae", "@OFMUAE"]
     conn = get_db_connection()
     cursor = conn.cursor()

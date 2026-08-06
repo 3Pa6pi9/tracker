@@ -78,8 +78,11 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8000';
-        const WS_URL = 'ws://localhost:8000/ws/news';
+        // --- DYNAMIC HOST CONFIGURATION ---
+        const API_BASE = window.location.origin;
+        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/news`;
+
         let currentTab = 'RED';
         let currentPage = 1;
         let currentSearch = '';
@@ -99,7 +102,6 @@
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 if (data.event === "new_intel") {
-                    // Refresh current page seamlessly
                     fetchNews(currentTab, 1, currentSearch, true); 
                     loadChartData();
                 }

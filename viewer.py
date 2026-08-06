@@ -15,7 +15,6 @@ def inspect_database():
     print(" 📊 GEOPOLITICAL INTEL DATABASE DIAGNOSTIC TOOL ")
     print("="*50)
     
-    # Total count check
     total_rows = pd.read_sql_query("SELECT COUNT(*) as total FROM news", conn).iloc[0]['total']
     print(f"Total Logged Intelligence Items: {total_rows}\n")
     
