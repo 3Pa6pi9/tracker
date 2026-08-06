@@ -14,13 +14,12 @@ import urllib.parse
 import time
 from datetime import datetime, timedelta
 
-# User-Agent mask to bypass scraping blocks
 feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="8.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="9.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,7 +31,25 @@ app.add_middleware(
 
 DB_NAME = "tracker_data.db"
 
-# --- TARGET HANDLES & REGION MATRICES ---
+# --- DIRECT MEDIA OUTLETS (BULLETPROOF RSS INGESTION) ---
+DIRECT_FEEDS = [
+    # Middle East / RED Stream Media
+    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East"},
+    
+    # Africa & Europe / GREEN Stream Media
+    {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GREEN", "region": "Africa"},
+    {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GREEN", "region": "Africa"},
+    {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GREEN", "region": "Europe"},
+    
+    # Global / ALL Stream Media
+    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"},
+    {"url": "https://news.google.com/rss/search?q=geopolitics+OR+diplomacy+OR+sanctions&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "ALL", "region": "Global"}
+]
+
+# --- TARGET HANDLES ---
 RED_TARGETS = [
     {"handle": "@KingSalman", "region": "Middle East"}, {"handle": "@MohamedBinZayed", "region": "Middle East"},
     {"handle": "@HHShkMohd", "region": "Middle East"}, {"handle": "@TamimBinHamad", "region": "Middle East"},
@@ -43,13 +60,6 @@ RED_TARGETS = [
     {"handle": "@MBA_AlThani_", "region": "Middle East"}, {"handle": "@MofaQatar_EN", "region": "Middle East"},
     {"handle": "@IsraelMFA", "region": "Middle East"}, {"handle": "@araghchi", "region": "Middle East"},
     {"handle": "@IRIMFA_EN", "region": "Middle East"}, {"handle": "@MFATurkiye", "region": "Middle East"}
-]
-
-RED_KEYWORDS = [
-    "Muslim Brotherhood", "CAIR", "Migration Crisis", "Refugee Policies", "Border Security",
-    "Illegal Immigration", "Sudan", "Somalia", "Iran", "Ukraine", "Russia",
-    "Political Demonstrations", "Public Protests", "Parliament Debates", "Counter-Terrorism",
-    "African countries", "Western countries"
 ]
 
 GREEN_TARGETS = [
@@ -68,21 +78,7 @@ GREEN_TARGETS = [
     {"handle": "@Ed_Miliband", "region": "Europe"}, {"handle": "@FCDOGovUK", "region": "Europe"}
 ]
 
-GREEN_KEYWORDS = [
-    "bilateral relations", "state visit", "diplomatic ties", "strategic dialogue",
-    "ambassador meeting", "foreign ministry", "trade agreement", "foreign investment",
-    "economic partnership", "trade deal", "sanctions", "memorandum of understanding",
-    "MoU", "security partnership", "defense pact", "military agreement",
-    "joint military exercise", "security cooperation", "defense treaty",
-    "treaty signed", "international summit", "multilateral agreement",
-    "UN resolution", "international convention", "global governance",
-    "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance"
-]
-
-GLOBAL_SEARCH_TOPICS = [
-    "Geopolitics", "Bilateral Relations", "Trade Sanctions", 
-    "Migration Crisis", "Foreign Policy", "Defense Treaty"
-]
+GLOBAL_SEARCH_TOPICS = ["Geopolitics", "Bilateral Relations", "Trade Sanctions", "Migration Crisis", "Foreign Policy"]
 
 class ConnectionManager:
     def __init__(self):
@@ -155,27 +151,15 @@ def save_items(items):
     conn.close()
     return added
 
-def fetch_feed_items(query, source_label, category, handle="N/A", region="Global", limit=8, keywords=None):
-    encoded = urllib.parse.quote(query)
+def parse_rss_url(url, source_label, category, handle="N/A", region="Global", limit=12):
     items = []
-    
-    if source_label == "Google News":
-        url = f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en"
-    elif source_label == "X (Twitter)":
-        url = f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
-    elif source_label == "Hacker News":
-        url = f"https://hnrss.org/newest?q={encoded}"
-    elif source_label == "Reddit":
-        url = f"https://www.reddit.com/search.rss?q={encoded}&sort=new"
-    else:
-        return items
-
     try:
         feed = feedparser.parse(url)
         for entry in feed.entries[:limit]:
             title = getattr(entry, 'title', '')
             link = getattr(entry, 'link', '')
             
+            # Format published date cleanly into YYYY-MM-DD HH:MM:SS
             try:
                 if hasattr(entry, 'published_parsed') and entry.published_parsed:
                     pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
@@ -183,15 +167,10 @@ def fetch_feed_items(query, source_label, category, handle="N/A", region="Global
                     pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             except Exception:
                 pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            if title and link:
-                if keywords:
-                    text_lower = title.lower()
-                    if not any(kw.lower() in text_lower for kw in keywords):
-                        continue
 
+            if title and link:
                 items.append({
-                    'title': title.replace(" - X", "").replace(" on X", ""),
+                    'title': title.replace(" - X", "").replace(" on X", "").strip(),
                     'link': link,
                     'source': source_label,
                     'category': category,
@@ -199,39 +178,48 @@ def fetch_feed_items(query, source_label, category, handle="N/A", region="Global
                     'region': region,
                     'published_date': pub_date
                 })
-    except Exception:
-        pass
+    except Exception as e:
+        logger.error(f"Error reading feed {url}: {e}")
     return items
 
-def run_global_sweep():
+def run_bulletproof_sweep():
+    logger.info("Executing bulletproof multi-source sweep...")
     total_new = 0
-    for topic in GLOBAL_SEARCH_TOPICS:
-        total_new += save_items(fetch_feed_items(topic, "Google News", "ALL", region="Global"))
-        total_new += save_items(fetch_feed_items(topic, "Reddit", "ALL", region="Global"))
-        total_new += save_items(fetch_feed_items(topic, "Hacker News", "ALL", region="Global"))
-        time.sleep(0.3)
-    return total_new
 
-def run_red_sweep():
-    total_new = 0
+    # 1. Direct Media Outlets Ingestion (Al Jazeera, Middle East Eye, BBC, Arab News, Africanews, etc.)
+    for feed in DIRECT_FEEDS:
+        total_new += save_items(parse_rss_url(feed["url"], feed["source"], feed["category"], region=feed["region"], limit=15))
+        time.sleep(0.2)
+
+    # 2. Reddit & Hacker News Global Ingestion
+    for topic in GLOBAL_SEARCH_TOPICS:
+        encoded = urllib.parse.quote(topic)
+        total_new += save_items(parse_rss_url(f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", limit=8))
+        total_new += save_items(parse_rss_url(f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", limit=8))
+        time.sleep(0.2)
+
+    # 3. RED Target Handles (Middle East)
     for target in RED_TARGETS:
         h = target["handle"]
         r = target["region"]
-        query = f'"{h}"'
-        total_new += save_items(fetch_feed_items(query, "X (Twitter)", "RED", handle=h, region=r, keywords=RED_KEYWORDS))
-        total_new += save_items(fetch_feed_items(query, "Google News", "RED", handle=h, region=r, keywords=RED_KEYWORDS))
-        time.sleep(0.3)
-    return total_new
+        query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
+        total_new += save_items(parse_rss_url(query_url, "Google News", "RED", handle=h, region=r, limit=8))
+        
+        twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
+        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "RED", handle=h, region=r, limit=8))
+        time.sleep(0.2)
 
-def run_green_sweep():
-    total_new = 0
+    # 4. GREEN Target Handles (Diplomacy / Africa / Europe)
     for target in GREEN_TARGETS:
         h = target["handle"]
         r = target["region"]
-        query = f'"{h}"'
-        total_new += save_items(fetch_feed_items(query, "X (Twitter)", "GREEN", handle=h, region=r, keywords=GREEN_KEYWORDS))
-        total_new += save_items(fetch_feed_items(query, "Google News", "GREEN", handle=h, region=r, keywords=GREEN_KEYWORDS))
-        time.sleep(0.3)
+        query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
+        total_new += save_items(parse_rss_url(query_url, "Google News", "GREEN", handle=h, region=r, limit=8))
+        
+        twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
+        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "GREEN", handle=h, region=r, limit=8))
+        time.sleep(0.2)
+
     return total_new
 
 is_syncing = False
@@ -239,32 +227,23 @@ is_syncing = False
 async def async_sweep_task(silent=False):
     global is_syncing
     if is_syncing: return
-        
     is_syncing = True
-    
-    # Broadcast appropriate start message based on manual vs auto mode
+
     if not silent:
         await manager.broadcast(json.dumps({"event": "sync_started"}))
     else:
         await manager.broadcast(json.dumps({"event": "sync_started_silent"}))
-    
+
     try:
-        total_added = 0
+        if not silent:
+            await manager.broadcast(json.dumps({"event": "sync_progress", "step": "Ingesting Direct Media Outlets & Targets"}))
         
-        if not silent: await manager.broadcast(json.dumps({"event": "sync_progress", "step": "Global & Trend Streams"}))
-        total_added += await asyncio.to_thread(run_global_sweep)
-        
-        if not silent: await manager.broadcast(json.dumps({"event": "sync_progress", "step": "RED Target Handles (Middle East)"}))
-        total_added += await asyncio.to_thread(run_red_sweep)
-        
-        if not silent: await manager.broadcast(json.dumps({"event": "sync_progress", "step": "GREEN Target Handles (Diplomacy)"}))
-        total_added += await asyncio.to_thread(run_green_sweep)
-        
+        total_added = await asyncio.to_thread(run_bulletproof_sweep)
+
         if total_added > 0:
             await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent}))
         else:
             await manager.broadcast(json.dumps({"event": "sync_finished_no_data", "silent": silent}))
-            
     except Exception as e:
         logger.error(f"Sweep failed: {e}")
         await manager.broadcast(json.dumps({"event": "sync_error"}))
@@ -273,16 +252,15 @@ async def async_sweep_task(silent=False):
 
 async def background_loop():
     while True:
-        await asyncio.sleep(900) # Auto-Pilot runs every 15 minutes
+        await asyncio.sleep(900) # 15 minutes auto-pilot interval
         await async_sweep_task(silent=True)
 
 @app.on_event("startup")
 async def startup_event():
     init_db()
     asyncio.create_task(background_loop())
-    asyncio.create_task(async_sweep_task(silent=True)) # Initial silent boot sweep
+    asyncio.create_task(async_sweep_task(silent=True))
 
-# --- REST ENDPOINTS ---
 @app.get("/", response_class=FileResponse)
 def read_root():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -294,7 +272,6 @@ def read_root():
 
 @app.get("/api/ping")
 def ping():
-    """Keep-alive heartbeat endpoint to prevent Render from sleeping."""
     return {"status": "awake"}
 
 @app.websocket("/ws/news")
@@ -309,8 +286,7 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.post("/api/sync")
 async def trigger_manual_sync(background_tasks: BackgroundTasks, silent: bool = False):
     global is_syncing
-    if is_syncing:
-        return {"status": "Sync already in progress."}
+    if is_syncing: return {"status": "Sync already in progress."}
     background_tasks.add_task(async_sweep_task, silent)
     return {"status": "Sync process initiated."}
 
@@ -352,8 +328,8 @@ def get_news(
         query += " AND datetime(published_date) >= datetime('now', '-30 days')"
 
     if q:
-        query += " AND (title LIKE ? OR handle LIKE ?)"
-        params.extend([f"%{q}%", f"%{q}%"])
+        query += " AND (title LIKE ? OR handle LIKE ? OR source LIKE ?)"
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
         
     query += " ORDER BY datetime(published_date) DESC, id DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
@@ -367,12 +343,14 @@ def get_news(
 def get_filter_metadata():
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT source FROM news WHERE source IS NOT NULL")
+    sources = [s[0] for s in cursor.fetchall()]
     cursor.execute("SELECT DISTINCT region FROM news WHERE region IS NOT NULL AND region != ''")
     regions = [r[0] for r in cursor.fetchall()]
     cursor.execute("SELECT DISTINCT handle FROM news WHERE handle IS NOT NULL AND handle != 'N/A'")
     handles = [h[0] for h in cursor.fetchall()]
     conn.close()
-    return {"regions": regions, "handles": handles}
+    return {"sources": sources, "regions": regions, "handles": handles}
 
 @app.get("/api/stats")
 def get_stats():
