@@ -18,7 +18,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="23.1")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="24.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -320,9 +320,7 @@ async def automated_digest_loop():
             evening_sent = False
         await asyncio.sleep(60)
 
-# --- RE-ADDED MISSING BACKGROUND LOOP ---
 async def background_loop():
-    """Runs the silent 15-minute auto-pilot sweep."""
     while True:
         await asyncio.sleep(900)
         await async_sweep_controller(silent=True)
@@ -395,8 +393,9 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
 
 async def run_live_web_search_async(q_text: str, category: str = "ALL"):
     encoded = urllib.parse.quote(q_text)
-    semaphore = asyncio.Semaphore(60)
-    limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
+    # REDUCED SEMAPHORE FOR RENDER FREE TIER MEMORY LIMITS
+    semaphore = asyncio.Semaphore(15)
+    limits = httpx.Limits(max_keepalive_connections=15, max_connections=30)
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
         tasks = [
             fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword_badge=f"Live Search: {q_text}"),
@@ -414,8 +413,9 @@ async def run_live_web_search_async(q_text: str, category: str = "ALL"):
 async def run_fast_sweep():
     logger.info("Executing Maximum Yield Concurrency Sweep...")
     tasks = []
-    semaphore = asyncio.Semaphore(60)
-    limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
+    # REDUCED SEMAPHORE FOR RENDER FREE TIER MEMORY LIMITS
+    semaphore = asyncio.Semaphore(15)
+    limits = httpx.Limits(max_keepalive_connections=15, max_connections=30)
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
         for feed in DIRECT_FEEDS:
@@ -469,13 +469,18 @@ async def async_sweep_controller(silent=False):
     finally:
         is_syncing = False
 
+async def initial_boot_delay():
+    """Waits 10 seconds before starting the very first sweep so Render's health checks can successfully ping Uvicorn."""
+    await asyncio.sleep(10)
+    await async_sweep_controller(silent=True)
+
 @app.on_event("startup")
 async def startup_event():
     init_db()
     asyncio.create_task(background_loop())
     asyncio.create_task(automated_digest_loop())
     asyncio.create_task(telegram_command_polling())
-    asyncio.create_task(async_sweep_controller(silent=True))
+    asyncio.create_task(initial_boot_delay()) # Replaces immediate sweep with delayed sweep
 
 @app.get("/", response_class=FileResponse)
 def read_root():
