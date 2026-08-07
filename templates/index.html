@@ -38,6 +38,30 @@
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
+    <!-- Executive Briefing Modal -->
+    <div id="briefing-modal" class="fixed inset-0 bg-dark/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden fade-in">
+        <div class="bg-card border border-bordercolor rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-indigo-400 font-black tracking-wider text-base">📋 EXECUTIVE INTEL BRIEFING</span>
+                </div>
+                <button onclick="closeBriefingModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            
+            <div id="briefing-content" class="font-mono text-xs text-slate-300 space-y-3 overflow-y-auto pr-2 flex-grow bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">
+                Generating brief...
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <span class="text-[10px] text-slate-500 font-mono">Formatted for Executive Reporting</span>
+                <button onclick="copyBriefingToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg flex items-center gap-1.5">
+                    📋 Copy Briefing Text
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sync Overlay -->
     <div id="sync-overlay" class="fixed inset-0 bg-dark/90 backdrop-blur-md z-40 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="relative w-36 h-36 mb-6 flex items-center justify-center">
             <div class="absolute inset-0 rounded-full border border-indigo-500/20"></div>
@@ -46,13 +70,14 @@
             <div class="absolute inset-0 rounded-full animate-radar bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(99,102,241,0.4)_360deg)]"></div>
             <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
         </div>
-        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HIGH-SPEED ASYNC SWEEP</h3>
-        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Executing concurrent batch processing...</p>
+        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">MAX-SPEED CONCURRENCY SWEEP</h3>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Scanning 50+ channels in parallel...</p>
         <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">
             Dismiss & Run in Background
         </button>
     </div>
 
+    <!-- Main Container -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-bordercolor pb-4 mb-6 gap-4">
             <div class="flex items-center space-x-3">
@@ -74,6 +99,10 @@
                     <span class="text-[10px] font-bold text-slate-300 tracking-wider">AUTO-PILOT ACTIVE</span>
                 </div>
 
+                <button onclick="openBriefingModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 shadow-md transition-colors flex items-center gap-1.5">
+                    📋 Executive Brief
+                </button>
+
                 <button id="sync-btn" onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-1.5">
                     ⚡ Sync Live Feed
                 </button>
@@ -83,14 +112,34 @@
             </div>
         </header>
 
-        <div class="bg-card/80 border border-bordercolor rounded-2xl p-4 mb-6 h-60 relative shadow-xl backdrop-blur-md">
-            <canvas id="telemetryChart"></canvas>
-            <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 font-mono text-xs hidden bg-card/90 rounded-xl">
-                <span>Awaiting Data Telemetry...</span>
-                <span class="mt-1 opacity-75">Click 'Sync Live Feed' above to ingest streams.</span>
+        <!-- Dynamic Visualization Chart & KPI Bar -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            <div class="lg:col-span-3 bg-card/80 border border-bordercolor rounded-2xl p-4 h-60 relative shadow-xl backdrop-blur-md">
+                <canvas id="telemetryChart"></canvas>
+                <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 font-mono text-xs hidden bg-card/90 rounded-xl">
+                    <span>Awaiting Data Telemetry...</span>
+                    <span class="mt-1 opacity-75">Click 'Sync Live Feed' above to ingest streams.</span>
+                </div>
+            </div>
+
+            <!-- KPI Metric Cards -->
+            <div class="flex flex-col gap-3">
+                <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Total Ingested Intel</span>
+                    <span id="kpi-total" class="text-2xl font-black text-indigo-400 font-mono mt-1">0</span>
+                </div>
+                <div class="bg-card/60 border border-red-900/40 p-4 rounded-2xl flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-mono text-red-400 uppercase tracking-wider">🔴 Critical Threats</span>
+                    <span id="kpi-critical" class="text-2xl font-black text-red-500 font-mono mt-1">0</span>
+                </div>
+                <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Channels Monitored</span>
+                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">54 Active</span>
+                </div>
             </div>
         </div>
 
+        <!-- Primary Category Tabs -->
         <div class="flex space-x-2 mb-6 border-b border-bordercolor pb-3">
             <button id="tab-all" onclick="switchCategory('ALL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">
                 🌐 ALL / GLOBAL TRENDS
@@ -103,11 +152,13 @@
             </button>
         </div>
 
+        <!-- Filters Console -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             <div class="relative">
                 <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic live (e.g. potus, china, military, cyber, biden)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
+            <!-- Fully Exposed Media Outlet Buttons -->
             <div class="flex flex-wrap gap-1.5 border-b border-slate-800 pb-3" id="sourceFilters">
                 <button onclick="filterSource('All')" class="src-btn active px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-colors">All Sources</button>
                 <button onclick="filterSource('Google News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Google News</button>
@@ -125,6 +176,7 @@
             </div>
 
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs">
+                <!-- Date Filters -->
                 <div class="flex flex-wrap gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800" id="dateFilters">
                     <button onclick="filterDate('all')" class="date-btn px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-all">All Time</button>
                     <button onclick="filterDate('1d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 24h</button>
@@ -132,6 +184,7 @@
                     <button onclick="filterDate('30d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 30d</button>
                 </div>
 
+                <!-- Dropdowns for Regions and Handles -->
                 <div class="flex flex-wrap gap-2">
                     <select id="regionSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none transition-colors">
                         <option value="All">All Regions / Continents</option>
@@ -148,6 +201,7 @@
             </div>
         </div>
 
+        <!-- Data Grid -->
         <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
         <div class="flex justify-center mb-8">
@@ -174,6 +228,7 @@
         let ws = null;
         let syncTimerInterval;
         let secondsElapsed = 0;
+        let currentFetchedNews = [];
 
         const sourceColors = {
             'Al Jazeera': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -188,6 +243,12 @@
             'Google News': 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
             'Reddit': 'bg-orange-600/10 text-orange-500 border-orange-600/20',
             'Hacker News': 'bg-orange-500/10 text-orange-400 border-orange-500/20'
+        };
+
+        const threatBadges = {
+            'CRITICAL': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">🔴 CRITICAL</span>',
+            'ELEVATED': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">🟧 ELEVATED</span>',
+            'INFORMATIONAL': ''
         };
 
         const skeletonCard = `
@@ -255,6 +316,37 @@
             timeEl.innerText = timeStr || "Just now";
         }
 
+        // --- EXECUTIVE BRIEFING MODAL LOGIC ---
+        function openBriefingModal() {
+            const modal = document.getElementById('briefing-modal');
+            const content = document.getElementById('briefing-content');
+            modal.classList.remove('hidden');
+
+            const now = new Date().toLocaleString();
+            let text = `GEOPOLITICAL INTELLIGENCE BRIEFING\nGenerated: ${now}\nCategory: ${currentCategory}\n----------------------------------------\n\n`;
+
+            if (currentFetchedNews.length === 0) {
+                text += "No records currently indexed under active parameters.";
+            } else {
+                currentFetchedNews.slice(0, 10).forEach((item, idx) => {
+                    const threat = item.threat_level === "CRITICAL" ? "[🔴 CRITICAL] " : (item.threat_level === "ELEVATED" ? "[🟧 ELEVATED] " : "");
+                    text += `${idx + 1}. ${threat}${item.title}\n   Source: ${item.source} | Region: ${item.region || 'Global'} | Trigger: ${item.keyword || 'N/A'}\n   URL: ${item.link}\n\n`;
+                });
+            }
+
+            content.innerText = text;
+        }
+
+        function closeBriefingModal() {
+            document.getElementById('briefing-modal').classList.add('hidden');
+        }
+
+        function copyBriefingToClipboard() {
+            const text = document.getElementById('briefing-content').innerText;
+            navigator.clipboard.writeText(text);
+            showToast("📋 Briefing copied to clipboard!", "success");
+        }
+
         function connectWebSocket() {
             ws = new WebSocket(WS_URL);
             const statusBadge = document.getElementById('ws-status');
@@ -279,7 +371,7 @@
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `⏳ Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 25) { resetSyncButton(); showToast("⚠️ Render limits active. Task finishing silently.", "warning"); }
+                        if (secondsElapsed > 15) { resetSyncButton(); }
                     }, 1000);
                 } 
                 else if (data.event === "sync_started_silent") {
@@ -290,7 +382,7 @@
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `🤖 Auto-Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 25) resetSyncButton();
+                        if (secondsElapsed > 15) resetSyncButton();
                     }, 1000);
                 }
                 else if (data.event === "new_intel") {
@@ -376,7 +468,12 @@
                 const response = await fetch(url);
                 const data = await response.json();
                 
-                if (overwrite) grid.innerHTML = '';
+                if (overwrite) {
+                    grid.innerHTML = '';
+                    currentFetchedNews = data;
+                } else {
+                    currentFetchedNews = currentFetchedNews.concat(data);
+                }
 
                 if (data.length < 15) loadMoreBtn.classList.add('hidden');
                 else loadMoreBtn.classList.remove('hidden');
@@ -392,6 +489,7 @@
 
                 data.forEach(item => {
                     const colorClass = sourceColors[item.source] || 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+                    const threatBadge = threatBadges[item.threat_level] || '';
                     const dateObj = new Date(item.published_date || item.fetched_at);
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
@@ -405,6 +503,7 @@
                                     <div class="flex items-center justify-between mb-3">
                                         <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
                                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border ${colorClass}">${item.source}</span>
+                                            ${threatBadge}
                                             ${handleBadge}
                                             ${keywordBadge}
                                         </div>
@@ -476,6 +575,10 @@
                 const data = await response.json();
                 const emptyState = document.getElementById('chart-empty');
                 
+                // Update KPI Cards
+                if (data.total_intel !== undefined) document.getElementById('kpi-total').innerText = data.total_intel;
+                if (data.critical_threats !== undefined) document.getElementById('kpi-critical').innerText = data.critical_threats;
+
                 if (!data.dates || data.dates.length === 0) {
                     emptyState.classList.remove('hidden');
                     return;

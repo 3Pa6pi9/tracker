@@ -15,11 +15,10 @@ import httpx
 import time
 from datetime import datetime
 
-# Configure Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="13.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="14.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,6 +30,10 @@ app.add_middleware(
 
 DB_NAME = "tracker_data.db"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
+# --- THREAT CLASSIFIER KEYWORDS ---
+CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear"]
+ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis"]
 
 # --- STRICT KEYWORD FILTERS ---
 RED_KEYWORDS = [
@@ -57,7 +60,6 @@ GLOBAL_SEARCH_TOPICS = [
     "Pentagon", "Kremlin", "NATO"
 ]
 
-# --- MEDIA OUTLETS & TARGETS ---
 DIRECT_FEEDS = [
     {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
     {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
@@ -84,7 +86,6 @@ GENERAL_TARGETS = [{"handle": h, "region": "Africa"} for h in [
     "@AussenMinDE", "@AuswaertigesAmt", "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK"
 ]]
 
-# --- WEBSOCKET MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -106,9 +107,8 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- DATABASE ENGINE ---
 def get_db_connection():
-    conn = sqlite3.connect(DB_NAME, timeout=15)
+    conn = sqlite3.connect(DB_NAME, timeout=10)
     conn.execute('PRAGMA journal_mode=WAL;')
     conn.execute('PRAGMA synchronous=NORMAL;')
     conn.row_factory = sqlite3.Row
@@ -128,7 +128,8 @@ def init_db():
             region TEXT,
             published_date TEXT,
             fetched_at TEXT,
-            keyword TEXT
+            keyword TEXT,
+            threat_level TEXT DEFAULT 'INFORMATIONAL'
         )
     ''')
     c.execute("PRAGMA table_info(news)")
@@ -136,9 +137,21 @@ def init_db():
     if "keyword" not in cols:
         try: c.execute("ALTER TABLE news ADD COLUMN keyword TEXT DEFAULT 'N/A'")
         except Exception: pass
+    if "threat_level" not in cols:
+        try: c.execute("ALTER TABLE news ADD COLUMN threat_level TEXT DEFAULT 'INFORMATIONAL'")
+        except Exception: pass
+        
     c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_reg ON news (category, source, region, published_date);')
     conn.commit()
     conn.close()
+
+def classify_threat(title):
+    t_lower = title.lower()
+    if any(w in t_lower for w in CRITICAL_WORDS):
+        return "CRITICAL"
+    if any(w in t_lower for w in ELEVATED_WORDS):
+        return "ELEVATED"
+    return "INFORMATIONAL"
 
 def save_items_bulk(items):
     if not items: return 0
@@ -150,13 +163,14 @@ def save_items_bulk(items):
     for item in items:
         try:
             c.execute('''
-                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at, keyword)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at, keyword, threat_level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(link) DO NOTHING
             ''', (
                 item['title'], item['link'], item['source'], item['category'],
                 item.get('handle', 'N/A'), item.get('region', 'Global'),
-                item['published_date'], now_iso, item.get('keyword', 'N/A')
+                item['published_date'], now_iso, item.get('keyword', 'N/A'),
+                item.get('threat_level', 'INFORMATIONAL')
             ))
             if c.rowcount > 0:
                 added += 1
@@ -166,64 +180,66 @@ def save_items_bulk(items):
     conn.close()
     return added
 
-# --- ASYNC HIGH-SPEED SCRAPER WITH STRICT FILTERING ---
-async def fetch_feed_async(client, url, source_label, category, handle="N/A", region="Global", keyword_badge="N/A", filter_keywords=None, limit=25):
+async def fetch_feed_max_speed(client, semaphore, url, source_label, category, handle="N/A", region="Global", keyword_badge="N/A", filter_keywords=None, limit=20):
     items = []
-    try:
-        response = await client.get(url, timeout=12.0, follow_redirects=True)
-        response.raise_for_status()
-        
-        feed = await asyncio.to_thread(feedparser.parse, response.content)
-        
-        for entry in feed.entries[:limit]:
-            title = getattr(entry, 'title', '')
-            link = getattr(entry, 'link', '')
+    async with semaphore:
+        try:
+            # Aggressive 3.5s timeout per request
+            response = await client.get(url, timeout=3.5, follow_redirects=True)
+            response.raise_for_status()
             
-            try:
-                if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                    pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                else:
+            feed = await asyncio.to_thread(feedparser.parse, response.content)
+            
+            for entry in feed.entries[:limit]:
+                title = getattr(entry, 'title', '')
+                link = getattr(entry, 'link', '')
+                
+                try:
+                    if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                        pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                    else:
+                        pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                except Exception:
                     pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
-                pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            if title and link:
-                actual_badge = keyword_badge
-                
-                # --- APPLY STRICT KEYWORD FILTERING IF REQUIRED ---
-                if filter_keywords:
-                    text_lower = title.lower()
-                    # Find if any required keyword exists in the title
-                    matched_kw = next((kw for kw in filter_keywords if kw.lower() in text_lower), None)
+                if title and link:
+                    actual_badge = keyword_badge
                     
-                    if not matched_kw:
-                        continue # STRICT: Throw away article if it lacks the keyword
-                        
-                    # Update badge to show the exact keyword that triggered this result
-                    actual_badge = f"Matched: '{matched_kw}'"
-                
-                items.append({
-                    'title': title.replace(" - X", "").replace(" on X", "").strip(),
-                    'link': link,
-                    'source': source_label,
-                    'category': category,
-                    'handle': handle,
-                    'region': region,
-                    'published_date': pub_date,
-                    'keyword': actual_badge
-                })
-    except Exception as e:
-        logger.debug(f"Failed to fetch {url}: {str(e)}")
+                    if filter_keywords:
+                        text_lower = title.lower()
+                        matched_kw = next((kw for kw in filter_keywords if kw.lower() in text_lower), None)
+                        if not matched_kw:
+                            continue
+                        actual_badge = f"Matched: '{matched_kw}'"
+                    
+                    threat = classify_threat(title)
+
+                    items.append({
+                        'title': title.replace(" - X", "").replace(" on X", "").strip(),
+                        'link': link,
+                        'source': source_label,
+                        'category': category,
+                        'handle': handle,
+                        'region': region,
+                        'published_date': pub_date,
+                        'keyword': actual_badge,
+                        'threat_level': threat
+                    })
+        except Exception:
+            pass
     return items
 
 async def run_live_web_search_async(q_text: str, category: str = "ALL"):
     encoded = urllib.parse.quote(q_text)
-    tasks = []
-    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword_badge=f"Live Search: {q_text}"))
-        tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", category, keyword_badge=f"Live Search: {q_text}"))
-        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, keyword_badge=f"Live Search: {q_text}"))
-        
+    semaphore = asyncio.Semaphore(50)
+    
+    limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
+        tasks = [
+            fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword_badge=f"Live Search: {q_text}"),
+            fetch_feed_max_speed(client, semaphore, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", category, keyword_badge=f"Live Search: {q_text}"),
+            fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, keyword_badge=f"Live Search: {q_text}")
+        ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_new = []
         for res in results:
@@ -232,46 +248,48 @@ async def run_live_web_search_async(q_text: str, category: str = "ALL"):
             await asyncio.to_thread(save_items_bulk, all_new)
 
 async def run_fast_sweep():
-    logger.info("Executing Enterprise-Grade Async Sweep...")
+    logger.info("Executing Maximum Speed Concurrency Sweep...")
     tasks = []
     
-    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-        # 1. Direct Feeds (Filtered by Category)
+    # Allow 50 parallel requests
+    semaphore = asyncio.Semaphore(50)
+    limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+    
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
+        # 1. Direct Feeds
         for feed in DIRECT_FEEDS:
             kw_filter = None
             if feed["category"] == "RED": kw_filter = RED_KEYWORDS
             elif feed["category"] == "GENERAL": kw_filter = GENERAL_KEYWORDS
             
-            tasks.append(fetch_feed_async(
-                client, feed["url"], feed["source"], feed["category"], 
+            tasks.append(fetch_feed_max_speed(
+                client, semaphore, feed["url"], feed["source"], feed["category"], 
                 region=feed["region"], filter_keywords=kw_filter, keyword_badge=f"Feed: {feed['source']}"
             ))
 
-        # 2. Global Topics (ALL Stream - No filters needed since topic is the query)
+        # 2. Global Topics
         for topic in GLOBAL_SEARCH_TOPICS:
             encoded = urllib.parse.quote(topic)
-            tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
-            tasks.append(fetch_feed_async(client, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
-            tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
+            tasks.append(fetch_feed_max_speed(client, semaphore, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
+            tasks.append(fetch_feed_max_speed(client, semaphore, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
+            tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
 
-        # 3. Target Handles (Strictly filtered by RED or GENERAL keywords)
+        # 3. Target Handles
         for category, target_list, kw_list in [("RED", RED_TARGETS, RED_KEYWORDS), ("GENERAL", GENERAL_TARGETS, GENERAL_KEYWORDS)]:
             for target in target_list:
                 h = target["handle"]
                 r = target["region"]
                 encoded_h = urllib.parse.quote(h)
-                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, filter_keywords=kw_list))
-                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, filter_keywords=kw_list))
+                tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, filter_keywords=kw_list))
+                tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, filter_keywords=kw_list))
 
-        # Batch Execute
+        # Execute ALL tasks in parallel at maximum speed
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
         all_results = []
-        batch_size = 15
-        for i in range(0, len(tasks), batch_size):
-            batch = tasks[i:i+batch_size]
-            batch_results = await asyncio.gather(*batch, return_exceptions=True)
-            for res in batch_results:
-                if isinstance(res, list): all_results.extend(res)
-            await asyncio.sleep(0.3)
+        for res in results:
+            if isinstance(res, list): 
+                all_results.extend(res)
 
         total_new = await asyncio.to_thread(save_items_bulk, all_results)
         return total_new
@@ -408,6 +426,8 @@ def get_filter_metadata():
 def get_stats():
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # 1. Timeline Chart Data
     cursor.execute("""
         SELECT date(published_date) as date, category, COUNT(*) as count 
         FROM news 
@@ -417,9 +437,17 @@ def get_stats():
         LIMIT 14
     """)
     rows = cursor.fetchall()
+    
+    # 2. Global KPI Counters
+    cursor.execute("SELECT COUNT(*) FROM news")
+    total_intel = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
+    critical_threats = cursor.fetchone()[0]
+
     conn.close()
     
-    stats = {"dates": [], "ALL": [], "RED": [], "GENERAL": []}
+    stats = {"dates": [], "ALL": [], "RED": [], "GENERAL": [], "total_intel": total_intel, "critical_threats": critical_threats}
     temp_dict = {}
     for row in rows:
         d = row["date"]
@@ -439,16 +467,16 @@ def export_csv(category: str = Query("ALL")):
     conn = get_db_connection()
     cursor = conn.cursor()
     if category.upper() == "ALL":
-        cursor.execute("SELECT source, category, region, handle, keyword, title, link, published_date FROM news ORDER BY published_date DESC")
+        cursor.execute("SELECT source, category, region, handle, keyword, threat_level, title, link, published_date FROM news ORDER BY published_date DESC")
     else:
-        cursor.execute("SELECT source, category, region, handle, keyword, title, link, published_date FROM news WHERE category = ? ORDER BY published_date DESC", (category.upper(),))
+        cursor.execute("SELECT source, category, region, handle, keyword, threat_level, title, link, published_date FROM news WHERE category = ? ORDER BY published_date DESC", (category.upper(),))
     rows = cursor.fetchall()
     conn.close()
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Source", "Category", "Region", "Handle", "Keyword Trigger", "Intel Title", "Source URL", "Timestamp"])
-    for row in rows: writer.writerow([row["source"], row["category"], row["region"], row["handle"], row.get("keyword", "N/A"), row["title"], row["link"], row["published_date"]])
+    writer.writerow(["Source", "Category", "Region", "Handle", "Keyword Trigger", "Threat Level", "Intel Title", "Source URL", "Timestamp"])
+    for row in rows: writer.writerow([row["source"], row["category"], row["region"], row["handle"], row.get("keyword", "N/A"), row.get("threat_level", "INFORMATIONAL"), row["title"], row["link"], row["published_date"]])
     output.seek(0)
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{category}_{datetime.now().strftime('%Y%m%d')}.csv"
