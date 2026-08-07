@@ -19,7 +19,7 @@ feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/5
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="9.2")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="10.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,22 +31,22 @@ app.add_middleware(
 
 DB_NAME = "tracker_data.db"
 
-# --- DIRECT MEDIA OUTLETS (BULLETPROOF RSS INGESTION) ---
+# --- DIRECT MEDIA OUTLETS ---
 DIRECT_FEEDS = [
     # Middle East / RED Stream Media
-    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East", "keyword": "Feed: Al Jazeera"},
+    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East", "keyword": "Feed: Middle East Eye"},
+    {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East", "keyword": "Feed: Arab News"},
+    {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East", "keyword": "Feed: Times of Israel"},
     
-    # Africa & Europe / GREEN Stream Media
-    {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GREEN", "region": "Africa"},
-    {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GREEN", "region": "Africa"},
-    {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GREEN", "region": "Europe"},
+    # Africa & Europe / GENERAL Stream Media
+    {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa", "keyword": "Feed: Africanews"},
+    {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa", "keyword": "Feed: AllAfrica"},
+    {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe", "keyword": "Feed: DW News"},
     
     # Global / ALL Stream Media
-    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"},
-    {"url": "https://news.google.com/rss/search?q=geopolitics+OR+diplomacy+OR+sanctions&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "ALL", "region": "Global"}
+    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global", "keyword": "Feed: BBC World"},
+    {"url": "https://news.google.com/rss/search?q=geopolitics+OR+diplomacy+OR+sanctions&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "ALL", "region": "Global", "keyword": "Topic: Geopolitics/Diplomacy"}
 ]
 
 # --- TARGET HANDLES ---
@@ -62,7 +62,7 @@ RED_TARGETS = [
     {"handle": "@IRIMFA_EN", "region": "Middle East"}, {"handle": "@MFATurkiye", "region": "Middle East"}
 ]
 
-GREEN_TARGETS = [
+GENERAL_TARGETS = [
     {"handle": "@WilliamsRuto", "region": "Africa"}, {"handle": "@PaulKagame", "region": "Africa"},
     {"handle": "@CyrilRamaphosa", "region": "Africa"}, {"handle": "@officialABAT", "region": "Africa"},
     {"handle": "@AlsisiOfficial", "region": "Africa"}, {"handle": "@MFAEthiopia", "region": "Africa"},
@@ -119,9 +119,20 @@ def init_db():
             handle TEXT,
             region TEXT,
             published_date TEXT,
-            fetched_at TEXT
+            fetched_at TEXT,
+            keyword TEXT
         )
     ''')
+    
+    # Schema check for legacy databases
+    c.execute("PRAGMA table_info(news)")
+    cols = [col[1] for col in c.fetchall()]
+    if "keyword" not in cols:
+        try:
+            c.execute("ALTER TABLE news ADD COLUMN keyword TEXT DEFAULT 'N/A'")
+        except Exception:
+            pass
+
     c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_reg ON news (category, source, region, published_date);')
     conn.commit()
     conn.close()
@@ -135,13 +146,13 @@ def save_items(items):
     for item in items:
         try:
             c.execute('''
-                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at, keyword)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(link) DO NOTHING
             ''', (
                 item['title'], item['link'], item['source'], item['category'],
                 item.get('handle', 'N/A'), item.get('region', 'Global'),
-                item['published_date'], now_iso
+                item['published_date'], now_iso, item.get('keyword', 'N/A')
             ))
             if c.rowcount > 0:
                 added += 1
@@ -151,7 +162,7 @@ def save_items(items):
     conn.close()
     return added
 
-def parse_rss_url(url, source_label, category, handle="N/A", region="Global", limit=12):
+def parse_rss_url(url, source_label, category, handle="N/A", region="Global", keyword="N/A", limit=12):
     items = []
     try:
         feed = feedparser.parse(url)
@@ -175,7 +186,8 @@ def parse_rss_url(url, source_label, category, handle="N/A", region="Global", li
                     'category': category,
                     'handle': handle,
                     'region': region,
-                    'published_date': pub_date
+                    'published_date': pub_date,
+                    'keyword': keyword
                 })
     except Exception as e:
         logger.error(f"Error reading feed {url}: {e}")
@@ -185,32 +197,38 @@ def run_bulletproof_sweep():
     logger.info("Executing bulletproof multi-source sweep...")
     total_new = 0
 
+    # 1. Direct Media Outlets
     for feed in DIRECT_FEEDS:
-        total_new += save_items(parse_rss_url(feed["url"], feed["source"], feed["category"], region=feed["region"], limit=15))
+        total_new += save_items(parse_rss_url(feed["url"], feed["source"], feed["category"], region=feed["region"], keyword=feed.get("keyword", "Direct Feed"), limit=15))
         time.sleep(0.2)
 
+    # 2. Reddit & Hacker News Global Topics
     for topic in GLOBAL_SEARCH_TOPICS:
         encoded = urllib.parse.quote(topic)
-        total_new += save_items(parse_rss_url(f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", limit=8))
-        total_new += save_items(parse_rss_url(f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", limit=8))
+        total_new += save_items(parse_rss_url(f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword=f"Topic: {topic}", limit=8))
+        total_new += save_items(parse_rss_url(f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword=f"Topic: {topic}", limit=8))
         time.sleep(0.2)
 
+    # 3. RED Targets
     for target in RED_TARGETS:
         h = target["handle"]
         r = target["region"]
         query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(query_url, "Google News", "RED", handle=h, region=r, limit=8))
+        total_new += save_items(parse_rss_url(query_url, "Google News", "RED", handle=h, region=r, keyword=f"Target: {h}", limit=8))
+        
         twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "RED", handle=h, region=r, limit=8))
+        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "RED", handle=h, region=r, keyword=f"Target: {h}", limit=8))
         time.sleep(0.2)
 
-    for target in GREEN_TARGETS:
+    # 4. GENERAL Targets (Formerly GREEN)
+    for target in GENERAL_TARGETS:
         h = target["handle"]
         r = target["region"]
         query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(query_url, "Google News", "GREEN", handle=h, region=r, limit=8))
+        total_new += save_items(parse_rss_url(query_url, "Google News", "GENERAL", handle=h, region=r, keyword=f"Target: {h}", limit=8))
+        
         twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "GREEN", handle=h, region=r, limit=8))
+        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "GENERAL", handle=h, region=r, keyword=f"Target: {h}", limit=8))
         time.sleep(0.2)
 
     return total_new
@@ -321,8 +339,8 @@ def get_news(
         query += " AND datetime(published_date) >= datetime('now', '-30 days')"
 
     if q:
-        query += " AND (title LIKE ? OR handle LIKE ? OR source LIKE ?)"
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        query += " AND (title LIKE ? OR handle LIKE ? OR source LIKE ? OR keyword LIKE ?)"
+        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
         
     query += " ORDER BY datetime(published_date) DESC, id DESC LIMIT ? OFFSET ?"
     params.extend([limit, offset])
@@ -358,19 +376,19 @@ def get_stats():
     rows = cursor.fetchall()
     conn.close()
     
-    stats = {"dates": [], "ALL": [], "RED": [], "GREEN": []}
+    stats = {"dates": [], "ALL": [], "RED": [], "GENERAL": []}
     temp_dict = {}
     for row in rows:
         d = row["date"]
         c = row["category"]
-        if d not in temp_dict: temp_dict[d] = {"ALL": 0, "RED": 0, "GREEN": 0}
+        if d not in temp_dict: temp_dict[d] = {"ALL": 0, "RED": 0, "GENERAL": 0}
         if c in temp_dict[d]: temp_dict[d][c] = row["count"]
         
     for d in sorted(temp_dict.keys()):
         stats["dates"].append(d)
         stats["ALL"].append(temp_dict[d]["ALL"])
         stats["RED"].append(temp_dict[d]["RED"])
-        stats["GREEN"].append(temp_dict[d]["GREEN"])
+        stats["GENERAL"].append(temp_dict[d]["GENERAL"])
     return stats
 
 @app.get("/api/export")
@@ -378,16 +396,16 @@ def export_csv(category: str = Query("ALL")):
     conn = get_db_connection()
     cursor = conn.cursor()
     if category.upper() == "ALL":
-        cursor.execute("SELECT source, category, region, handle, title, link, published_date FROM news ORDER BY published_date DESC")
+        cursor.execute("SELECT source, category, region, handle, keyword, title, link, published_date FROM news ORDER BY published_date DESC")
     else:
-        cursor.execute("SELECT source, category, region, handle, title, link, published_date FROM news WHERE category = ? ORDER BY published_date DESC", (category.upper(),))
+        cursor.execute("SELECT source, category, region, handle, keyword, title, link, published_date FROM news WHERE category = ? ORDER BY published_date DESC", (category.upper(),))
     rows = cursor.fetchall()
     conn.close()
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Source", "Category", "Region", "Handle", "Intel Title", "Source URL", "Timestamp"])
-    for row in rows: writer.writerow([row["source"], row["category"], row["region"], row["handle"], row["title"], row["link"], row["published_date"]])
+    writer.writerow(["Source", "Category", "Region", "Handle", "Keyword Trigger", "Intel Title", "Source URL", "Timestamp"])
+    for row in rows: writer.writerow([row["source"], row["category"], row["region"], row["handle"], row.get("keyword", "N/A"), row["title"], row["link"], row["published_date"]])
     output.seek(0)
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{category}_{datetime.now().strftime('%Y%m%d')}.csv"

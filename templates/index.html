@@ -90,8 +90,8 @@
             <button id="tab-red" onclick="switchCategory('RED')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">
                 🔴 RED (Middle East & Crisis)
             </button>
-            <button id="tab-green" onclick="switchCategory('GREEN')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">
-                🟢 GREEN (Global Diplomacy)
+            <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">
+                🔵 GENERAL (Global Diplomacy)
             </button>
         </div>
 
@@ -309,8 +309,6 @@
 
         function filterSource(src) {
             currentSource = src;
-            
-            // STRICT EXACT STRING MATCHING (Avoids 'All' triggering 'AllAfrica')
             document.querySelectorAll('.src-btn').forEach(btn => {
                 const btnText = btn.innerText.trim();
                 if (btnText === src || (src === 'All' && btnText === 'All Sources')) {
@@ -373,15 +371,17 @@
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
                     const handleBadge = (item.handle && item.handle !== 'N/A') ? `<span class="text-[10px] text-indigo-400 font-mono bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">${item.handle}</span>` : '';
+                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/80">🔑 ${item.keyword}</span>` : '';
 
                     const card = `
                         <a href="${item.link}" target="_blank" class="block group">
                             <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg hover:shadow-indigo-500/5 h-full flex flex-col justify-between relative overflow-hidden">
                                 <div>
                                     <div class="flex items-center justify-between mb-3">
-                                        <div class="flex items-center space-x-1.5">
+                                        <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
                                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border ${colorClass}">${item.source}</span>
                                             ${handleBadge}
+                                            ${keywordBadge}
                                         </div>
                                         <span class="text-[10px] text-slate-500 font-mono">${item.region || 'Global'}</span>
                                     </div>
@@ -405,7 +405,7 @@
 
         function switchCategory(cat) {
             currentCategory = cat;
-            ['all', 'red', 'green'].forEach(c => {
+            ['all', 'red', 'general'].forEach(c => {
                 const btn = document.getElementById(`tab-${c}`);
                 if (c === cat.toLowerCase()) btn.className = "px-5 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
                 else btn.className = "px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800";
@@ -468,7 +468,7 @@
                         datasets: [
                             { label: 'Global Stream', data: data.ALL, borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderWidth: 2, fill: true, tension: 0.3 },
                             { label: 'RED Stream', data: data.RED, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: 0.3 },
-                            { label: 'GREEN Stream', data: data.GREEN, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }
+                            { label: 'GENERAL Stream', data: data.GENERAL, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }
                         ]
                     },
                     options: {
