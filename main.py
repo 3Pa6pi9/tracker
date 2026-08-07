@@ -19,7 +19,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="12.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="13.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,17 +32,41 @@ app.add_middleware(
 DB_NAME = "tracker_data.db"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# --- STRICT KEYWORD FILTERS ---
+RED_KEYWORDS = [
+    "Muslim Brotherhood", "CAIR", "Migration Crisis", "Refugee Policies", "Border Security",
+    "Illegal Immigration", "Sudan", "Somalia", "Iran", "Ukraine", "Russia",
+    "Political Demonstrations", "Public Protests", "Parliament Debates", "Counter-Terrorism",
+    "African countries", "Western countries"
+]
+
+GENERAL_KEYWORDS = [
+    "bilateral relations", "state visit", "diplomatic ties", "strategic dialogue",
+    "ambassador meeting", "foreign ministry", "trade agreement", "foreign investment",
+    "economic partnership", "trade deal", "sanctions", "memorandum of understanding",
+    "MoU", "security partnership", "defense pact", "military agreement",
+    "joint military exercise", "security cooperation", "defense treaty",
+    "treaty signed", "international summit", "multilateral agreement",
+    "UN resolution", "international convention", "global governance",
+    "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance"
+]
+
+GLOBAL_SEARCH_TOPICS = [
+    "Geopolitics", "Bilateral Relations", "Trade Sanctions", 
+    "Foreign Policy", "POTUS", "White House", "US President",
+    "Pentagon", "Kremlin", "NATO"
+]
+
 # --- MEDIA OUTLETS & TARGETS ---
 DIRECT_FEEDS = [
-    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East", "keyword": "Feed: Al Jazeera"},
-    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East", "keyword": "Feed: Middle East Eye"},
-    {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East", "keyword": "Feed: Arab News"},
-    {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East", "keyword": "Feed: Times of Israel"},
-    {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa", "keyword": "Feed: Africanews"},
-    {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa", "keyword": "Feed: AllAfrica"},
-    {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe", "keyword": "Feed: DW News"},
-    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global", "keyword": "Feed: BBC World"},
-    {"url": "https://news.google.com/rss/search?q=geopolitics+OR+diplomacy+OR+sanctions&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "ALL", "region": "Global", "keyword": "Topic: Geopolitics/Diplomacy"}
+    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East"},
+    {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa"},
+    {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa"},
+    {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe"},
+    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"}
 ]
 
 RED_TARGETS = [{"handle": h, "region": "Middle East"} for h in [
@@ -59,12 +83,6 @@ GENERAL_TARGETS = [{"handle": h, "region": "Africa"} for h in [
     "@EmmanuelMacron", "@GiorgiaMeloni", "@sanchezcastejon", "@donaldtusk", "@_FriedrichMerz", "@bundeskanzler", 
     "@AussenMinDE", "@AuswaertigesAmt", "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK"
 ]]
-
-GLOBAL_SEARCH_TOPICS = [
-    "Geopolitics", "Bilateral Relations", "Trade Sanctions", 
-    "Foreign Policy", "POTUS", "White House", "US President",
-    "Pentagon", "Kremlin", "NATO"
-]
 
 # --- WEBSOCKET MANAGER ---
 class ConnectionManager:
@@ -88,7 +106,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- DATABASE ENGINE (WAL OPTIMIZATION) ---
+# --- DATABASE ENGINE ---
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME, timeout=15)
     conn.execute('PRAGMA journal_mode=WAL;')
@@ -148,11 +166,11 @@ def save_items_bulk(items):
     conn.close()
     return added
 
-# --- ASYNC HIGH-SPEED SCRAPER ---
-async def fetch_feed_async(client, url, source_label, category, handle="N/A", region="Global", keyword="N/A", limit=10):
+# --- ASYNC HIGH-SPEED SCRAPER WITH STRICT FILTERING ---
+async def fetch_feed_async(client, url, source_label, category, handle="N/A", region="Global", keyword_badge="N/A", filter_keywords=None, limit=25):
     items = []
     try:
-        response = await client.get(url, timeout=10.0, follow_redirects=True)
+        response = await client.get(url, timeout=12.0, follow_redirects=True)
         response.raise_for_status()
         
         feed = await asyncio.to_thread(feedparser.parse, response.content)
@@ -170,6 +188,20 @@ async def fetch_feed_async(client, url, source_label, category, handle="N/A", re
                 pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             if title and link:
+                actual_badge = keyword_badge
+                
+                # --- APPLY STRICT KEYWORD FILTERING IF REQUIRED ---
+                if filter_keywords:
+                    text_lower = title.lower()
+                    # Find if any required keyword exists in the title
+                    matched_kw = next((kw for kw in filter_keywords if kw.lower() in text_lower), None)
+                    
+                    if not matched_kw:
+                        continue # STRICT: Throw away article if it lacks the keyword
+                        
+                    # Update badge to show the exact keyword that triggered this result
+                    actual_badge = f"Matched: '{matched_kw}'"
+                
                 items.append({
                     'title': title.replace(" - X", "").replace(" on X", "").strip(),
                     'link': link,
@@ -178,29 +210,24 @@ async def fetch_feed_async(client, url, source_label, category, handle="N/A", re
                     'handle': handle,
                     'region': region,
                     'published_date': pub_date,
-                    'keyword': keyword
+                    'keyword': actual_badge
                 })
     except Exception as e:
         logger.debug(f"Failed to fetch {url}: {str(e)}")
     return items
 
 async def run_live_web_search_async(q_text: str, category: str = "ALL"):
-    """Performs an on-the-fly live web search for user queries."""
     encoded = urllib.parse.quote(q_text)
     tasks = []
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-        # 1. Google News Live Query
-        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword=f"Live Search: {q_text}"))
-        # 2. Reddit Live Query
-        tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", category, keyword=f"Live Search: {q_text}"))
-        # 3. X (Twitter) Live Query
-        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, keyword=f"Live Search: {q_text}"))
+        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword_badge=f"Live Search: {q_text}"))
+        tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", category, keyword_badge=f"Live Search: {q_text}"))
+        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, keyword_badge=f"Live Search: {q_text}"))
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_new = []
         for res in results:
             if isinstance(res, list): all_new.extend(res)
-        
         if all_new:
             await asyncio.to_thread(save_items_bulk, all_new)
 
@@ -209,25 +236,34 @@ async def run_fast_sweep():
     tasks = []
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-        # Direct Feeds
+        # 1. Direct Feeds (Filtered by Category)
         for feed in DIRECT_FEEDS:
-            tasks.append(fetch_feed_async(client, feed["url"], feed["source"], feed["category"], region=feed["region"], keyword=feed.get("keyword", "Direct Feed")))
+            kw_filter = None
+            if feed["category"] == "RED": kw_filter = RED_KEYWORDS
+            elif feed["category"] == "GENERAL": kw_filter = GENERAL_KEYWORDS
+            
+            tasks.append(fetch_feed_async(
+                client, feed["url"], feed["source"], feed["category"], 
+                region=feed["region"], filter_keywords=kw_filter, keyword_badge=f"Feed: {feed['source']}"
+            ))
 
-        # Global Topics
+        # 2. Global Topics (ALL Stream - No filters needed since topic is the query)
         for topic in GLOBAL_SEARCH_TOPICS:
             encoded = urllib.parse.quote(topic)
-            tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword=f"Topic: {topic}"))
-            tasks.append(fetch_feed_async(client, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword=f"Topic: {topic}"))
+            tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
+            tasks.append(fetch_feed_async(client, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
+            tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
 
-        # Target Handles
-        for category, target_list in [("RED", RED_TARGETS), ("GENERAL", GENERAL_TARGETS)]:
+        # 3. Target Handles (Strictly filtered by RED or GENERAL keywords)
+        for category, target_list, kw_list in [("RED", RED_TARGETS, RED_KEYWORDS), ("GENERAL", GENERAL_TARGETS, GENERAL_KEYWORDS)]:
             for target in target_list:
                 h = target["handle"]
                 r = target["region"]
                 encoded_h = urllib.parse.quote(h)
-                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, keyword=f"Target: {h}"))
-                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, keyword=f"Target: {h}"))
+                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, filter_keywords=kw_list))
+                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, filter_keywords=kw_list))
 
+        # Batch Execute
         all_results = []
         batch_size = 15
         for i in range(0, len(tasks), batch_size):
@@ -266,7 +302,7 @@ async def async_sweep_controller(silent=False):
 
 async def background_loop():
     while True:
-        await asyncio.sleep(900) # 15 min Auto-Pilot
+        await asyncio.sleep(900)
         await async_sweep_controller(silent=True)
 
 @app.on_event("startup")
@@ -312,7 +348,6 @@ async def get_news(
     time_filter: str = Query("all"), q: str = Query(None),
     page: int = Query(1), limit: int = Query(30)
 ):
-    # ON-THE-FLY LIVE SEARCH TRIGGER
     if q and len(q.strip()) > 1:
         await run_live_web_search_async(q.strip(), category)
 

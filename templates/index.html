@@ -38,7 +38,6 @@
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
-    <!-- Sync Overlay -->
     <div id="sync-overlay" class="fixed inset-0 bg-dark/90 backdrop-blur-md z-40 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="relative w-36 h-36 mb-6 flex items-center justify-center">
             <div class="absolute inset-0 rounded-full border border-indigo-500/20"></div>
@@ -54,7 +53,6 @@
         </button>
     </div>
 
-    <!-- Main Container -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow">
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-bordercolor pb-4 mb-6 gap-4">
             <div class="flex items-center space-x-3">
@@ -85,7 +83,6 @@
             </div>
         </header>
 
-        <!-- Dynamic Visualization Chart -->
         <div class="bg-card/80 border border-bordercolor rounded-2xl p-4 mb-6 h-60 relative shadow-xl backdrop-blur-md">
             <canvas id="telemetryChart"></canvas>
             <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 font-mono text-xs hidden bg-card/90 rounded-xl">
@@ -94,26 +91,23 @@
             </div>
         </div>
 
-        <!-- Primary Category Tabs -->
         <div class="flex space-x-2 mb-6 border-b border-bordercolor pb-3">
             <button id="tab-all" onclick="switchCategory('ALL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">
                 🌐 ALL / GLOBAL TRENDS
             </button>
             <button id="tab-red" onclick="switchCategory('RED')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">
-                🔴 RED (Middle East & Crisis)
+                🔴 RED (Crisis & Conflict)
             </button>
             <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">
-                🔵 GENERAL (Global Diplomacy)
+                🔵 GENERAL (Diplomacy & Trade)
             </button>
         </div>
 
-        <!-- Filters Console -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             <div class="relative">
                 <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic live (e.g. potus, china, military, cyber, biden)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
-            <!-- Fully Exposed Media Outlet Buttons -->
             <div class="flex flex-wrap gap-1.5 border-b border-slate-800 pb-3" id="sourceFilters">
                 <button onclick="filterSource('All')" class="src-btn active px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-colors">All Sources</button>
                 <button onclick="filterSource('Google News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Google News</button>
@@ -131,7 +125,6 @@
             </div>
 
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs">
-                <!-- Date Filters -->
                 <div class="flex flex-wrap gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800" id="dateFilters">
                     <button onclick="filterDate('all')" class="date-btn px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-all">All Time</button>
                     <button onclick="filterDate('1d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 24h</button>
@@ -139,7 +132,6 @@
                     <button onclick="filterDate('30d')" class="date-btn px-3 py-1 rounded-lg font-semibold text-slate-400 hover:text-white transition-all">Past 30d</button>
                 </div>
 
-                <!-- Dropdowns for Regions and Handles -->
                 <div class="flex flex-wrap gap-2">
                     <select id="regionSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none transition-colors">
                         <option value="All">All Regions / Continents</option>
@@ -156,7 +148,6 @@
             </div>
         </div>
 
-        <!-- Data Grid -->
         <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
         <div class="flex justify-center mb-8">
@@ -288,7 +279,7 @@
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `⏳ Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 20) { resetSyncButton(); showToast("⚠️ Render limits active. Task finishing silently.", "warning"); }
+                        if (secondsElapsed > 25) { resetSyncButton(); showToast("⚠️ Render limits active. Task finishing silently.", "warning"); }
                     }, 1000);
                 } 
                 else if (data.event === "sync_started_silent") {
@@ -299,7 +290,7 @@
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `🤖 Auto-Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 20) resetSyncButton();
+                        if (secondsElapsed > 25) resetSyncButton();
                     }, 1000);
                 }
                 else if (data.event === "new_intel") {
@@ -314,7 +305,7 @@
                 else if (data.event === "sync_finished_no_data") {
                     resetSyncButton();
                     updateSyncBadge(data.time);
-                    if (!data.silent) showToast("ℹ️ Sweep Finished. No new records found.", "warning");
+                    if (!data.silent) showToast("ℹ️ Sweep Finished. No new records found matching strict criteria.", "warning");
                 }
             };
 
@@ -405,7 +396,7 @@
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
                     const handleBadge = (item.handle && item.handle !== 'N/A') ? `<span class="text-[10px] text-indigo-400 font-mono bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">${item.handle}</span>` : '';
-                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/80">🔑 ${item.keyword}</span>` : '';
+                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/80">${item.keyword}</span>` : '';
 
                     const card = `
                         <a href="${item.link}" target="_blank" class="block group fade-in">
@@ -461,7 +452,6 @@
             fetchNews(true);
         }
 
-        // 500ms Input Debounce for Live Web Search
         let searchTimeout;
         function handleSearch() {
             clearTimeout(searchTimeout);
