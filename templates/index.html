@@ -26,6 +26,13 @@
             100% { transform: rotate(360deg); }
         }
         .animate-radar { animation: radar-sweep 2.5s linear infinite; }
+        
+        /* Smooth Fade In */
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="bg-dark text-slate-300 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
@@ -41,8 +48,8 @@
             <div class="absolute inset-0 rounded-full animate-radar bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(99,102,241,0.4)_360deg)]"></div>
             <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
         </div>
-        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">BULLETPROOF INTELLIGENCE SWEEP</h3>
-        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Ingesting global & regional outlets...</p>
+        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HIGH-SPEED ASYNC SWEEP</h3>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Executing concurrent batch processing...</p>
         <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">
             Dismiss & Run in Background
         </button>
@@ -98,7 +105,7 @@
         <!-- Filters Console -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             <div class="relative">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search global intel database by keywords..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search global intel database by keywords..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
             <!-- Fully Exposed Media Outlet Buttons -->
@@ -129,7 +136,7 @@
 
                 <!-- Dropdowns for Regions and Handles -->
                 <div class="flex flex-wrap gap-2">
-                    <select id="regionSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none">
+                    <select id="regionSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none transition-colors">
                         <option value="All">All Regions / Continents</option>
                         <option value="Middle East">Middle East</option>
                         <option value="Africa">Africa</option>
@@ -137,7 +144,7 @@
                         <option value="Global">Global</option>
                     </select>
 
-                    <select id="handleSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none max-w-[200px]">
+                    <select id="handleSelect" onchange="applyDropdownFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none max-w-[200px] transition-colors">
                         <option value="All">All Target Handles</option>
                     </select>
                 </div>
@@ -187,6 +194,26 @@
             'Hacker News': 'bg-orange-500/10 text-orange-400 border-orange-500/20'
         };
 
+        // Professional Skeleton Loader HTML
+        const skeletonCard = `
+            <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-44 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between mb-4">
+                        <div class="h-4 bg-slate-700/50 rounded w-1/4"></div>
+                        <div class="h-4 bg-slate-700/50 rounded w-1/6"></div>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="h-3 bg-slate-700/50 rounded w-3/4"></div>
+                        <div class="h-3 bg-slate-700/50 rounded w-full"></div>
+                        <div class="h-3 bg-slate-700/50 rounded w-5/6"></div>
+                    </div>
+                </div>
+                <div class="border-t border-slate-700/50 pt-3 mt-4 flex justify-between">
+                    <div class="h-3 bg-slate-700/50 rounded w-1/4"></div>
+                    <div class="h-3 bg-slate-700/50 rounded w-1/5"></div>
+                </div>
+            </div>`;
+
         setInterval(() => { fetch(`${API_BASE}/api/ping`).catch(() => {}); }, 300000);
 
         function showToast(message, type = 'info') {
@@ -230,7 +257,6 @@
             ws = new WebSocket(WS_URL);
             const statusBadge = document.getElementById('ws-status');
             const syncBtn = document.getElementById('sync-btn');
-            const progText = document.getElementById('sync-progress-text');
             
             ws.onopen = () => {
                 statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
@@ -244,15 +270,14 @@
                     syncBtn.classList.replace('bg-indigo-600', 'bg-slate-700');
                     syncBtn.disabled = true;
                     showSyncOverlay();
-                    if(progText) progText.innerHTML = "Ingesting regional & global feeds...";
-                    showToast("⚡ Intelligence sweep initiated across live channels...", "info");
+                    showToast("⚡ High-speed async sweep initiated...", "info");
                     
                     clearInterval(syncTimerInterval);
                     secondsElapsed = 0;
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `⏳ Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 150) resetSyncButton();
+                        if (secondsElapsed > 20) { resetSyncButton(); showToast("⚠️ Render rate limits active. Task finishing silently.", "warning"); }
                     }, 1000);
                 } 
                 else if (data.event === "sync_started_silent") {
@@ -263,11 +288,8 @@
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `🤖 Auto-Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 150) resetSyncButton();
+                        if (secondsElapsed > 20) resetSyncButton();
                     }, 1000);
-                }
-                else if (data.event === "sync_progress") {
-                    if(progText) progText.innerHTML = `${data.step}...`;
                 }
                 else if (data.event === "new_intel") {
                     resetSyncButton();
@@ -334,7 +356,8 @@
             
             if (overwrite) {
                 currentPage = 1;
-                grid.innerHTML = '<div class="col-span-full text-center text-slate-500 py-16 animate-pulse text-xs font-mono">Querying database...</div>';
+                // Render 6 skeleton cards for a professional loading feel
+                grid.innerHTML = skeletonCard.repeat(6);
             }
             
             try {
@@ -358,7 +381,7 @@
 
                 if (data.length === 0 && currentPage === 1) {
                     grid.innerHTML = `
-                        <div class="col-span-full text-center text-slate-500 py-16 bg-card/20 rounded-2xl border border-bordercolor">
+                        <div class="col-span-full text-center text-slate-500 py-16 bg-card/20 rounded-2xl border border-bordercolor fade-in">
                             <p class="text-xs font-medium text-slate-400">No records found matching your active filter criteria.</p>
                             <p class="text-[11px] text-slate-600 mt-1">If feeds are empty, click 'Sync Live Feed' above.</p>
                         </div>`;
@@ -374,7 +397,7 @@
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded border border-slate-700/80">🔑 ${item.keyword}</span>` : '';
 
                     const card = `
-                        <a href="${item.link}" target="_blank" class="block group">
+                        <a href="${item.link}" target="_blank" class="block group fade-in">
                             <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg hover:shadow-indigo-500/5 h-full flex flex-col justify-between relative overflow-hidden">
                                 <div>
                                     <div class="flex items-center justify-between mb-3">

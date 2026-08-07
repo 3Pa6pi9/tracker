@@ -11,15 +11,15 @@ import os
 import asyncio
 import feedparser
 import urllib.parse
+import httpx
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
-feedparser.USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
+# Configure Logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="10.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="10.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,56 +30,39 @@ app.add_middleware(
 )
 
 DB_NAME = "tracker_data.db"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# --- DIRECT MEDIA OUTLETS ---
+# --- MEDIA OUTLETS & TARGETS ---
 DIRECT_FEEDS = [
-    # Middle East / RED Stream Media
     {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East", "keyword": "Feed: Al Jazeera"},
     {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East", "keyword": "Feed: Middle East Eye"},
     {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East", "keyword": "Feed: Arab News"},
     {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East", "keyword": "Feed: Times of Israel"},
-    
-    # Africa & Europe / GENERAL Stream Media
     {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa", "keyword": "Feed: Africanews"},
     {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa", "keyword": "Feed: AllAfrica"},
     {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe", "keyword": "Feed: DW News"},
-    
-    # Global / ALL Stream Media
     {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global", "keyword": "Feed: BBC World"},
     {"url": "https://news.google.com/rss/search?q=geopolitics+OR+diplomacy+OR+sanctions&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "ALL", "region": "Global", "keyword": "Topic: Geopolitics/Diplomacy"}
 ]
 
-# --- TARGET HANDLES ---
-RED_TARGETS = [
-    {"handle": "@KingSalman", "region": "Middle East"}, {"handle": "@MohamedBinZayed", "region": "Middle East"},
-    {"handle": "@HHShkMohd", "region": "Middle East"}, {"handle": "@TamimBinHamad", "region": "Middle East"},
-    {"handle": "@RTErdogan", "region": "Middle East"}, {"handle": "@netanyahu", "region": "Middle East"},
-    {"handle": "@FaisalbinFarhan", "region": "Middle East"}, {"handle": "@KSAMOFA", "region": "Middle East"},
-    {"handle": "@KSAmofaEN", "region": "Middle East"}, {"handle": "@ABZayed", "region": "Middle East"},
-    {"handle": "@mofauae", "region": "Middle East"}, {"handle": "@OFMUAE", "region": "Middle East"},
-    {"handle": "@MBA_AlThani_", "region": "Middle East"}, {"handle": "@MofaQatar_EN", "region": "Middle East"},
-    {"handle": "@IsraelMFA", "region": "Middle East"}, {"handle": "@araghchi", "region": "Middle East"},
-    {"handle": "@IRIMFA_EN", "region": "Middle East"}, {"handle": "@MFATurkiye", "region": "Middle East"}
-]
+RED_TARGETS = [{"handle": h, "region": "Middle East"} for h in [
+    "@KingSalman", "@MohamedBinZayed", "@HHShkMohd", "@TamimBinHamad", "@RTErdogan", "@netanyahu", 
+    "@FaisalbinFarhan", "@KSAMOFA", "@KSAmofaEN", "@ABZayed", "@mofauae", "@OFMUAE", "@MBA_AlThani_", 
+    "@MofaQatar_EN", "@IsraelMFA", "@araghchi", "@IRIMFA_EN", "@MFATurkiye"
+]]
 
-GENERAL_TARGETS = [
-    {"handle": "@WilliamsRuto", "region": "Africa"}, {"handle": "@PaulKagame", "region": "Africa"},
-    {"handle": "@CyrilRamaphosa", "region": "Africa"}, {"handle": "@officialABAT", "region": "Africa"},
-    {"handle": "@AlsisiOfficial", "region": "Africa"}, {"handle": "@MFAEthiopia", "region": "Africa"},
-    {"handle": "@MusaliaMudavadi", "region": "Africa"}, {"handle": "@ForeignOfficeKE", "region": "Africa"},
-    {"handle": "@RonaldLamola", "region": "Africa"}, {"handle": "@DIRCO_ZA", "region": "Africa"},
-    {"handle": "@NigeriaMFA", "region": "Africa"}, {"handle": "@MFAEgOfficial", "region": "Africa"},
-    {"handle": "@MfaEgypt", "region": "Africa"}, {"handle": "@UrugwiroVillage", "region": "Africa"},
-    {"handle": "@NGRPresident", "region": "Africa"}, {"handle": "@EmmanuelMacron", "region": "Europe"},
-    {"handle": "@GiorgiaMeloni", "region": "Europe"}, {"handle": "@sanchezcastejon", "region": "Europe"},
-    {"handle": "@donaldtusk", "region": "Europe"}, {"handle": "@_FriedrichMerz", "region": "Europe"},
-    {"handle": "@bundeskanzler", "region": "Europe"}, {"handle": "@AussenMinDE", "region": "Europe"},
-    {"handle": "@AuswaertigesAmt", "region": "Europe"}, {"handle": "@GermanyDiplo", "region": "Europe"},
-    {"handle": "@Ed_Miliband", "region": "Europe"}, {"handle": "@FCDOGovUK", "region": "Europe"}
-]
+GENERAL_TARGETS = [{"handle": h, "region": "Africa"} for h in [
+    "@WilliamsRuto", "@PaulKagame", "@CyrilRamaphosa", "@officialABAT", "@AlsisiOfficial", "@MFAEthiopia", 
+    "@MusaliaMudavadi", "@ForeignOfficeKE", "@RonaldLamola", "@DIRCO_ZA", "@NigeriaMFA", "@MFAEgOfficial", 
+    "@MfaEgypt", "@UrugwiroVillage", "@NGRPresident"
+]] + [{"handle": h, "region": "Europe"} for h in [
+    "@EmmanuelMacron", "@GiorgiaMeloni", "@sanchezcastejon", "@donaldtusk", "@_FriedrichMerz", "@bundeskanzler", 
+    "@AussenMinDE", "@AuswaertigesAmt", "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK"
+]]
 
 GLOBAL_SEARCH_TOPICS = ["Geopolitics", "Bilateral Relations", "Trade Sanctions", "Migration Crisis", "Foreign Policy"]
 
+# --- WEBSOCKET MANAGER ---
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -101,8 +84,9 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# --- DATABASE ENGINE ---
 def get_db_connection():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, timeout=15)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -123,26 +107,23 @@ def init_db():
             keyword TEXT
         )
     ''')
-    
-    # Schema check for legacy databases
     c.execute("PRAGMA table_info(news)")
     cols = [col[1] for col in c.fetchall()]
     if "keyword" not in cols:
-        try:
-            c.execute("ALTER TABLE news ADD COLUMN keyword TEXT DEFAULT 'N/A'")
-        except Exception:
-            pass
-
+        try: c.execute("ALTER TABLE news ADD COLUMN keyword TEXT DEFAULT 'N/A'")
+        except Exception: pass
     c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_reg ON news (category, source, region, published_date);')
     conn.commit()
     conn.close()
 
-def save_items(items):
+def save_items_bulk(items):
     if not items: return 0
     conn = get_db_connection()
     c = conn.cursor()
     added = 0
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Bulk insert for maximum SQLite performance
     for item in items:
         try:
             c.execute('''
@@ -162,10 +143,17 @@ def save_items(items):
     conn.close()
     return added
 
-def parse_rss_url(url, source_label, category, handle="N/A", region="Global", keyword="N/A", limit=12):
+# --- ASYNC HIGH-SPEED SCRAPER ---
+async def fetch_feed_async(client, url, source_label, category, handle="N/A", region="Global", keyword="N/A", limit=10):
+    """Fetches a single RSS feed non-blockingly with a strict timeout."""
     items = []
     try:
-        feed = feedparser.parse(url)
+        response = await client.get(url, timeout=12.0, follow_redirects=True)
+        response.raise_for_status()
+        
+        # Offload XML parsing to a separate thread to prevent event loop blocking
+        feed = await asyncio.to_thread(feedparser.parse, response.content)
+        
         for entry in feed.entries[:limit]:
             title = getattr(entry, 'title', '')
             link = getattr(entry, 'link', '')
@@ -190,66 +178,62 @@ def parse_rss_url(url, source_label, category, handle="N/A", region="Global", ke
                     'keyword': keyword
                 })
     except Exception as e:
-        logger.error(f"Error reading feed {url}: {e}")
+        logger.debug(f"Failed to fetch {url}: {str(e)}")
     return items
 
-def run_bulletproof_sweep():
-    logger.info("Executing bulletproof multi-source sweep...")
-    total_new = 0
+async def run_fast_sweep():
+    logger.info("Executing Enterprise-Grade Async Sweep...")
+    tasks = []
+    
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
+        # 1. Direct Feeds
+        for feed in DIRECT_FEEDS:
+            tasks.append(fetch_feed_async(client, feed["url"], feed["source"], feed["category"], region=feed["region"], keyword=feed.get("keyword", "Direct Feed")))
 
-    # 1. Direct Media Outlets
-    for feed in DIRECT_FEEDS:
-        total_new += save_items(parse_rss_url(feed["url"], feed["source"], feed["category"], region=feed["region"], keyword=feed.get("keyword", "Direct Feed"), limit=15))
-        time.sleep(0.2)
+        # 2. Reddit & Hacker News
+        for topic in GLOBAL_SEARCH_TOPICS:
+            encoded = urllib.parse.quote(topic)
+            tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword=f"Topic: {topic}"))
+            tasks.append(fetch_feed_async(client, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword=f"Topic: {topic}"))
 
-    # 2. Reddit & Hacker News Global Topics
-    for topic in GLOBAL_SEARCH_TOPICS:
-        encoded = urllib.parse.quote(topic)
-        total_new += save_items(parse_rss_url(f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword=f"Topic: {topic}", limit=8))
-        total_new += save_items(parse_rss_url(f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword=f"Topic: {topic}", limit=8))
-        time.sleep(0.2)
+        # 3. Target Handles (RED & GENERAL)
+        for category, target_list in [("RED", RED_TARGETS), ("GENERAL", GENERAL_TARGETS)]:
+            for target in target_list:
+                h = target["handle"]
+                r = target["region"]
+                encoded_h = urllib.parse.quote(h)
+                # Google News
+                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, keyword=f"Target: {h}"))
+                # X (Twitter) via Google News
+                tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, keyword=f"Target: {h}"))
 
-    # 3. RED Targets
-    for target in RED_TARGETS:
-        h = target["handle"]
-        r = target["region"]
-        query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(query_url, "Google News", "RED", handle=h, region=r, keyword=f"Target: {h}", limit=8))
-        
-        twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "RED", handle=h, region=r, keyword=f"Target: {h}", limit=8))
-        time.sleep(0.2)
+        # Execute all HTTP requests concurrently in batches to avoid rate limits
+        all_results = []
+        batch_size = 15
+        for i in range(0, len(tasks), batch_size):
+            batch = tasks[i:i+batch_size]
+            batch_results = await asyncio.gather(*batch, return_exceptions=True)
+            for res in batch_results:
+                if isinstance(res, list): all_results.extend(res)
+            await asyncio.sleep(0.5) # Polite rate-limit buffering
 
-    # 4. GENERAL Targets (Formerly GREEN)
-    for target in GENERAL_TARGETS:
-        h = target["handle"]
-        r = target["region"]
-        query_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(query_url, "Google News", "GENERAL", handle=h, region=r, keyword=f"Target: {h}", limit=8))
-        
-        twitter_url = f"https://news.google.com/rss/search?q={urllib.parse.quote(h)}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
-        total_new += save_items(parse_rss_url(twitter_url, "X (Twitter)", "GENERAL", handle=h, region=r, keyword=f"Target: {h}", limit=8))
-        time.sleep(0.2)
-
-    return total_new
+        # Save all results to DB in one fast transaction
+        total_new = await asyncio.to_thread(save_items_bulk, all_results)
+        return total_new
 
 is_syncing = False
 
-async def async_sweep_task(silent=False):
+async def async_sweep_controller(silent=False):
     global is_syncing
     if is_syncing: return
     is_syncing = True
 
-    if not silent:
-        await manager.broadcast(json.dumps({"event": "sync_started"}))
-    else:
-        await manager.broadcast(json.dumps({"event": "sync_started_silent"}))
+    event_start = "sync_started_silent" if silent else "sync_started"
+    await manager.broadcast(json.dumps({"event": event_start}))
 
     try:
-        if not silent:
-            await manager.broadcast(json.dumps({"event": "sync_progress", "step": "Ingesting Direct Media Outlets & Targets"}))
-        
-        total_added = await asyncio.to_thread(run_bulletproof_sweep)
+        # The entire heavy-lifting process is offloaded to the async engine
+        total_added = await run_fast_sweep()
 
         if total_added > 0:
             await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent}))
@@ -263,15 +247,16 @@ async def async_sweep_task(silent=False):
 
 async def background_loop():
     while True:
-        await asyncio.sleep(900)
-        await async_sweep_task(silent=True)
+        await asyncio.sleep(900) # 15 min Auto-Pilot
+        await async_sweep_controller(silent=True)
 
 @app.on_event("startup")
 async def startup_event():
     init_db()
     asyncio.create_task(background_loop())
-    asyncio.create_task(async_sweep_task(silent=True))
+    asyncio.create_task(async_sweep_controller(silent=True))
 
+# --- API ENDPOINTS ---
 @app.get("/", response_class=FileResponse)
 def read_root():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -298,7 +283,7 @@ async def websocket_endpoint(websocket: WebSocket):
 async def trigger_manual_sync(background_tasks: BackgroundTasks, silent: bool = False):
     global is_syncing
     if is_syncing: return {"status": "Sync already in progress."}
-    background_tasks.add_task(async_sweep_task, silent)
+    background_tasks.add_task(async_sweep_controller, silent)
     return {"status": "Sync process initiated."}
 
 @app.get("/api/news")
