@@ -41,7 +41,7 @@
             </div>
             <div id="briefing-content" class="font-mono text-xs text-slate-300 space-y-3 overflow-y-auto pr-2 flex-grow bg-slate-950/60 p-4 rounded-xl border border-slate-800/80">Generating brief...</div>
             <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
-                <span class="text-[10px] text-slate-500 font-mono">Formatted for Executive Reporting</span>
+                <span class="text-[10px] text-slate-500 font-mono">Graded via Keyword Density Heat Matrix</span>
                 <button onclick="copyBriefingToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors shadow-lg flex items-center gap-1.5">📋 Copy Briefing Text</button>
             </div>
         </div>
@@ -354,7 +354,7 @@
                 else if (data.event === "sync_finished_no_data") {
                     resetSyncButton();
                     updateSyncBadge(data.time);
-                    if (!data.silent) showToast("ℹ️ Sweep Finished. No new records found.", "warning");
+                    if (!data.silent) showToast("ℹ️ Sweep Finished. No new records found matching strict criteria.", "warning");
                 }
             };
 

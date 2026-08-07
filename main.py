@@ -18,7 +18,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="17.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="18.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,10 +31,11 @@ app.add_middleware(
 DB_NAME = "tracker_data.db"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+# --- THREAT CLASSIFIER WEIGHTS ---
 CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
 ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
 
-# --- COMPREHENSIVE 3X EXPANDED KEYWORD MATRICES ---
+# --- COMPREHENSIVE KEYWORD MATRICES ---
 RED_KEYWORDS = [
     "muslim brotherhood", "cair", "migration crisis", "refugee", "border security",
     "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia",
@@ -70,20 +71,15 @@ GLOBAL_SEARCH_TOPICS = [
 ]
 
 DIRECT_FEEDS = [
-    # RED Stream Direct Media & Search Feeds
     {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
     {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
     {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East"},
     {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East"},
     {"url": "https://news.google.com/rss/search?q=Middle+East+conflict+OR+Gaza+OR+Iran&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "RED", "region": "Middle East"},
-    
-    # GENERAL Stream Direct Media & Search Feeds
     {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa"},
     {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa"},
     {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe"},
     {"url": "https://news.google.com/rss/search?q=Africa+diplomacy+OR+EU+foreign+policy&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "GENERAL", "region": "Global"},
-    
-    # ALL Stream Media
     {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"}
 ]
 
@@ -161,13 +157,34 @@ def init_db():
     conn.commit()
     conn.close()
 
-def classify_threat(title):
+# --- NEW KEYWORD DENSITY HEAT SCORE CLASSIFIER ---
+def classify_threat_by_heat(title):
     t_lower = title.lower()
-    if any(w in t_lower for w in CRITICAL_WORDS):
+    heat_score = 0
+    
+    # +1 Point for every base regional/category keyword hit
+    all_base_kws = set([k.lower() for k in RED_KEYWORDS + GENERAL_KEYWORDS])
+    for kw in all_base_kws:
+        if kw in t_lower:
+            heat_score += 1
+            
+    # +1 Point for tension/elevated words
+    for ew in ELEVATED_WORDS:
+        if ew.lower() in t_lower:
+            heat_score += 1
+
+    # +2 Points for combat/fatal words
+    for cw in CRITICAL_WORDS:
+        if cw.lower() in t_lower:
+            heat_score += 2
+            
+    # Matrix Evaluation
+    if heat_score >= 3:
         return "CRITICAL"
-    if any(w in t_lower for w in ELEVATED_WORDS):
+    elif heat_score >= 1:
         return "ELEVATED"
-    return "INFORMATIONAL"
+    else:
+        return "INFORMATIONAL"
 
 def save_items_bulk(items):
     if not items: return 0
@@ -221,11 +238,9 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
                     actual_badge = keyword_badge
                     text_lower = title.lower()
 
-                    # Handle Auto-Pass Logic
                     if filter_keywords:
                         matched_kw = next((kw for kw in filter_keywords if kw in text_lower), None)
                         
-                        # If query is bound to a handle, auto-pass if headline mentions handle or surname
                         handle_clean = handle.replace("@", "").lower() if handle != "N/A" else ""
                         if not matched_kw and handle_clean and handle_clean in text_lower:
                             matched_kw = handle
@@ -244,7 +259,7 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
                         'region': region,
                         'published_date': pub_date,
                         'keyword': actual_badge,
-                        'threat_level': classify_threat(title)
+                        'threat_level': classify_threat_by_heat(title)
                     })
         except Exception:
             pass
