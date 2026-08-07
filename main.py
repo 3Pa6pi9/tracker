@@ -18,7 +18,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="14.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="17.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,43 +31,59 @@ app.add_middleware(
 DB_NAME = "tracker_data.db"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# --- THREAT CLASSIFIER KEYWORDS ---
-CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear"]
-ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis"]
+CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
+ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
 
-# --- STRICT KEYWORD FILTERS ---
+# --- COMPREHENSIVE 3X EXPANDED KEYWORD MATRICES ---
 RED_KEYWORDS = [
-    "Muslim Brotherhood", "CAIR", "Migration Crisis", "Refugee Policies", "Border Security",
-    "Illegal Immigration", "Sudan", "Somalia", "Iran", "Ukraine", "Russia",
-    "Political Demonstrations", "Public Protests", "Parliament Debates", "Counter-Terrorism",
-    "African countries", "Western countries"
+    "muslim brotherhood", "cair", "migration crisis", "refugee", "border security",
+    "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia",
+    "demonstration", "protest", "parliament", "counter-terrorism", "terror",
+    "israel", "gaza", "palestine", "hamas", "hezbollah", "lebanon", "syria",
+    "yemen", "houthi", "saudi", "qatar", "uae", "turkey", "egypt", "iraq",
+    "strike", "war", "military", "troops", "defense", "missile", "security",
+    "conflict", "unrest", "attack", "border", "ceasefire", "peace", "hostage",
+    "forces", "army", "netanyahu", "erdogan", "salman", "zayed", "araghchi",
+    "red sea", "drone", "sanctions", "crisis", "airstrike", "casualty", "retaliation",
+    "african countries", "western countries", "middle east", "idf", "mfa"
 ]
 
 GENERAL_KEYWORDS = [
-    "bilateral relations", "state visit", "diplomatic ties", "strategic dialogue",
-    "ambassador meeting", "foreign ministry", "trade agreement", "foreign investment",
+    "bilateral", "state visit", "diplomatic", "diplomacy", "strategic dialogue",
+    "ambassador", "foreign ministry", "trade agreement", "foreign investment",
     "economic partnership", "trade deal", "sanctions", "memorandum of understanding",
-    "MoU", "security partnership", "defense pact", "military agreement",
+    "mou", "security partnership", "defense pact", "military agreement",
     "joint military exercise", "security cooperation", "defense treaty",
-    "treaty signed", "international summit", "multilateral agreement",
-    "UN resolution", "international convention", "global governance",
-    "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance"
+    "treaty", "summit", "multilateral", "un resolution", "convention",
+    "global governance", "geopolitical", "resource diplomacy", "foreign influence",
+    "strategic alliance", "kenya", "rwanda", "south africa", "nigeria", "ethiopia",
+    "france", "germany", "spain", "poland", "uk", "britain", "eu", "european union",
+    "african union", "macron", "meloni", "ruto", "kagame", "ramaphosa", "sanchez",
+    "tusk", "scholz", "merz", "cooperation", "talks", "envoy", "minister", "president",
+    "prime minister", "foreign policy", "aid", "development", "agreement", "pact"
 ]
 
 GLOBAL_SEARCH_TOPICS = [
     "Geopolitics", "Bilateral Relations", "Trade Sanctions", 
     "Foreign Policy", "POTUS", "White House", "US President",
-    "Pentagon", "Kremlin", "NATO"
+    "Pentagon", "Kremlin", "NATO", "Middle East Crisis", "Red Sea Security"
 ]
 
 DIRECT_FEEDS = [
+    # RED Stream Direct Media & Search Feeds
     {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
     {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
     {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East"},
     {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East"},
+    {"url": "https://news.google.com/rss/search?q=Middle+East+conflict+OR+Gaza+OR+Iran&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "RED", "region": "Middle East"},
+    
+    # GENERAL Stream Direct Media & Search Feeds
     {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa"},
     {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa"},
     {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe"},
+    {"url": "https://news.google.com/rss/search?q=Africa+diplomacy+OR+EU+foreign+policy&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "GENERAL", "region": "Global"},
+    
+    # ALL Stream Media
     {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"}
 ]
 
@@ -180,12 +196,11 @@ def save_items_bulk(items):
     conn.close()
     return added
 
-async def fetch_feed_max_speed(client, semaphore, url, source_label, category, handle="N/A", region="Global", keyword_badge="N/A", filter_keywords=None, limit=20):
+async def fetch_feed_max_speed(client, semaphore, url, source_label, category, handle="N/A", region="Global", keyword_badge="N/A", filter_keywords=None, limit=40):
     items = []
     async with semaphore:
         try:
-            # Aggressive 3.5s timeout per request
-            response = await client.get(url, timeout=3.5, follow_redirects=True)
+            response = await client.get(url, timeout=4.0, follow_redirects=True)
             response.raise_for_status()
             
             feed = await asyncio.to_thread(feedparser.parse, response.content)
@@ -204,16 +219,22 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
 
                 if title and link:
                     actual_badge = keyword_badge
-                    
+                    text_lower = title.lower()
+
+                    # Handle Auto-Pass Logic
                     if filter_keywords:
-                        text_lower = title.lower()
-                        matched_kw = next((kw for kw in filter_keywords if kw.lower() in text_lower), None)
+                        matched_kw = next((kw for kw in filter_keywords if kw in text_lower), None)
+                        
+                        # If query is bound to a handle, auto-pass if headline mentions handle or surname
+                        handle_clean = handle.replace("@", "").lower() if handle != "N/A" else ""
+                        if not matched_kw and handle_clean and handle_clean in text_lower:
+                            matched_kw = handle
+                            
                         if not matched_kw:
                             continue
+                            
                         actual_badge = f"Matched: '{matched_kw}'"
                     
-                    threat = classify_threat(title)
-
                     items.append({
                         'title': title.replace(" - X", "").replace(" on X", "").strip(),
                         'link': link,
@@ -223,7 +244,7 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
                         'region': region,
                         'published_date': pub_date,
                         'keyword': actual_badge,
-                        'threat_level': threat
+                        'threat_level': classify_threat(title)
                     })
         except Exception:
             pass
@@ -231,9 +252,8 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
 
 async def run_live_web_search_async(q_text: str, category: str = "ALL"):
     encoded = urllib.parse.quote(q_text)
-    semaphore = asyncio.Semaphore(50)
-    
-    limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+    semaphore = asyncio.Semaphore(60)
+    limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
         tasks = [
             fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword_badge=f"Live Search: {q_text}"),
@@ -248,33 +268,22 @@ async def run_live_web_search_async(q_text: str, category: str = "ALL"):
             await asyncio.to_thread(save_items_bulk, all_new)
 
 async def run_fast_sweep():
-    logger.info("Executing Maximum Speed Concurrency Sweep...")
+    logger.info("Executing Maximum Yield Concurrency Sweep...")
     tasks = []
-    
-    # Allow 50 parallel requests
-    semaphore = asyncio.Semaphore(50)
-    limits = httpx.Limits(max_keepalive_connections=50, max_connections=100)
+    semaphore = asyncio.Semaphore(60)
+    limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
-        # 1. Direct Feeds
         for feed in DIRECT_FEEDS:
-            kw_filter = None
-            if feed["category"] == "RED": kw_filter = RED_KEYWORDS
-            elif feed["category"] == "GENERAL": kw_filter = GENERAL_KEYWORDS
-            
-            tasks.append(fetch_feed_max_speed(
-                client, semaphore, feed["url"], feed["source"], feed["category"], 
-                region=feed["region"], filter_keywords=kw_filter, keyword_badge=f"Feed: {feed['source']}"
-            ))
+            kw_filter = RED_KEYWORDS if feed["category"] == "RED" else GENERAL_KEYWORDS if feed["category"] == "GENERAL" else None
+            tasks.append(fetch_feed_max_speed(client, semaphore, feed["url"], feed["source"], feed["category"], region=feed["region"], filter_keywords=kw_filter, keyword_badge=f"Feed: {feed['source']}"))
 
-        # 2. Global Topics
         for topic in GLOBAL_SEARCH_TOPICS:
             encoded = urllib.parse.quote(topic)
             tasks.append(fetch_feed_max_speed(client, semaphore, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
             tasks.append(fetch_feed_max_speed(client, semaphore, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
             tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
 
-        # 3. Target Handles
         for category, target_list, kw_list in [("RED", RED_TARGETS, RED_KEYWORDS), ("GENERAL", GENERAL_TARGETS, GENERAL_KEYWORDS)]:
             for target in target_list:
                 h = target["handle"]
@@ -283,13 +292,10 @@ async def run_fast_sweep():
                 tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, filter_keywords=kw_list))
                 tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, filter_keywords=kw_list))
 
-        # Execute ALL tasks in parallel at maximum speed
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        
         all_results = []
         for res in results:
-            if isinstance(res, list): 
-                all_results.extend(res)
+            if isinstance(res, list): all_results.extend(res)
 
         total_new = await asyncio.to_thread(save_items_bulk, all_results)
         return total_new
@@ -307,7 +313,6 @@ async def async_sweep_controller(silent=False):
     try:
         total_added = await run_fast_sweep()
         timestamp = datetime.now().strftime("%I:%M %p")
-
         if total_added > 0:
             await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
         else:
@@ -329,7 +334,6 @@ async def startup_event():
     asyncio.create_task(background_loop())
     asyncio.create_task(async_sweep_controller(silent=True))
 
-# --- API ENDPOINTS ---
 @app.get("/", response_class=FileResponse)
 def read_root():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -363,7 +367,10 @@ async def trigger_manual_sync(background_tasks: BackgroundTasks, silent: bool = 
 async def get_news(
     category: str = Query("ALL"), source: str = Query("All"),
     region: str = Query("All"), handle: str = Query("All"),
-    time_filter: str = Query("all"), q: str = Query(None),
+    time_filter: str = Query("all"),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    q: str = Query(None),
     page: int = Query(1), limit: int = Query(30)
 ):
     if q and len(q.strip()) > 1:
@@ -392,12 +399,34 @@ async def get_news(
         query += " AND handle = ?"
         params.append(handle)
 
-    if time_filter == "1d":
-        query += " AND datetime(published_date) >= datetime('now', '-1 day')"
-    elif time_filter == "7d":
-        query += " AND datetime(published_date) >= datetime('now', '-7 days')"
-    elif time_filter == "30d":
-        query += " AND datetime(published_date) >= datetime('now', '-30 days')"
+    if start_date or end_date:
+        if start_date:
+            query += " AND datetime(published_date) >= datetime(?)"
+            params.append(f"{start_date} 00:00:00")
+        if end_date:
+            query += " AND datetime(published_date) <= datetime(?)"
+            params.append(f"{end_date} 23:59:59")
+    else:
+        if time_filter == "1h":
+            query += " AND datetime(published_date) >= datetime('now', '-1 hour')"
+        elif time_filter == "4h":
+            query += " AND datetime(published_date) >= datetime('now', '-4 hours')"
+        elif time_filter == "8h":
+            query += " AND datetime(published_date) >= datetime('now', '-8 hours')"
+        elif time_filter == "12h":
+            query += " AND datetime(published_date) >= datetime('now', '-12 hours')"
+        elif time_filter == "1d":
+            query += " AND datetime(published_date) >= datetime('now', '-1 day')"
+        elif time_filter == "3d":
+            query += " AND datetime(published_date) >= datetime('now', '-3 days')"
+        elif time_filter == "7d":
+            query += " AND datetime(published_date) >= datetime('now', '-7 days')"
+        elif time_filter == "14d":
+            query += " AND datetime(published_date) >= datetime('now', '-14 days')"
+        elif time_filter == "30d":
+            query += " AND datetime(published_date) >= datetime('now', '-30 days')"
+        elif time_filter == "90d":
+            query += " AND datetime(published_date) >= datetime('now', '-90 days')"
 
     if q:
         query += " AND (title LIKE ? OR handle LIKE ? OR source LIKE ? OR keyword LIKE ?)"
@@ -427,7 +456,6 @@ def get_stats():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 1. Timeline Chart Data
     cursor.execute("""
         SELECT date(published_date) as date, category, COUNT(*) as count 
         FROM news 
@@ -438,7 +466,6 @@ def get_stats():
     """)
     rows = cursor.fetchall()
     
-    # 2. Global KPI Counters
     cursor.execute("SELECT COUNT(*) FROM news")
     total_intel = cursor.fetchone()[0]
     
