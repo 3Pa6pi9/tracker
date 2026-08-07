@@ -18,7 +18,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="23.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="23.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -194,7 +194,6 @@ def extract_geo_coordinates(title):
             return coords[0], coords[1]
     return "N/A", "N/A"
 
-# --- LIVE CRITICAL ALERT DISPATCH (ROUTED TO CORRECT GROUP) ---
 async def dispatch_telegram_alert(item):
     if not TELEGRAM_BOT_TOKEN: return
     
@@ -208,7 +207,6 @@ async def dispatch_telegram_alert(item):
         try: await client.post(url, data={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown", "disable_web_page_preview": True})
         except Exception: pass
 
-# --- AUTOMATED TELEGRAM DIGEST GENERATOR ---
 async def generate_and_send_digest(period_name: str, specific_chat_id=None, specific_category=None):
     if not TELEGRAM_BOT_TOKEN: return
     
@@ -225,7 +223,6 @@ async def generate_and_send_digest(period_name: str, specific_chat_id=None, spec
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     
     async with httpx.AsyncClient() as client:
-        # RED Digest
         if (not specific_category or specific_category == "RED") and TELEGRAM_CHAT_ID_RED:
             red_intel = [dict(r) for r in rows if r['category'] == 'RED']
             if red_intel:
@@ -242,7 +239,6 @@ async def generate_and_send_digest(period_name: str, specific_chat_id=None, spec
             
         await asyncio.sleep(1)
         
-        # GENERAL Digest
         if (not specific_category or specific_category == "GENERAL") and TELEGRAM_CHAT_ID_GENERAL:
             general_intel = [dict(r) for r in rows if r['category'] == 'GENERAL']
             if general_intel:
@@ -256,9 +252,7 @@ async def generate_and_send_digest(period_name: str, specific_chat_id=None, spec
                 try: await client.post(url, data={"chat_id": target_chat, "text": msg, "parse_mode": "Markdown", "disable_web_page_preview": True})
                 except Exception: pass
 
-# --- TWO-WAY INTERACTIVE TELEGRAM COMMAND LISTENER ---
 async def telegram_command_polling():
-    """Safely isolated continuous polling for Telegram Commands"""
     if not TELEGRAM_BOT_TOKEN: 
         logger.info("No Telegram Bot Token provided. Interactive bot disabled.")
         return
@@ -267,7 +261,6 @@ async def telegram_command_polling():
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
     send_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     
-    # We use a very high timeout here specifically for long-polling
     async with httpx.AsyncClient(timeout=30.0) as client:
         while True:
             try:
@@ -302,15 +295,12 @@ async def telegram_command_polling():
                             await client.post(send_url, data={"chat_id": chat_id, "text": f"📋 *Generating On-Demand {category} Dossier...*", "parse_mode": "Markdown"})
                             await generate_and_send_digest("ON-DEMAND DOSSIER", specific_chat_id=chat_id, specific_category=category)
             except httpx.ReadTimeout:
-                # Normal behavior for long polling, ignore
                 pass
             except Exception as e:
                 logger.error(f"Telegram polling error: {e}")
             
-            # Crucial sleep to release the event loop back to FastAPI
             await asyncio.sleep(2) 
 
-# --- BACKGROUND AUTOMATION LOOP (MORNING/EVENING DIGESTS) ---
 async def automated_digest_loop():
     morning_sent = False
     evening_sent = False
@@ -329,6 +319,13 @@ async def automated_digest_loop():
             morning_sent = False
             evening_sent = False
         await asyncio.sleep(60)
+
+# --- RE-ADDED MISSING BACKGROUND LOOP ---
+async def background_loop():
+    """Runs the silent 15-minute auto-pilot sweep."""
+    while True:
+        await asyncio.sleep(900)
+        await async_sweep_controller(silent=True)
 
 def save_items_bulk(items):
     if not items: return 0, []
@@ -472,12 +469,9 @@ async def async_sweep_controller(silent=False):
     finally:
         is_syncing = False
 
-# --- PROPER ISOLATION OF BACKGROUND TASKS ---
-# This ensures FastAPI binds to the port quickly on Render before launching loops
 @app.on_event("startup")
 async def startup_event():
     init_db()
-    # Create background tasks without blocking the main event loop
     asyncio.create_task(background_loop())
     asyncio.create_task(automated_digest_loop())
     asyncio.create_task(telegram_command_polling())
