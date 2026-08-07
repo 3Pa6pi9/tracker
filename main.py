@@ -18,7 +18,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="18.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="19.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,11 +31,9 @@ app.add_middleware(
 DB_NAME = "tracker_data.db"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# --- THREAT CLASSIFIER WEIGHTS ---
 CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
 ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
 
-# --- COMPREHENSIVE KEYWORD MATRICES ---
 RED_KEYWORDS = [
     "muslim brotherhood", "cair", "migration crisis", "refugee", "border security",
     "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia",
@@ -157,34 +155,21 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- NEW KEYWORD DENSITY HEAT SCORE CLASSIFIER ---
 def classify_threat_by_heat(title):
     t_lower = title.lower()
     heat_score = 0
-    
-    # +1 Point for every base regional/category keyword hit
     all_base_kws = set([k.lower() for k in RED_KEYWORDS + GENERAL_KEYWORDS])
+    
     for kw in all_base_kws:
-        if kw in t_lower:
-            heat_score += 1
-            
-    # +1 Point for tension/elevated words
+        if kw in t_lower: heat_score += 1
     for ew in ELEVATED_WORDS:
-        if ew.lower() in t_lower:
-            heat_score += 1
-
-    # +2 Points for combat/fatal words
+        if ew.lower() in t_lower: heat_score += 1
     for cw in CRITICAL_WORDS:
-        if cw.lower() in t_lower:
-            heat_score += 2
+        if cw.lower() in t_lower: heat_score += 2
             
-    # Matrix Evaluation
-    if heat_score >= 3:
-        return "CRITICAL"
-    elif heat_score >= 1:
-        return "ELEVATED"
-    else:
-        return "INFORMATIONAL"
+    if heat_score >= 3: return "CRITICAL"
+    elif heat_score >= 1: return "ELEVATED"
+    else: return "INFORMATIONAL"
 
 def save_items_bulk(items):
     if not items: return 0
@@ -219,7 +204,6 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
         try:
             response = await client.get(url, timeout=4.0, follow_redirects=True)
             response.raise_for_status()
-            
             feed = await asyncio.to_thread(feedparser.parse, response.content)
             
             for entry in feed.entries[:limit]:
@@ -227,10 +211,8 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
                 link = getattr(entry, 'link', '')
                 
                 try:
-                    if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                        pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                    else:
-                        pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                    else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 except Exception:
                     pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -240,14 +222,11 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
 
                     if filter_keywords:
                         matched_kw = next((kw for kw in filter_keywords if kw in text_lower), None)
-                        
                         handle_clean = handle.replace("@", "").lower() if handle != "N/A" else ""
                         if not matched_kw and handle_clean and handle_clean in text_lower:
                             matched_kw = handle
                             
-                        if not matched_kw:
-                            continue
-                            
+                        if not matched_kw: continue
                         actual_badge = f"Matched: '{matched_kw}'"
                     
                     items.append({
@@ -261,8 +240,7 @@ async def fetch_feed_max_speed(client, semaphore, url, source_label, category, h
                         'keyword': actual_badge,
                         'threat_level': classify_threat_by_heat(title)
                     })
-        except Exception:
-            pass
+        except Exception: pass
     return items
 
 async def run_live_web_search_async(q_text: str, category: str = "ALL"):
@@ -383,10 +361,8 @@ async def get_news(
     category: str = Query("ALL"), source: str = Query("All"),
     region: str = Query("All"), handle: str = Query("All"),
     time_filter: str = Query("all"),
-    start_date: str = Query(None),
-    end_date: str = Query(None),
-    q: str = Query(None),
-    page: int = Query(1), limit: int = Query(30)
+    start_date: str = Query(None), end_date: str = Query(None),
+    q: str = Query(None), page: int = Query(1), limit: int = Query(30)
 ):
     if q and len(q.strip()) > 1:
         await run_live_web_search_async(q.strip(), category)
@@ -401,15 +377,12 @@ async def get_news(
     if category.upper() != "ALL":
         query += " AND category = ?"
         params.append(category.upper())
-        
     if source != "All":
         query += " AND source = ?"
         params.append(source)
-
     if region != "All":
         query += " AND region = ?"
         params.append(region)
-
     if handle != "All":
         query += " AND handle = ?"
         params.append(handle)
@@ -422,26 +395,13 @@ async def get_news(
             query += " AND datetime(published_date) <= datetime(?)"
             params.append(f"{end_date} 23:59:59")
     else:
-        if time_filter == "1h":
-            query += " AND datetime(published_date) >= datetime('now', '-1 hour')"
-        elif time_filter == "4h":
-            query += " AND datetime(published_date) >= datetime('now', '-4 hours')"
-        elif time_filter == "8h":
-            query += " AND datetime(published_date) >= datetime('now', '-8 hours')"
-        elif time_filter == "12h":
-            query += " AND datetime(published_date) >= datetime('now', '-12 hours')"
-        elif time_filter == "1d":
-            query += " AND datetime(published_date) >= datetime('now', '-1 day')"
-        elif time_filter == "3d":
-            query += " AND datetime(published_date) >= datetime('now', '-3 days')"
-        elif time_filter == "7d":
-            query += " AND datetime(published_date) >= datetime('now', '-7 days')"
-        elif time_filter == "14d":
-            query += " AND datetime(published_date) >= datetime('now', '-14 days')"
-        elif time_filter == "30d":
-            query += " AND datetime(published_date) >= datetime('now', '-30 days')"
-        elif time_filter == "90d":
-            query += " AND datetime(published_date) >= datetime('now', '-90 days')"
+        time_mappings = {
+            "1h": "-1 hour", "4h": "-4 hours", "8h": "-8 hours", "12h": "-12 hours",
+            "1d": "-1 day", "3d": "-3 days", "7d": "-7 days", "14d": "-14 days", 
+            "30d": "-30 days", "90d": "-90 days"
+        }
+        if time_filter in time_mappings:
+            query += f" AND datetime(published_date) >= datetime('now', '{time_mappings[time_filter]}')"
 
     if q:
         query += " AND (title LIKE ? OR handle LIKE ? OR source LIKE ? OR keyword LIKE ?)"
