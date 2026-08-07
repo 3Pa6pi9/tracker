@@ -18,7 +18,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="20.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="22.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,9 +31,10 @@ app.add_middleware(
 DB_NAME = "tracker_data.db"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-# --- TELEGRAM WEBHOOK CREDENTIALS (SET THESE IN RENDER DASHBOARD) ---
+# --- TELEGRAM WEBHOOK CREDENTIALS (TWO CHANNELS) ---
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_CHAT_ID_RED = os.getenv("TELEGRAM_CHAT_ID_RED", "")
+TELEGRAM_CHAT_ID_GENERAL = os.getenv("TELEGRAM_CHAT_ID_GENERAL", "")
 
 CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
 ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
@@ -72,7 +73,6 @@ GLOBAL_SEARCH_TOPICS = [
     "Pentagon", "Kremlin", "NATO", "Middle East Crisis", "Red Sea Security"
 ]
 
-# --- GEOSPATIAL COORDINATES MAPPING ---
 GEO_MAPPING = {
     "israel": (31.0461, 34.8516), "gaza": (31.4167, 34.3333), "palestine": (31.9522, 35.2332),
     "lebanon": (33.8547, 35.8623), "syria": (34.8021, 38.9968), "iran": (32.4279, 53.6880),
@@ -194,14 +194,144 @@ def extract_geo_coordinates(title):
             return coords[0], coords[1]
     return "N/A", "N/A"
 
-# --- TELEGRAM DISPATCH FUNCTION ---
+# --- LIVE CRITICAL ALERT DISPATCH (ROUTED TO CORRECT GROUP) ---
 async def dispatch_telegram_alert(item):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID: return
+    if not TELEGRAM_BOT_TOKEN: return
+    
+    # Determine which group to send the alert to based on category
+    chat_id = TELEGRAM_CHAT_ID_RED if item['category'] == 'RED' else TELEGRAM_CHAT_ID_GENERAL
+    if item['category'] == 'ALL': chat_id = TELEGRAM_CHAT_ID_GENERAL # Default ALL to General group
+    
+    if not chat_id: return # Skip if group ID is missing
+
     msg = f"🔴 *CRITICAL THREAT INTERCEPTED*\n\n*Source:* {item['source']}\n*Location:* {item.get('region', 'Global')}\n\n*Headline:* {item['title']}\n\n[ACCESS FULL INTEL]({item['link']})"
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     async with httpx.AsyncClient() as client:
-        try: await client.post(url, data={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"})
+        try: await client.post(url, data={"chat_id": chat_id, "text": msg, "parse_mode": "Markdown", "disable_web_page_preview": True})
         except Exception: pass
+
+# --- AUTOMATED TELEGRAM DIGEST GENERATOR (ROUTED TO CORRECT GROUP) ---
+async def generate_and_send_digest(period_name: str, specific_chat_id=None, specific_category=None):
+    if not TELEGRAM_BOT_TOKEN: return
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM news 
+        WHERE datetime(published_date) >= datetime('now', '-12 hours')
+        ORDER BY threat_level ASC, datetime(published_date) DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    
+    async with httpx.AsyncClient() as client:
+        # 1. Dispatch RED Digest
+        if (not specific_category or specific_category == "RED") and TELEGRAM_CHAT_ID_RED:
+            red_intel = [dict(r) for r in rows if r['category'] == 'RED']
+            if red_intel:
+                msg = f"🔴 *{period_name}: CRISIS & CONFLICT (RED)* 🔴\n_Last 12 Hours Executive Summary_\n\n"
+                top_red = [r for r in red_intel if r['threat_level'] in ['CRITICAL', 'ELEVATED']][:5]
+                if not top_red: top_red = red_intel[:5]
+                
+                for idx, item in enumerate(top_red):
+                    threat = "🔴" if item['threat_level'] == 'CRITICAL' else ("🟧" if item['threat_level'] == 'ELEVATED' else "🟦")
+                    msg += f"{idx+1}. {threat} *{item['title']}*\n└ {item['source']} | [Read Brief]({item['link']})\n\n"
+                
+                msg += f"📊 *Total RED Intel Indexed:* {len(red_intel)}"
+                target_chat = specific_chat_id if specific_chat_id else TELEGRAM_CHAT_ID_RED
+                try: await client.post(url, data={"chat_id": target_chat, "text": msg, "parse_mode": "Markdown", "disable_web_page_preview": True})
+                except Exception: pass
+            
+        await asyncio.sleep(1)
+        
+        # 2. Dispatch GENERAL Digest
+        if (not specific_category or specific_category == "GENERAL") and TELEGRAM_CHAT_ID_GENERAL:
+            general_intel = [dict(r) for r in rows if r['category'] == 'GENERAL']
+            if general_intel:
+                msg = f"🔵 *{period_name}: DIPLOMACY & TRADE (GENERAL)* 🔵\n_Last 12 Hours Executive Summary_\n\n"
+                top_gen = general_intel[:5]
+                
+                for idx, item in enumerate(top_gen):
+                    threat = "🔴" if item['threat_level'] == 'CRITICAL' else ("🟧" if item['threat_level'] == 'ELEVATED' else "🟦")
+                    msg += f"{idx+1}. {threat} *{item['title']}*\n└ {item['source']} | [Read Brief]({item['link']})\n\n"
+                    
+                msg += f"📊 *Total GENERAL Intel Indexed:* {len(general_intel)}"
+                target_chat = specific_chat_id if specific_chat_id else TELEGRAM_CHAT_ID_GENERAL
+                try: await client.post(url, data={"chat_id": target_chat, "text": msg, "parse_mode": "Markdown", "disable_web_page_preview": True})
+                except Exception: pass
+
+# --- TWO-WAY INTERACTIVE TELEGRAM COMMAND LISTENER ---
+async def telegram_command_polling():
+    """Listens 24/7 in the background for commands in the Telegram groups"""
+    if not TELEGRAM_BOT_TOKEN: return
+    last_update_id = 0
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+    send_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        while True:
+            try:
+                resp = await client.get(url, params={"offset": last_update_id, "timeout": 10})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for update in data.get("result", []):
+                        last_update_id = update["update_id"] + 1
+                        msg = update.get("message", {})
+                        text = msg.get("text", "")
+                        chat_id = msg.get("chat", {}).get("id")
+                        
+                        if text.startswith("/sync"):
+                            await client.post(send_url, data={"chat_id": chat_id, "text": "⚡ *Initiating Max-Yield Concurrency Sweep across 50+ channels...*", "parse_mode": "Markdown"})
+                            asyncio.create_task(async_sweep_controller(silent=False))
+                            
+                        elif text.startswith("/stats"):
+                            conn = get_db_connection()
+                            c = conn.cursor()
+                            c.execute("SELECT COUNT(*) FROM news")
+                            total = c.fetchone()[0]
+                            c.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
+                            criticals = c.fetchone()[0]
+                            conn.close()
+                            stat_msg = f"📊 *LIVE TELEMETRY STATS*\n\n*Total Indexed Intel:* {total}\n*🔴 Critical Threats:* {criticals}\n*Channels Monitored:* 54"
+                            await client.post(send_url, data={"chat_id": chat_id, "text": stat_msg, "parse_mode": "Markdown"})
+                            
+                        elif text.startswith("/briefing"):
+                            # Send requested dossier directly to the chat that asked for it
+                            category = "RED" if str(chat_id) == str(TELEGRAM_CHAT_ID_RED) else "GENERAL"
+                            await client.post(send_url, data={"chat_id": chat_id, "text": f"📋 *Generating On-Demand {category} Dossier...*", "parse_mode": "Markdown"})
+                            await generate_and_send_digest("ON-DEMAND DOSSIER", specific_chat_id=chat_id, specific_category=category)
+            except Exception:
+                pass
+            await asyncio.sleep(2)
+
+# --- BACKGROUND AUTOMATION LOOP (MORNING/EVENING DIGESTS) ---
+async def automated_digest_loop():
+    morning_sent = False
+    evening_sent = False
+    
+    while True:
+        now = datetime.now()
+        
+        # 8:00 AM Morning Briefing
+        if now.hour == 8 and now.minute < 5 and not morning_sent:
+            await generate_and_send_digest("🌅 MORNING DOSSIER")
+            morning_sent = True
+            evening_sent = False
+            
+        # 6:00 PM (18:00) Evening Briefing
+        elif now.hour == 18 and now.minute < 5 and not evening_sent:
+            await generate_and_send_digest("🌙 EVENING DOSSIER")
+            evening_sent = True
+            morning_sent = False
+            
+        # Midnight cycle reset
+        elif now.hour == 0:
+            morning_sent = False
+            evening_sent = False
+            
+        await asyncio.sleep(60)
 
 def save_items_bulk(items):
     if not items: return 0, []
@@ -319,7 +449,6 @@ async def run_fast_sweep():
 
         total_new, new_criticals = await asyncio.to_thread(save_items_bulk, all_results)
         
-        # Dispatch Telegram Alerts for real-time newly saved critical threats
         for crit in new_criticals:
             asyncio.create_task(dispatch_telegram_alert(crit))
             
@@ -355,6 +484,8 @@ async def background_loop():
 async def startup_event():
     init_db()
     asyncio.create_task(background_loop())
+    asyncio.create_task(automated_digest_loop())
+    asyncio.create_task(telegram_command_polling()) # Initialize the 2-Way Interactive Bot
     asyncio.create_task(async_sweep_controller(silent=True))
 
 @app.get("/", response_class=FileResponse)
