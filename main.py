@@ -19,7 +19,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="10.5")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="12.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -60,7 +60,11 @@ GENERAL_TARGETS = [{"handle": h, "region": "Africa"} for h in [
     "@AussenMinDE", "@AuswaertigesAmt", "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK"
 ]]
 
-GLOBAL_SEARCH_TOPICS = ["Geopolitics", "Bilateral Relations", "Trade Sanctions", "Migration Crisis", "Foreign Policy"]
+GLOBAL_SEARCH_TOPICS = [
+    "Geopolitics", "Bilateral Relations", "Trade Sanctions", 
+    "Foreign Policy", "POTUS", "White House", "US President",
+    "Pentagon", "Kremlin", "NATO"
+]
 
 # --- WEBSOCKET MANAGER ---
 class ConnectionManager:
@@ -84,9 +88,11 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# --- DATABASE ENGINE ---
+# --- DATABASE ENGINE (WAL OPTIMIZATION) ---
 def get_db_connection():
     conn = sqlite3.connect(DB_NAME, timeout=15)
+    conn.execute('PRAGMA journal_mode=WAL;')
+    conn.execute('PRAGMA synchronous=NORMAL;')
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -123,7 +129,6 @@ def save_items_bulk(items):
     added = 0
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Bulk insert for maximum SQLite performance
     for item in items:
         try:
             c.execute('''
@@ -145,13 +150,11 @@ def save_items_bulk(items):
 
 # --- ASYNC HIGH-SPEED SCRAPER ---
 async def fetch_feed_async(client, url, source_label, category, handle="N/A", region="Global", keyword="N/A", limit=10):
-    """Fetches a single RSS feed non-blockingly with a strict timeout."""
     items = []
     try:
-        response = await client.get(url, timeout=12.0, follow_redirects=True)
+        response = await client.get(url, timeout=10.0, follow_redirects=True)
         response.raise_for_status()
         
-        # Offload XML parsing to a separate thread to prevent event loop blocking
         feed = await asyncio.to_thread(feedparser.parse, response.content)
         
         for entry in feed.entries[:limit]:
@@ -181,33 +184,50 @@ async def fetch_feed_async(client, url, source_label, category, handle="N/A", re
         logger.debug(f"Failed to fetch {url}: {str(e)}")
     return items
 
+async def run_live_web_search_async(q_text: str, category: str = "ALL"):
+    """Performs an on-the-fly live web search for user queries."""
+    encoded = urllib.parse.quote(q_text)
+    tasks = []
+    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
+        # 1. Google News Live Query
+        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword=f"Live Search: {q_text}"))
+        # 2. Reddit Live Query
+        tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", category, keyword=f"Live Search: {q_text}"))
+        # 3. X (Twitter) Live Query
+        tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, keyword=f"Live Search: {q_text}"))
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        all_new = []
+        for res in results:
+            if isinstance(res, list): all_new.extend(res)
+        
+        if all_new:
+            await asyncio.to_thread(save_items_bulk, all_new)
+
 async def run_fast_sweep():
     logger.info("Executing Enterprise-Grade Async Sweep...")
     tasks = []
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-        # 1. Direct Feeds
+        # Direct Feeds
         for feed in DIRECT_FEEDS:
             tasks.append(fetch_feed_async(client, feed["url"], feed["source"], feed["category"], region=feed["region"], keyword=feed.get("keyword", "Direct Feed")))
 
-        # 2. Reddit & Hacker News
+        # Global Topics
         for topic in GLOBAL_SEARCH_TOPICS:
             encoded = urllib.parse.quote(topic)
             tasks.append(fetch_feed_async(client, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword=f"Topic: {topic}"))
             tasks.append(fetch_feed_async(client, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword=f"Topic: {topic}"))
 
-        # 3. Target Handles (RED & GENERAL)
+        # Target Handles
         for category, target_list in [("RED", RED_TARGETS), ("GENERAL", GENERAL_TARGETS)]:
             for target in target_list:
                 h = target["handle"]
                 r = target["region"]
                 encoded_h = urllib.parse.quote(h)
-                # Google News
                 tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, keyword=f"Target: {h}"))
-                # X (Twitter) via Google News
                 tasks.append(fetch_feed_async(client, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, keyword=f"Target: {h}"))
 
-        # Execute all HTTP requests concurrently in batches to avoid rate limits
         all_results = []
         batch_size = 15
         for i in range(0, len(tasks), batch_size):
@@ -215,9 +235,8 @@ async def run_fast_sweep():
             batch_results = await asyncio.gather(*batch, return_exceptions=True)
             for res in batch_results:
                 if isinstance(res, list): all_results.extend(res)
-            await asyncio.sleep(0.5) # Polite rate-limit buffering
+            await asyncio.sleep(0.3)
 
-        # Save all results to DB in one fast transaction
         total_new = await asyncio.to_thread(save_items_bulk, all_results)
         return total_new
 
@@ -232,13 +251,13 @@ async def async_sweep_controller(silent=False):
     await manager.broadcast(json.dumps({"event": event_start}))
 
     try:
-        # The entire heavy-lifting process is offloaded to the async engine
         total_added = await run_fast_sweep()
+        timestamp = datetime.now().strftime("%I:%M %p")
 
         if total_added > 0:
-            await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent}))
+            await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
         else:
-            await manager.broadcast(json.dumps({"event": "sync_finished_no_data", "silent": silent}))
+            await manager.broadcast(json.dumps({"event": "sync_finished_no_data", "silent": silent, "time": timestamp}))
     except Exception as e:
         logger.error(f"Sweep failed: {e}")
         await manager.broadcast(json.dumps({"event": "sync_error"}))
@@ -287,12 +306,16 @@ async def trigger_manual_sync(background_tasks: BackgroundTasks, silent: bool = 
     return {"status": "Sync process initiated."}
 
 @app.get("/api/news")
-def get_news(
+async def get_news(
     category: str = Query("ALL"), source: str = Query("All"),
     region: str = Query("All"), handle: str = Query("All"),
     time_filter: str = Query("all"), q: str = Query(None),
     page: int = Query(1), limit: int = Query(30)
 ):
+    # ON-THE-FLY LIVE SEARCH TRIGGER
+    if q and len(q.strip()) > 1:
+        await run_live_web_search_async(q.strip(), category)
+
     offset = (page - 1) * limit
     conn = get_db_connection()
     cursor = conn.cursor()

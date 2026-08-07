@@ -27,7 +27,6 @@
         }
         .animate-radar { animation: radar-sweep 2.5s linear infinite; }
         
-        /* Smooth Fade In */
         .fade-in { animation: fadeIn 0.4s ease-in-out; }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(5px); }
@@ -66,11 +65,17 @@
             </div>
             
             <div class="flex flex-wrap items-center gap-3 text-xs">
+                <span id="last-sync-badge" class="text-[10px] font-mono text-slate-500 border border-slate-700/50 px-2 py-1 rounded bg-slate-800/30 hidden">
+                    Synced: <span id="sync-time">Just now</span>
+                </span>
+
                 <span id="ws-status" class="px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono">● Disconnected</span>
+                
                 <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner">
                     <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                     <span class="text-[10px] font-bold text-slate-300 tracking-wider">AUTO-PILOT ACTIVE</span>
                 </div>
+
                 <button id="sync-btn" onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex items-center gap-1.5">
                     ⚡ Sync Live Feed
                 </button>
@@ -105,7 +110,7 @@
         <!-- Filters Console -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             <div class="relative">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search global intel database by keywords..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic live (e.g. potus, china, military, cyber, biden)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
             <!-- Fully Exposed Media Outlet Buttons -->
@@ -194,7 +199,6 @@
             'Hacker News': 'bg-orange-500/10 text-orange-400 border-orange-500/20'
         };
 
-        // Professional Skeleton Loader HTML
         const skeletonCard = `
             <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-44 flex flex-col justify-between">
                 <div>
@@ -252,6 +256,13 @@
             syncBtn.disabled = false;
             hideSyncOverlay();
         }
+        
+        function updateSyncBadge(timeStr) {
+            const badge = document.getElementById('last-sync-badge');
+            const timeEl = document.getElementById('sync-time');
+            badge.classList.remove('hidden');
+            timeEl.innerText = timeStr || "Just now";
+        }
 
         function connectWebSocket() {
             ws = new WebSocket(WS_URL);
@@ -277,7 +288,7 @@
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `⏳ Scraping... ${secondsElapsed}s`;
-                        if (secondsElapsed > 20) { resetSyncButton(); showToast("⚠️ Render rate limits active. Task finishing silently.", "warning"); }
+                        if (secondsElapsed > 20) { resetSyncButton(); showToast("⚠️ Render limits active. Task finishing silently.", "warning"); }
                     }, 1000);
                 } 
                 else if (data.event === "sync_started_silent") {
@@ -293,6 +304,7 @@
                 }
                 else if (data.event === "new_intel") {
                     resetSyncButton();
+                    updateSyncBadge(data.time);
                     if (data.silent) showToast(`🤖 Auto-Pilot Intercepted ${data.count} new records.`, "success");
                     else showToast(`✅ Sweep Complete! Intercepted ${data.count} new records.`, "success");
                     fetchNews(true); 
@@ -301,6 +313,7 @@
                 }
                 else if (data.event === "sync_finished_no_data") {
                     resetSyncButton();
+                    updateSyncBadge(data.time);
                     if (!data.silent) showToast("ℹ️ Sweep Finished. No new records found.", "warning");
                 }
             };
@@ -316,7 +329,6 @@
             try {
                 const res = await fetch(`${API_BASE}/api/meta/filters`);
                 const meta = await res.json();
-                
                 const handleSelect = document.getElementById('handleSelect');
                 let hHtml = '<option value="All">All Target Handles</option>';
                 meta.handles.forEach(h => { hHtml += `<option value="${h}">${h}</option>`; });
@@ -356,7 +368,6 @@
             
             if (overwrite) {
                 currentPage = 1;
-                // Render 6 skeleton cards for a professional loading feel
                 grid.innerHTML = skeletonCard.repeat(6);
             }
             
@@ -450,13 +461,14 @@
             fetchNews(true);
         }
 
+        // 500ms Input Debounce for Live Web Search
         let searchTimeout;
         function handleSearch() {
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(() => {
                 searchQuery = document.getElementById('searchInput').value.trim();
                 fetchNews(true);
-            }, 350);
+            }, 500);
         }
 
         function loadMore() {
