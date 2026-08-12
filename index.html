@@ -1,227 +1,280 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-import psycopg2
-import psycopg2.extras
-import uvicorn
-import logging
-import os
-import asyncio
-import feedparser
-import urllib.parse
-import httpx
-import time
-from datetime import datetime
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INTEL ENGINE | Tactical Command Dashboard</title>
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-dark: #070a11;
+            --panel-bg: #0d1322;
+            --border-color: #1a233a;
+            --text-main: #d1d5db;
+            --text-muted: #6b7280;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-amber: #f59e0b;
+            --accent-blue: #3b82f6;
+        }
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, monospace; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; }
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="1.0 - WebSocket Engine")
+        /* Top Header */
+        .top-bar {
+            background-color: #0b0f19;
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 16px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: var(--accent-red);
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        .main-nav {
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--panel-bg);
+        }
 
-# --- ENVIRONMENT VARIABLES ---
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+        .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+        .brand span { color: var(--accent-blue); }
 
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        .badge-status {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+        .badge-status.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border-color: var(--accent-red);
+        }
 
-CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
-ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
-RED_KEYWORDS = ["israel", "gaza", "palestine", "hamas", "hezbollah", "lebanon", "syria", "yemen", "houthi", "iran", "ukraine", "russia", "strike", "war", "missile", "military"]
-GENERAL_KEYWORDS = ["diplomacy", "sanctions", "treaty", "summit", "nato", "un resolution", "kenya", "rwanda", "south africa", "eu", "macron", "biden"]
+        /* Container */
+        .container { padding: 20px; display: flex; flex-direction: column; gap: 20px; max-width: 1600px; margin: 0 auto; }
 
-GEO_MAPPING = {
-    "israel": (31.0461, 34.8516), "gaza": (31.4167, 34.3333), "palestine": (31.9522, 35.2332), 
-    "lebanon": (33.8547, 35.8623), "syria": (34.8021, 38.9968), "iran": (32.4279, 53.6880), 
-    "yemen": (15.5527, 48.5164), "ukraine": (48.3794, 31.1656), "russia": (61.5240, 105.3188), 
-    "usa": (37.0902, -95.7129), "uk": (55.3781, -3.4360), "kenya": (-1.2921, 36.8219)
-}
+        /* Terminal Console */
+        .terminal-box {
+            background-color: #050811;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 14px;
+            font-family: monospace;
+            font-size: 12px;
+            height: 120px;
+            overflow-y: auto;
+            color: #10b981;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .term-line { display: flex; gap: 10px; }
+        .term-time { color: var(--text-muted); }
+        .term-alert { color: var(--accent-red); font-weight: bold; }
 
-DIRECT_FEEDS = [
-    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
-    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"}
-]
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .stat-card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .stat-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; }
+        .stat-value { font-size: 32px; font-weight: 800; color: #fff; }
+        .stat-card.critical .stat-value { color: var(--accent-red); }
 
-# --- WEBSOCKET MANAGER ---
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except:
-                pass
-
-manager = ConnectionManager()
-
-def get_db_connection():
-    if not DATABASE_URL:
-        raise Exception("DATABASE_URL is not set.")
-    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
-
-def classify_threat(title):
-    t_lower = title.lower()
-    heat = sum(1 for kw in RED_KEYWORDS + GENERAL_KEYWORDS if kw in t_lower)
-    heat += sum(2 for cw in CRITICAL_WORDS if cw in t_lower)
-    if heat >= 3: return "CRITICAL"
-    if heat >= 1: return "ELEVATED"
-    return "INFORMATIONAL"
-
-def extract_geo(title):
-    t_lower = title.lower()
-    for loc, coords in GEO_MAPPING.items():
-        if loc in t_lower: return coords[0], coords[1]
-    return "N/A", "N/A"
-
-def save_items_bulk(items):
-    if not items: return 0, []
-    conn = get_db_connection()
-    c = conn.cursor()
-    added = 0
-    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    for item in items:
-        try:
-            c.execute('''
-                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at, keyword, threat_level, lat, lng)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (link) DO NOTHING
-            ''', (
-                item['title'], item['link'], item['source'], item['category'],
-                item.get('handle', 'N/A'), item.get('region', 'Global'),
-                item['published_date'], now_iso, item.get('keyword', 'N/A'),
-                item.get('threat_level', 'INFORMATIONAL'), str(item.get('lat', 'N/A')), str(item.get('lng', 'N/A'))
-            ))
-            if c.rowcount > 0: added += 1
-        except Exception:
-            pass
-    conn.commit()
-    conn.close()
-    return added, []
-
-async def fetch_feed_max_speed(client, url, source, category):
-    items = []
-    try:
-        response = await client.get(url, timeout=5.0, follow_redirects=True)
-        feed = await asyncio.to_thread(feedparser.parse, response.content)
-        for entry in feed.entries[:15]:
-            title = getattr(entry, 'title', '')
-            link = getattr(entry, 'link', '')
-            pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            if title and link:
-                lat, lng = extract_geo(title)
-                items.append({
-                    'title': title, 'link': link, 'source': source, 
-                    'category': category, 'published_date': pub_date,
-                    'threat_level': classify_threat(title), 'lat': lat, 'lng': lng
-                })
-    except Exception:
-        pass
-    return items
-
-async def continuous_scraper_loop():
-    while True:
-        try:
-            await manager.broadcast({"type": "log", "msg": "EXECUTING MAX-YIELD ASYNC SWEEP ACROSS GLOBAL FEEDS...", "alert": False})
-            
-            tasks = []
-            async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-                for feed in DIRECT_FEEDS:
-                    tasks.append(fetch_feed_max_speed(client, feed["url"], feed["source"], feed["category"]))
-                
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                all_results = [item for sublist in results if isinstance(sublist, list) for item in sublist]
-
-            added, _ = await asyncio.to_thread(save_items_bulk, all_results)
-            
-            await manager.broadcast({"type": "log", "msg": f"SWEEP COMPLETE. INTERCEPTED {added} NEW INTELLIGENCE PACKETS.", "alert": False})
-            
-            # Broadcast latest UI data
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM news ORDER BY published_date DESC LIMIT 50")
-            latest = [dict(r) for r in cur.fetchall()]
-            cur.execute("SELECT COUNT(*) FROM news")
-            total = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
-            criticals = cur.fetchone()[0]
-            conn.close()
-
-            await manager.broadcast({
-                "type": "update",
-                "items": latest,
-                "stats": {"total": total, "critical": criticals}
-            })
-            
-            # Wait 60 seconds before next scrape
-            await asyncio.sleep(60)
-        except Exception as e:
-            logger.error(f"Loop error: {e}")
-            await asyncio.sleep(30)
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(continuous_scraper_loop())
-
-@app.get("/")
-def read_root():
-    # Looks in both the root folder AND the templates folder
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    root_path = os.path.join(BASE_DIR, "index.html")
-    template_path = os.path.join(BASE_DIR, "templates", "index.html")
-    
-    if os.path.exists(root_path):
-        return FileResponse(root_path)
-    elif os.path.exists(template_path):
-        return FileResponse(template_path)
+        /* Map and Main Section */
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+        .panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
         
-    raise HTTPException(status_code=404, detail="index.html not found in root or templates folder")
+        #map { height: 420px; width: 100%; background: #070a11; }
 
-@app.websocket("/ws/news")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        # Send initial data instantly on connection
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("SELECT * FROM news ORDER BY published_date DESC LIMIT 50")
-            latest = [dict(r) for r in cur.fetchall()]
-            cur.execute("SELECT COUNT(*) FROM news")
-            total = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
-            criticals = cur.fetchone()[0]
-            conn.close()
+        /* Feed List */
+        .feed-list { height: 420px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .feed-item {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            border-left: 4px solid var(--accent-blue);
+            padding: 12px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .feed-item.CRITICAL { border-left-color: var(--accent-red); }
+        .feed-item.ELEVATED { border-left-color: var(--accent-amber); }
+        
+        .feed-title { font-size: 13px; font-weight: 600; color: #f3f4f6; text-decoration: none; }
+        .feed-title:hover { color: var(--accent-blue); }
+        .feed-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .badge-blue { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
 
-            await websocket.send_json({
-                "type": "update",
-                "items": latest,
-                "stats": {"total": total, "critical": criticals}
-            })
-        except Exception:
-            pass
+        @media (max-width: 1024px) {
+            .content-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
 
-        while True:
-            await websocket.receive_text() # keep alive ping
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+    <div class="top-bar">
+        <span>🔴 LIVE THREAT FEED</span>
+        <span>COMMAND CENTER... AWAITING TELEMETRY...</span>
+    </div>
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    <nav class="main-nav">
+        <div class="brand">INTEL <span>ENGINE</span></div>
+        <div id="status-badge" class="badge-status disconnected">
+            <span>●</span> Reconnecting...
+        </div>
+    </nav>
+
+    <div class="container">
+        
+        <!-- Terminal Logs -->
+        <div class="terminal-box" id="terminal-console"></div>
+
+        <!-- Telemetry Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Total Ingested Intel</span>
+                <span class="stat-value" id="stat-total">0</span>
+            </div>
+            <div class="stat-card critical">
+                <span class="stat-label">Critical Threats</span>
+                <span class="stat-value" id="stat-critical">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Channels Monitored</span>
+                <span class="stat-value">54</span>
+            </div>
+        </div>
+
+        <!-- Content Grid (Map + Feed) -->
+        <div class="content-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>🗺️ Tactical Threat Map</span>
+                    <span id="map-nodes-count">0 Nodes Plotted</span>
+                </div>
+                <div id="map"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span>📡 Real-Time Intercept Feed</span>
+                </div>
+                <div class="feed-list" id="feed-container"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Leaflet Map JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([20.0, 10.0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let markersGroup = L.layerGroup().addTo(map);
+
+        function logToConsole(msg, alert = false) {
+            const box = document.getElementById('terminal-console');
+            const time = new Date().toLocaleTimeString('en-GB');
+            box.innerHTML += `<div class="term-line"><span class="term-time">[${time}]</span> <span class="${alert ? 'term-alert' : ''}">${msg}</span></div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function connectWs() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws/news`);
+
+            ws.onopen = () => {
+                document.getElementById('status-badge').className = "badge-status";
+                document.getElementById('status-badge').innerHTML = "<span>●</span> Live WebSocket Active";
+                logToConsole("ESTABLISHING SECURE SAT-LINK TO 54 CHANNELS...");
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'log') {
+                    logToConsole(data.msg, data.alert);
+                } 
+                else if (data.type === 'update') {
+                    // Update Stats
+                    document.getElementById('stat-total').innerText = data.stats.total;
+                    document.getElementById('stat-critical').innerText = data.stats.critical;
+                    
+                    // Render Feed
+                    const container = document.getElementById('feed-container');
+                    container.innerHTML = data.items.map(item => `
+                        <div class="feed-item ${item.threat_level}">
+                            <a href="${item.link}" target="_blank" class="feed-title">${item.title}</a>
+                            <div class="feed-meta">
+                                <span class="badge ${item.category === 'RED' ? 'badge-red' : 'badge-blue'}">${item.category}</span>
+                                <span>${item.source}</span>
+                                <span>📍 ${item.region}</span>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    // Plot Markers
+                    markersGroup.clearLayers();
+                    let nodes = 0;
+                    data.items.forEach(item => {
+                        if (item.lat !== 'N/A' && item.lng !== 'N/A') {
+                            L.circleMarker([item.lat, item.lng], {
+                                radius: item.threat_level === 'CRITICAL' ? 8 : 5,
+                                color: item.threat_level === 'CRITICAL' ? '#ef4444' : '#3b82f6',
+                                fillOpacity: 0.7
+                            }).bindPopup(`<b>${item.title}</b>`).addTo(markersGroup);
+                            nodes++;
+                        }
+                    });
+                    document.getElementById('map-nodes-count').innerText = `${nodes} Nodes Plotted`;
+                    
+                    if (nodes > 0) {
+                        logToConsole(`PLOTTED ${nodes} INTELLIGENCE NODES ON TACTICAL MAP.`);
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status-badge').className = "badge-status disconnected";
+                document.getElementById('status-badge').innerHTML = "<span>●</span> Reconnecting...";
+                logToConsole("WEBSOCKET LINK SEVERED. RECONNECTING...", true);
+                setTimeout(connectWs, 3000); // try to reconnect in 3s
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', connectWs);
+    </script>
+</body>
+</html>
