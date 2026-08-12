@@ -143,10 +143,29 @@
         
         .feed-title { font-size: 13px; font-weight: 600; color: #f3f4f6; text-decoration: none; }
         .feed-title:hover { color: var(--accent-blue); }
-        .feed-meta { display: flex; gap: 12px; font-size: 11px; color: var(--text-muted); }
+        .feed-meta { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-muted); }
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
         .badge-red { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
         .badge-blue { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+
+        /* New Copy Button Styles */
+        .btn-copy {
+            background-color: #1e293b;
+            color: #d1d5db;
+            border: 1px solid #334155;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-left: auto; /* Pushes the button to the far right */
+        }
+        .btn-copy:hover {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
 
         @media (max-width: 1024px) {
             .content-grid { grid-template-columns: 1fr; }
@@ -251,6 +270,28 @@
             consoleBox.scrollTop = consoleBox.scrollHeight;
         }
 
+        // --- NEW: Copy Link Function ---
+        function copyLink(url, btn) {
+            navigator.clipboard.writeText(url).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = "✓ Copied!";
+                btn.style.backgroundColor = "#10b981"; // Turns green
+                btn.style.borderColor = "#10b981";
+                btn.style.color = "white";
+                
+                // Reset the button back to normal after 2 seconds
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.backgroundColor = "";
+                    btn.style.borderColor = "";
+                    btn.style.color = "";
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Copy failed. Please manually copy the link.');
+            });
+        }
+
         // Fetch Intel REST API Data
         async function pollIntelData() {
             try {
@@ -291,6 +332,9 @@
                         <span>${item.source}</span>
                         <span>📍 ${item.region}</span>
                         <span>⏱️ ${item.published_date}</span>
+                        
+                        <!-- NEW: Copy Button added here -->
+                        <button class="btn-copy" onclick="copyLink('${item.link}', this)">📋 Copy Link</button>
                     </div>
                 </div>
             `).join('');
