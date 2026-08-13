@@ -7,14 +7,13 @@ import uvicorn
 import logging
 import os
 import asyncio
-import urllib.parse
 import httpx
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="3.1 - Cloudflare Bypass Engine")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="3.2 - Final API Bypass")
 
 app.add_middleware(
     CORSMiddleware,
@@ -117,9 +116,12 @@ def save_items_bulk(items):
 async def fetch_feed_max_speed(client, url, source, category):
     items = []
     try:
-        # BYPASS CLOUDFLARE: Route through RSS2JSON API instead of fetching directly from Render
-        api_url = f"https://api.rss2json.com/v1/api.json?rss_url={urllib.parse.quote(url)}"
-        response = await client.get(api_url, timeout=10.0)
+        # BYPASS CLOUDFLARE: Let httpx handle the URL encoding natively
+        response = await client.get(
+            "https://api.rss2json.com/v1/api.json", 
+            params={"rss_url": url}, 
+            timeout=10.0
+        )
         
         if response.status_code == 200:
             data = response.json()
@@ -203,6 +205,30 @@ async def trigger_sweep_endpoint(secret: str = Query(None)):
         raise HTTPException(status_code=403, detail="Unauthorized")
     added = await execute_sweep(is_manual=True)
     return {"status": "success", "added": added}
+
+# --- DEDICATED REST ENDPOINT FOR FRONTEND FILTERS ---
+@app.get("/api/news")
+def get_news(source: str = Query(None), date: str = Query(None)):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        query = "SELECT * FROM news WHERE 1=1"
+        params = []
+        
+        if source:
+            query += " AND source = %s"
+            params.append(source)
+        if date:
+            query += " AND DATE(published_date) = %s"
+            params.append(date)
+            
+        query += " ORDER BY published_date DESC LIMIT 100"
+        cur.execute(query, params)
+        data = [dict(r) for r in cur.fetchall()]
+        conn.close()
+        return data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
