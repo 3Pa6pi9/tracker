@@ -19,7 +19,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="19.0")
+app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="19.1 - Auto-Healing DB")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# SUPABASE CONNECTION LINK (With your updated password and pooler port)
+# SUPABASE CONNECTION LINK
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
     "postgresql://postgres.afdzhavjcejvmnrwyaid:5wNGFgK3H5q3CwUZ@aws-0-eu-west-2.pooler.supabase.com:6543/postgres"
@@ -451,12 +451,28 @@ async def get_news(
     rows = cursor.fetchall()
     conn.close()
     
-    # Format the datetimes to strings so FastAPI can easily JSONify them exactly as before
     results = []
+    # Sort keywords by length so it matches "Middle East" before just "East"
+    all_kws = sorted(RED_KEYWORDS + GENERAL_KEYWORDS, key=len, reverse=True)
+    
     for row in rows:
         r = dict(row)
         if isinstance(r.get('published_date'), datetime):
             r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
+            
+        # THE RETROACTIVE AUTO-HEALER
+        # If the database serves up an ugly N/A, we intercept it and fix it live.
+        if r.get('keyword') in ['N/A', None, '']:
+            t_lower = r.get('title', '').lower()
+            matched = next((kw for kw in all_kws if kw in t_lower), None)
+            
+            if matched:
+                r['keyword'] = f"Matched: '{matched}'"
+            else:
+                # If there truly is no keyword, setting this to an empty string 
+                # tells the frontend to completely hide the badge instead of showing 'N/A'
+                r['keyword'] = "" 
+                
         results.append(r)
     
     return results
