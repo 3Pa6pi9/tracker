@@ -1,244 +1,342 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-import psycopg2
-import psycopg2.extras
-import uvicorn
-import logging
-import os
-import asyncio
-import httpx
-from datetime import datetime
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INTEL ENGINE | Tactical Command Dashboard</title>
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-dark: #070a11;
+            --panel-bg: #0d1322;
+            --border-color: #1a233a;
+            --text-main: #d1d5db;
+            --text-muted: #6b7280;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-amber: #f59e0b;
+            --accent-blue: #3b82f6;
+        }
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, monospace; }
+        body { background-color: var(--bg-dark); color: var(--text-main); overflow-x: hidden; }
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="3.2 - Final API Bypass")
+        /* Top Header */
+        .top-bar { background-color: #0b0f19; border-bottom: 1px solid var(--border-color); padding: 8px 16px; font-size: 11px; display: flex; align-items: center; justify-content: space-between; color: var(--accent-red); font-weight: bold; letter-spacing: 1px; }
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+        .main-nav { padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); background-color: var(--panel-bg); flex-wrap: wrap; gap: 10px; }
+        .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+        .brand-dot { width: 12px; height: 12px; background-color: var(--accent-green); border-radius: 50%; box-shadow: 0 0 10px var(--accent-green); }
+        .brand span { color: var(--accent-blue); }
 
-# --- ENVIRONMENT VARIABLES ---
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-CRON_SECRET = os.getenv("CRON_SECRET", "my-secure-password-99")
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-
-CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
-ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
-RED_KEYWORDS = ["israel", "gaza", "palestine", "hamas", "hezbollah", "lebanon", "syria", "yemen", "houthi", "iran", "ukraine", "russia", "strike", "war", "missile", "military"]
-GENERAL_KEYWORDS = ["diplomacy", "sanctions", "treaty", "summit", "nato", "un resolution", "kenya", "rwanda", "south africa", "eu", "macron", "biden"]
-
-GEO_MAPPING = {
-    "israel": (31.0461, 34.8516), "gaza": (31.4167, 34.3333), "palestine": (31.9522, 35.2332), 
-    "lebanon": (33.8547, 35.8623), "syria": (34.8021, 38.9968), "iran": (32.4279, 53.6880), 
-    "yemen": (15.5527, 48.5164), "ukraine": (48.3794, 31.1656), "russia": (61.5240, 105.3188), 
-    "usa": (37.0902, -95.7129), "uk": (55.3781, -3.4360), "kenya": (-1.2921, 36.8219)
-}
-
-DIRECT_FEEDS = [
-    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
-    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"}
-]
-
-# --- WEBSOCKET MANAGER ---
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: dict):
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(message)
-            except:
-                pass
-
-manager = ConnectionManager()
-
-def get_db_connection():
-    if not DATABASE_URL:
-        raise Exception("DATABASE_URL is missing. Please add it to Render Environment Variables.")
-    return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
-
-def classify_threat(title):
-    t_lower = title.lower()
-    heat = sum(1 for kw in RED_KEYWORDS + GENERAL_KEYWORDS if kw in t_lower)
-    heat += sum(2 for cw in CRITICAL_WORDS if cw in t_lower)
-    if heat >= 3: return "CRITICAL"
-    if heat >= 1: return "ELEVATED"
-    return "INFORMATIONAL"
-
-def extract_geo(title):
-    t_lower = title.lower()
-    for loc, coords in GEO_MAPPING.items():
-        if loc in t_lower: return coords[0], coords[1]
-    return "N/A", "N/A"
-
-def save_items_bulk(items):
-    if not items: return 0
-    conn = get_db_connection()
-    c = conn.cursor()
-    added = 0
-    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    for item in items:
-        try:
-            c.execute('''
-                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at, keyword, threat_level, lat, lng)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (link) DO NOTHING
-            ''', (
-                item['title'], item['link'], item['source'], item['category'],
-                item.get('handle', 'N/A'), item.get('region', 'Global'),
-                item['published_date'], now_iso, item.get('keyword', 'N/A'),
-                item.get('threat_level', 'INFORMATIONAL'), str(item.get('lat', 'N/A')), str(item.get('lng', 'N/A'))
-            ))
-            if c.rowcount > 0: added += 1
-        except Exception as e:
-            logger.error(f"DB Insert Error: {e}")
-    conn.commit()
-    conn.close()
-    return added
-
-async def fetch_feed_max_speed(client, url, source, category):
-    items = []
-    try:
-        # BYPASS CLOUDFLARE: Let httpx handle the URL encoding natively
-        response = await client.get(
-            "https://api.rss2json.com/v1/api.json", 
-            params={"rss_url": url}, 
-            timeout=10.0
-        )
+        .nav-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("status") == "ok":
-                for entry in data.get("items", [])[:15]:
-                    title = entry.get('title', '')
-                    link = entry.get('link', '')
-                    pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    if title and link:
-                        lat, lng = extract_geo(title)
-                        items.append({
-                            'title': title, 'link': link, 'source': source, 
-                            'category': category, 'published_date': pub_date,
-                            'threat_level': classify_threat(title), 'lat': lat, 'lng': lng
-                        })
-    except Exception as e:
-        logger.error(f"Feed error {source}: {e}")
-    return items
+        .badge-status { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .badge-status.disconnected { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border-color: var(--accent-red); }
+        .badge-status.neutral { background: rgba(255, 255, 255, 0.1); color: #9ca3af; border-color: #374151; }
 
-async def broadcast_latest_data():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM news ORDER BY published_date DESC LIMIT 50")
-        latest = [dict(r) for r in cur.fetchall()]
-        cur.execute("SELECT COUNT(*) FROM news")
-        total = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
-        criticals = cur.fetchone()[0]
-        conn.close()
+        .btn { background-color: #1e293b; color: #fff; border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn:hover { background-color: #334155; }
+        .btn-primary { background-color: #4f46e5; border-color: #6366f1; }
+        .btn-primary:hover { background-color: #4338ca; }
 
-        await manager.broadcast({
-            "type": "update",
-            "items": latest,
-            "stats": {"total": total, "critical": criticals}
-        })
-    except Exception as e:
-        await manager.broadcast({"type": "log", "msg": f"DATABASE ERROR: {str(e)}", "alert": True})
+        .container { padding: 20px; display: flex; flex-direction: column; gap: 20px; max-width: 1600px; margin: 0 auto; }
 
-async def execute_sweep(is_manual=False):
-    msg = "MANUAL OVERRIDE: INITIATING IMMEDIATE SWEEP..." if is_manual else "EXECUTING MAX-YIELD ASYNC SWEEP ACROSS GLOBAL FEEDS..."
-    await manager.broadcast({"type": "log", "msg": msg, "alert": is_manual})
-    
-    try:
-        tasks = []
-        async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
-            for feed in DIRECT_FEEDS:
-                tasks.append(fetch_feed_max_speed(client, feed["url"], feed["source"], feed["category"]))
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            all_results = [item for sublist in results if isinstance(sublist, list) for item in sublist]
+        .terminal-box { background-color: #050811; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 12px; height: 120px; overflow-y: auto; color: #10b981; display: flex; flex-direction: column; gap: 4px; }
+        .term-line { display: flex; gap: 10px; }
+        .term-time { color: var(--text-muted); }
+        .term-alert { color: var(--accent-red); font-weight: bold; }
 
-        added = await asyncio.to_thread(save_items_bulk, all_results)
-        await manager.broadcast({"type": "log", "msg": f"SWEEP COMPLETE. INTERCEPTED {added} NEW INTELLIGENCE PACKETS.", "alert": False})
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .stat-card { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+        .stat-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; }
+        .stat-value { font-size: 32px; font-weight: 800; color: #fff; }
+        .stat-card.critical .stat-value { color: var(--accent-red); }
+
+        /* Filter Bar */
+        .filter-bar { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 20px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+        .filter-bar select, .filter-bar input { background-color: #070a11; color: #d1d5db; border: 1px solid #1f2937; padding: 8px 12px; border-radius: 4px; font-size: 12px; outline: none; }
+        .filter-bar select:focus, .filter-bar input:focus { border-color: var(--accent-blue); }
+        .filter-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+        .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+        .panel-header { padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
         
-        await broadcast_latest_data()
-        return added
-    except Exception as e:
-        await manager.broadcast({"type": "log", "msg": f"SWEEP FAILED: {str(e)}", "alert": True})
-        return 0
+        #map { height: 480px; width: 100%; background: #070a11; }
 
-async def continuous_scraper_loop():
-    while True:
-        await execute_sweep(is_manual=False)
-        await asyncio.sleep(60)
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(continuous_scraper_loop())
-
-@app.get("/")
-def read_root():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    root_path = os.path.join(BASE_DIR, "index.html")
-    if os.path.exists(root_path):
-        return FileResponse(root_path)
-    raise HTTPException(status_code=404, detail="index.html not found in the root folder.")
-
-@app.get("/api/trigger/sweep")
-async def trigger_sweep_endpoint(secret: str = Query(None)):
-    if secret != CRON_SECRET:
-        raise HTTPException(status_code=403, detail="Unauthorized")
-    added = await execute_sweep(is_manual=True)
-    return {"status": "success", "added": added}
-
-# --- DEDICATED REST ENDPOINT FOR FRONTEND FILTERS ---
-@app.get("/api/news")
-def get_news(source: str = Query(None), date: str = Query(None)):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        query = "SELECT * FROM news WHERE 1=1"
-        params = []
+        .feed-list { height: 480px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .feed-item { background-color: #111827; border: 1px solid #1f2937; border-left: 4px solid var(--accent-blue); padding: 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 6px; }
+        .feed-item.CRITICAL { border-left-color: var(--accent-red); }
+        .feed-item.ELEVATED { border-left-color: var(--accent-amber); }
         
-        if source:
-            query += " AND source = %s"
-            params.append(source)
-        if date:
-            query += " AND DATE(published_date) = %s"
-            params.append(date)
+        .feed-title { font-size: 13px; font-weight: 600; color: #f3f4f6; text-decoration: none; line-height: 1.4; }
+        .feed-title:hover { color: var(--accent-blue); }
+        .feed-meta { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap; margin-top: 4px; }
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .badge-red { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .badge-blue { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+
+        .btn-copy { background-color: #1e293b; color: #d1d5db; border: 1px solid #334155; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; margin-left: auto; }
+        .btn-copy:hover { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+
+        /* Highlight keywords in titles */
+        .hl-red { color: #ef4444; font-weight: bold; background: rgba(239, 68, 68, 0.1); padding: 0 2px; border-radius: 2px; }
+        .hl-amber { color: #f59e0b; font-weight: bold; background: rgba(245, 158, 11, 0.1); padding: 0 2px; border-radius: 2px; }
+
+        @media (max-width: 1024px) { .content-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="top-bar">
+        <span>🔴 LIVE THREAT FEED</span>
+        <span>COMMAND CENTER... TELEMETRY ONLINE...</span>
+    </div>
+
+    <nav class="main-nav">
+        <div class="brand">
+            <div class="brand-dot"></div>
+            INTEL <span>ENGINE</span>
+        </div>
+        <div class="nav-controls">
+            <div id="sync-time" class="badge-status neutral">Synced: --:--</div>
+            <div id="status-badge" class="badge-status disconnected"><span>●</span> Connecting...</div>
+            <div class="badge-status"><span>●</span> AUTO-PILOT ACTIVE</div>
             
-        query += " ORDER BY published_date DESC LIMIT 100"
-        cur.execute(query, params)
-        data = [dict(r) for r in cur.fetchall()]
-        conn.close()
-        return data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            <a href="#" class="btn">📄 Executive Brief</a>
+            <button class="btn btn-primary" onclick="triggerManualSync()">⚡ Sync Live Feed</button>
+        </div>
+    </nav>
 
-@app.websocket("/ws/news")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    await broadcast_latest_data()
-    try:
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+    <div class="container">
+        
+        <!-- Terminal Logs -->
+        <div class="terminal-box" id="terminal-console">
+            <div class="term-line"><span class="term-time">[SYSTEM INITIALIZED]</span> Booting Tactical UI...</div>
+        </div>
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+        <!-- Telemetry Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Total Ingested Intel</span>
+                <span class="stat-value" id="stat-total">0</span>
+            </div>
+            <div class="stat-card critical">
+                <span class="stat-label">Critical Threats</span>
+                <span class="stat-value" id="stat-critical">0</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Channels Monitored</span>
+                <span class="stat-value">54 Active</span>
+            </div>
+        </div>
+
+        <!-- Filter Command Bar -->
+        <div class="filter-bar">
+            <span class="filter-label">Filter Intel:</span>
+            
+            <select id="filter-source">
+                <option value="">All Media Sources</option>
+                <option value="Al Jazeera">Al Jazeera (RED)</option>
+                <option value="Middle East Eye">Middle East Eye (RED)</option>
+                <option value="BBC World">BBC World (ALL)</option>
+            </select>
+
+            <input type="date" id="filter-date" title="Filter by Date">
+
+            <button class="btn btn-primary" onclick="applyFilters()">🔍 Execute Query</button>
+            <button class="btn" onclick="clearFilters()">✖ Reset Defaults</button>
+        </div>
+
+        <!-- Content Grid (Map + Feed) -->
+        <div class="content-grid">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>🗺️ Tactical Threat Map</span>
+                    <span id="map-nodes-count">0 Nodes Plotted</span>
+                </div>
+                <div id="map"></div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span>📡 Real-Time Intercept Feed</span>
+                </div>
+                <div class="feed-list" id="feed-container"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Leaflet Map JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map').setView([20.0, 10.0], 2);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+        let markersGroup = L.layerGroup().addTo(map);
+
+        // Keywords for Highlighting
+        const redKeywords = ["israel", "gaza", "palestine", "hamas", "hezbollah", "lebanon", "syria", "yemen", "houthi", "iran", "ukraine", "russia", "war", "strike", "missile", "military", "attack", "assassination", "nuclear", "bombing"];
+        const amberKeywords = ["diplomacy", "sanctions", "treaty", "nato", "standoff", "tension", "crisis", "unrest"];
+
+        function logToConsole(msg, alert = false) {
+            const box = document.getElementById('terminal-console');
+            const time = new Date().toLocaleTimeString('en-GB');
+            box.innerHTML += `<div class="term-line"><span class="term-time">[${time}]</span> <span class="${alert ? 'term-alert' : ''}">${msg}</span></div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function highlightText(text) {
+            let highlighted = text;
+            
+            // Highlight Red Words
+            redKeywords.forEach(kw => {
+                const regex = new RegExp(`\\b(${kw})\\b`, 'gi');
+                highlighted = highlighted.replace(regex, '<span class="hl-red">$1</span>');
+            });
+            
+            // Highlight Amber Words
+            amberKeywords.forEach(kw => {
+                const regex = new RegExp(`\\b(${kw})\\b`, 'gi');
+                highlighted = highlighted.replace(regex, '<span class="hl-amber">$1</span>');
+            });
+
+            return highlighted;
+        }
+
+        function copyLink(url, btn) {
+            navigator.clipboard.writeText(url).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = "✓ Copied!";
+                btn.style.backgroundColor = "#10b981"; 
+                btn.style.borderColor = "#10b981";
+                btn.style.color = "white";
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.backgroundColor = "";
+                    btn.style.borderColor = "";
+                    btn.style.color = "";
+                }, 2000);
+            }).catch(err => {
+                alert('Copy failed. Please manually copy the link.');
+            });
+        }
+
+        async function triggerManualSync() {
+            try {
+                logToConsole("TRANSMITTING MANUAL SWEEP COMMAND...");
+                const res = await fetch(`/api/trigger/sweep?secret=my-secure-password-99`);
+                if (!res.ok) logToConsole("SWEEP COMMAND REJECTED.", true);
+            } catch (err) {
+                logToConsole("NETWORK ERROR: Could not reach endpoint.", true);
+            }
+        }
+
+        function renderData(items) {
+            // Render Feed
+            const container = document.getElementById('feed-container');
+            if (items.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: #6b7280; padding: 20px;">No intel packets found matching query.</div>`;
+            } else {
+                container.innerHTML = items.map(item => `
+                    <div class="feed-item ${item.threat_level}">
+                        <a href="${item.link}" target="_blank" class="feed-title">${highlightText(item.title)}</a>
+                        <div class="feed-meta">
+                            <span class="badge ${item.category === 'RED' ? 'badge-red' : 'badge-blue'}">${item.category}</span>
+                            <span>📡 ${item.source}</span>
+                            <span>📍 ${item.region}</span>
+                            <span>🕒 ${item.published_date.split(' ')[0]}</span>
+                            <button class="btn-copy" onclick="copyLink('${item.link}', this)">📋 Copy Link</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Render Map
+            markersGroup.clearLayers();
+            let nodes = 0;
+            items.forEach(item => {
+                if (item.lat !== 'N/A' && item.lng !== 'N/A') {
+                    L.circleMarker([item.lat, item.lng], {
+                        radius: item.threat_level === 'CRITICAL' ? 8 : 5,
+                        color: item.threat_level === 'CRITICAL' ? '#ef4444' : '#3b82f6',
+                        fillOpacity: 0.7
+                    }).bindPopup(`<b>${item.title}</b><br>Source: ${item.source}`).addTo(markersGroup);
+                    nodes++;
+                }
+            });
+            document.getElementById('map-nodes-count').innerText = `${nodes} Nodes Plotted`;
+        }
+
+        // --- FILTER LOGIC (REST API) ---
+        async function applyFilters() {
+            const source = document.getElementById('filter-source').value;
+            const date = document.getElementById('filter-date').value;
+            
+            let url = '/api/news?';
+            if (source) url += `source=${encodeURIComponent(source)}&`;
+            if (date) url += `date=${encodeURIComponent(date)}&`;
+            
+            logToConsole(`EXECUTING DATABASE QUERY... [Source: ${source || 'ALL'}, Date: ${date || 'ALL'}]`);
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                renderData(data);
+                logToConsole(`QUERY COMPLETE: Retrieved ${data.length} records.`);
+            } catch (err) {
+                logToConsole("DATABASE QUERY FAILED.", true);
+            }
+        }
+
+        async function clearFilters() {
+            document.getElementById('filter-source').value = "";
+            document.getElementById('filter-date').value = "";
+            applyFilters();
+        }
+
+        // --- LIVE TELEMETRY (WEBSOCKET) ---
+        let ws;
+        function connectWs() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/news`);
+
+            ws.onopen = () => {
+                document.getElementById('status-badge').className = "badge-status";
+                document.getElementById('status-badge').innerHTML = "<span>●</span> Live WebSocket Active";
+                logToConsole("ESTABLISHING SECURE SAT-LINK TO 54 CHANNELS...");
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'log') {
+                    logToConsole(data.msg, data.alert);
+                } 
+                else if (data.type === 'update') {
+                    document.getElementById('sync-time').innerText = `Synced: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+                    document.getElementById('stat-total').innerText = data.stats.total;
+                    document.getElementById('stat-critical').innerText = data.stats.critical;
+                    
+                    // Only update the feed/map via WebSocket if filters are NOT currently active
+                    const hasFilters = document.getElementById('filter-source').value || document.getElementById('filter-date').value;
+                    if (!hasFilters) {
+                        renderData(data.items);
+                    }
+                }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('status-badge').className = "badge-status disconnected";
+                document.getElementById('status-badge').innerHTML = "<span>●</span> Reconnecting...";
+                logToConsole("WEBSOCKET LINK SEVERED. RECONNECTING...", true);
+                setTimeout(connectWs, 3000); 
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', connectWs);
+    </script>
+</body>
+</html>
