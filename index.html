@@ -45,7 +45,24 @@
         </div>
         <div class="flex-grow overflow-hidden relative h-full flex items-center text-[11px] font-mono text-red-300">
             <div id="news-ticker" class="animate-ticker">
-                [SYSTEM] MULTILINGUAL TELEMETRY ARMED... SCANNING GLOBAL REPOSITORIES & CONFLICT FEEDS...
+                [SYSTEM] MULTILINGUAL TELEMETRY ACTIVE... SCANNING GLOBAL REPOSITORIES...
+            </div>
+        </div>
+    </div>
+
+    <!-- Executive Briefing Modal -->
+    <div id="briefing-modal" class="fixed inset-0 bg-dark/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden fade-in">
+        <div class="bg-card border border-bordercolor rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-indigo-400 font-black tracking-wider text-base">📋 EXECUTIVE INTEL DOSSIER</span>
+                </div>
+                <button onclick="closeBriefingModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+            </div>
+            <div id="briefing-content" class="font-mono text-xs text-slate-300 space-y-3 overflow-y-auto pr-2 flex-grow bg-slate-950/80 p-5 rounded-xl border border-slate-800/80 whitespace-pre-wrap"></div>
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
+                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Score</span>
+                <button onclick="copyBriefingToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)] flex items-center gap-1.5">📋 Copy Dossier</button>
             </div>
         </div>
     </div>
@@ -60,7 +77,7 @@
             <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
         </div>
         <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HARVESTING MULTI-CHANNEL INTEL</h3>
-        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Gathering media previews across localized networks...</p>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Running maximum yield concurrency sweep...</p>
         <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">Run in Background</button>
     </div>
 
@@ -77,7 +94,7 @@
                 <span id="last-sync-badge" class="text-[10px] font-mono text-slate-500 border border-slate-700/50 px-2 py-1 rounded bg-slate-800/30 hidden">Synced: <span id="sync-time">Just now</span></span>
                 <span id="ws-status" class="px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono">● Disconnected</span>
                 
-                <label class="flex items-center gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer hover:border-slate-500 transition-colors" title="Toggle Middle East Eye inclusion">
+                <label class="flex items-center gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer hover:border-slate-500 transition-colors" title="Toggle Middle East Eye inclusion during sweep">
                     <input type="checkbox" id="mee-toggle" class="accent-indigo-500 rounded cursor-pointer">
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Include MEE</span>
                 </label>
@@ -86,7 +103,9 @@
                     <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                     <span class="text-[10px] font-bold text-slate-300 tracking-wider">AUTO-PILOT ACTIVE</span>
                 </div>
+                <button onclick="openBriefingModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 shadow-md transition-colors flex items-center gap-1.5">📋 Executive Brief</button>
                 <button id="sync-btn" onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all active:scale-95 flex items-center gap-1.5">⚡ Sync Live Feed</button>
+                <button onclick="exportCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition-colors">📥 Export CSV</button>
             </div>
         </header>
 
@@ -99,7 +118,7 @@
                 <canvas id="telemetryChart"></canvas>
                 <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 font-mono text-xs hidden bg-card/90 rounded-xl">
                     <span>Awaiting Data Telemetry...</span>
-                    <span class="mt-1 opacity-75">Click 'Sync Live Feed' to ingest streams.</span>
+                    <span class="mt-1 opacity-75">Click 'Sync Live Feed' to ingest multi-channel feeds.</span>
                 </div>
             </div>
             <div class="flex flex-col gap-3">
@@ -118,69 +137,38 @@
             </div>
         </div>
 
-        <!-- CATEGORY & STREAM TYPE SELECTORS -->
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-6 border-b border-bordercolor pb-3">
-            <div class="flex space-x-2">
-                <button id="tab-all" onclick="switchCategory('ALL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL THREATS</button>
-                <button id="tab-red" onclick="switchCategory('RED')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis)</button>
-                <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy)</button>
-            </div>
-
-            <!-- Dedicated Stream Separator -->
-            <div class="flex items-center bg-slate-900/90 p-1 rounded-xl border border-slate-800 gap-1 text-xs">
-                <button id="type-all" onclick="switchFeedType('ALL')" class="px-3 py-1.5 rounded-lg font-bold bg-indigo-600 text-white transition-all">🌐 All Streams</button>
-                <button id="type-pub" onclick="switchFeedType('PUBLISHER')" class="px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all">📰 Official Publishers</button>
-                <button id="type-soc" onclick="switchFeedType('SOCIAL')" class="px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all">🐦 Social & Reddit</button>
-            </div>
+        <!-- CATEGORY TABS -->
+        <div class="flex space-x-2 mb-6 border-b border-bordercolor pb-3">
+            <button id="tab-all" onclick="switchCategory('ALL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL / GLOBAL TRENDS</button>
+            <button id="tab-red" onclick="switchCategory('RED')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis & Conflict)</button>
+            <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy & Trade)</button>
         </div>
 
-        <!-- ADVANCED FILTER CONSOLE -->
+        <!-- SLEEK ADVANCED FILTER CONSOLE -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
+            
             <div class="relative">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep search any keyword or handle (e.g. ጦርነት, غزة, @netanyahu, ceasefire, sanctions, UkrainianConflict)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic across languages live (e.g. ጦርነት, Gaza, ceasefire, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-                <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">1. Continent</label>
-                    <select id="continentSelect" onchange="onContinentChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                        <option value="All">All Continents</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">2. Country / Region</label>
-                    <select id="countrySelect" onchange="onCountryChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                        <option value="All">All Countries</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. News Publisher</label>
-                    <select id="publisherSelect" onchange="applyDropdownFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                        <option value="All">All Publishers</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">4. Social Handle / Desk</label>
-                    <select id="handleSelect" onchange="applyDropdownFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                        <option value="All">All Social Handles</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">5. Language Lexicon</label>
-                    <select id="languageSelect" onchange="applyDropdownFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
-                        <option value="All">All Languages</option>
-                    </select>
-                </div>
+            <!-- Horizontal Source Buttons -->
+            <div class="flex flex-wrap gap-1.5 border-b border-slate-800 pb-3" id="sourceFilters">
+                <button onclick="filterSource('All')" class="src-btn active px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-colors">All Sources</button>
+                <button onclick="filterSource('X (Twitter)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">X (Twitter)</button>
+                <button onclick="filterSource('r/UkrainianConflict')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Reddit</button>
+                <button onclick="filterSource('Reuters')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Reuters</button>
+                <button onclick="filterSource('BBC World')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">BBC World</button>
+                <button onclick="filterSource('Al Jazeera Arabic')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Al Jazeera (AR)</button>
+                <button onclick="filterSource('Al Jazeera (English)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Al Jazeera (EN)</button>
+                <button onclick="filterSource('Arab News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Arab News</button>
+                <button onclick="filterSource('Fana Broadcasting')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Fana Broadcasting</button>
+                <button onclick="filterSource('The Reporter Ethiopia')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">The Reporter</button>
             </div>
 
-            <!-- TIME & DATE CONTROLS -->
-            <div class="flex flex-wrap justify-between items-center gap-3 text-xs pt-2 border-t border-slate-800">
-                <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
-                    <select id="timeFilterSelect" onchange="applyTimePreset()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer font-semibold shadow-inner">
+            <!-- Time, Date, Handlers, and Language Dropdowns -->
+            <div class="flex flex-wrap justify-between items-center gap-3 text-xs">
+                <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800" id="dateFilters">
+                    <select id="timeFilterSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-semibold shadow-inner">
                         <option value="all">🕒 All Time</option>
                         <option value="1h">Past 1 Hour</option>
                         <option value="4h">Past 4 Hours</option>
@@ -189,25 +177,32 @@
                         <option value="1d">Past 24 Hours</option>
                         <option value="3d">Past 3 Days</option>
                         <option value="7d">Past 7 Days</option>
-                        <option value="14d">Past 14 Days</option>
-                        <option value="30d">Past 30 Days</option>
                     </select>
 
                     <span class="text-slate-600 font-bold px-1 text-[10px]">OR</span>
                     
                     <div class="flex items-center gap-1.5">
-                        <input type="date" id="startDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 [color-scheme:dark] shadow-inner cursor-pointer" title="Start Date">
+                        <input type="date" id="startDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 transition-colors [color-scheme:dark] shadow-inner cursor-pointer">
                         <span class="text-slate-500 font-bold">-</span>
-                        <input type="date" id="endDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 [color-scheme:dark] shadow-inner cursor-pointer" title="End Date">
-                        <button onclick="clearCustomDate()" class="px-2.5 py-1 bg-slate-800 hover:bg-red-900/80 hover:text-red-400 text-slate-400 border border-slate-700 rounded-lg text-xs font-bold transition-colors" title="Clear Custom Dates">&times;</button>
+                        <input type="date" id="endDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 transition-colors [color-scheme:dark] shadow-inner cursor-pointer">
+                        <button onclick="clearCustomDate()" class="px-2.5 py-1 bg-slate-800 hover:bg-red-900/80 hover:text-red-400 text-slate-400 border border-slate-700 rounded-lg text-xs font-bold transition-colors shadow-md">&times;</button>
                     </div>
                 </div>
 
-                <button onclick="resetAllFilters()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg text-xs transition-colors">✖ Reset All Filters</button>
+                <!-- Dedicated Dropdowns (Handlers & Language) -->
+                <div class="flex flex-wrap gap-2">
+                    <select id="handleSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none transition-colors cursor-pointer shadow-inner font-semibold">
+                        <option value="All">All Social Handles & Desks</option>
+                    </select>
+
+                    <select id="languageSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-3 py-1.5 focus:outline-none transition-colors cursor-pointer shadow-inner font-semibold">
+                        <option value="All">🌍 All Languages</option>
+                    </select>
+                </div>
             </div>
         </div>
 
-        <!-- INTEL CARDS GRID -->
+        <!-- INTEL CARDS GRID (Sleek Tactical Design with Smart Thumbnails) -->
         <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
         <div class="flex justify-center mb-8">
@@ -223,16 +218,12 @@
         const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/news`;
 
         let currentCategory = 'ALL';
-        let currentFeedType = 'ALL';
-        let currentContinent = 'All';
-        let currentCountry = 'All';
         let currentPublisher = 'All';
         let currentHandle = 'All';
         let currentLanguage = 'All';
         let searchQuery = '';
         let currentPage = 1;
 
-        let catalogMeta = { hierarchy: {}, publishers: [], handles: [], languages: [] };
         let telemetryChart = null;
         let ws = null;
         let syncTimerInterval;
@@ -245,24 +236,13 @@
             'INFORMATIONAL': ''
         };
 
-        // Outlets default gradient badge generation
-        const publisherBadges = {
-            'r/UkrainianConflict': 'from-blue-600 to-yellow-600',
-            'BBC Arabic': 'from-red-700 to-red-900',
-            'Al Jazeera Arabic': 'from-amber-600 to-amber-800',
-            'BBC News Amharic': 'from-red-600 to-rose-900',
-            'VOA Amharic': 'from-blue-700 to-indigo-900',
-            'Reuters World': 'from-orange-600 to-amber-700',
-            'default': 'from-slate-800 to-slate-900'
-        };
-
         const skeletonCard = `
-            <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-64 flex flex-col justify-between">
+            <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-44 flex flex-col justify-between">
                 <div>
-                    <div class="h-28 bg-slate-800/60 rounded-xl mb-3"></div>
-                    <div class="space-y-2"><div class="h-3 bg-slate-700/50 rounded w-3/4"></div><div class="h-3 bg-slate-700/50 rounded w-full"></div></div>
+                    <div class="flex justify-between mb-4"><div class="h-4 bg-slate-700/50 rounded w-1/4"></div><div class="h-4 bg-slate-700/50 rounded w-1/6"></div></div>
+                    <div class="space-y-3"><div class="h-3 bg-slate-700/50 rounded w-3/4"></div><div class="h-3 bg-slate-700/50 rounded w-full"></div><div class="h-3 bg-slate-700/50 rounded w-5/6"></div></div>
                 </div>
-                <div class="border-t border-slate-700/50 pt-3 mt-2 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div></div>
+                <div class="border-t border-slate-700/50 pt-3 mt-4 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div><div class="h-3 bg-slate-700/50 rounded w-1/5"></div></div>
             </div>`;
 
         function writeTerminal(msg, type='info') {
@@ -342,105 +322,40 @@
         async function loadMetadata() {
             try {
                 const res = await fetch(`${API_BASE}/api/meta/catalog`);
-                catalogMeta = await res.json();
+                const meta = await res.json();
                 
-                const contSelect = document.getElementById('continentSelect');
-                let contHtml = '<option value="All">All Continents</option>';
-                Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
-                contSelect.innerHTML = contHtml;
-
                 const handleSelect = document.getElementById('handleSelect');
-                let handleHtml = '<option value="All">All Social Handles</option>';
-                catalogMeta.handles.forEach(h => handleHtml += `<option value="${h}">${h}</option>`);
+                let handleHtml = '<option value="All">All Social Handles & Desks</option>';
+                meta.handles.forEach(h => handleHtml += `<option value="${h}">${h}</option>`);
                 handleSelect.innerHTML = handleHtml;
 
                 const langSelect = document.getElementById('languageSelect');
-                let langHtml = '<option value="All">All Languages</option>';
-                catalogMeta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
+                let langHtml = '<option value="All">🌍 All Languages</option>';
+                meta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
                 langSelect.innerHTML = langHtml;
 
-                populatePublishersDropdown();
             } catch(e) {}
         }
 
-        function onContinentChange() {
-            currentContinent = document.getElementById('continentSelect').value;
-            const countrySelect = document.getElementById('countrySelect');
-            let countryHtml = '<option value="All">All Countries</option>';
-            if (currentContinent !== 'All' && catalogMeta.hierarchy[currentContinent]) {
-                Object.keys(catalogMeta.hierarchy[currentContinent]).forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
-            }
-            countrySelect.innerHTML = countryHtml;
-            currentCountry = 'All';
-            populatePublishersDropdown();
-            fetchNews(true);
-        }
-
-        function onCountryChange() {
-            currentCountry = document.getElementById('countrySelect').value;
-            populatePublishersDropdown();
-            fetchNews(true);
-        }
-
-        function populatePublishersDropdown() {
-            const pubSelect = document.getElementById('publisherSelect');
-            let pubHtml = '<option value="All">All Publishers</option>';
-            let pubs = [];
-
-            if (currentContinent === 'All' && currentCountry === 'All') {
-                pubs = catalogMeta.publishers;
-            } else if (currentContinent !== 'All' && currentCountry === 'All') {
-                const contObj = catalogMeta.hierarchy[currentContinent] || {};
-                Object.values(contObj).forEach(list => pubs.push(...list));
-            } else if (currentCountry !== 'All') {
-                const contObj = catalogMeta.hierarchy[currentContinent] || {};
-                pubs = contObj[currentCountry] || [];
-            }
-
-            Array.from(new Set(pubs)).sort().forEach(p => pubHtml += `<option value="${p}">${p}</option>`);
-            pubSelect.innerHTML = pubHtml;
-        }
-
-        function switchFeedType(type) {
-            currentFeedType = type;
-            ['all', 'pub', 'soc'].forEach(t => {
-                const btn = document.getElementById(`type-${t}`);
-                if ((t === 'all' && type === 'ALL') || (t === 'pub' && type === 'PUBLISHER') || (t === 'soc' && type === 'SOCIAL')) {
-                    btn.className = "px-3 py-1.5 rounded-lg font-bold bg-indigo-600 text-white transition-all";
+        function filterSource(src) {
+            currentPublisher = src;
+            writeTerminal(`FILTER APPLIED: ROUTING TO SOURCE [${src.toUpperCase()}]`, "info");
+            document.querySelectorAll('.src-btn').forEach(btn => {
+                const btnText = btn.innerText.trim();
+                if (btnText === src || (src === 'All' && btnText === 'All Sources') || (src === 'X (Twitter)' && btnText === 'X (Twitter)') || (src === 'r/UkrainianConflict' && btnText === 'Reddit')) {
+                    btn.classList.replace('bg-slate-900', 'bg-indigo-600');
+                    btn.classList.replace('text-slate-400', 'text-white');
                 } else {
-                    btn.className = "px-3 py-1.5 rounded-lg font-bold text-slate-400 hover:text-white transition-all";
+                    btn.classList.replace('bg-indigo-600', 'bg-slate-900');
+                    btn.classList.replace('text-white', 'text-slate-400');
                 }
             });
             fetchNews(true);
         }
 
-        function applyDropdownFilters() {
-            currentPublisher = document.getElementById('publisherSelect').value;
+        function applyFilters() {
             currentHandle = document.getElementById('handleSelect').value;
             currentLanguage = document.getElementById('languageSelect').value;
-            fetchNews(true);
-        }
-
-        function resetAllFilters() {
-            document.getElementById('continentSelect').value = 'All';
-            document.getElementById('countrySelect').innerHTML = '<option value="All">All Countries</option>';
-            document.getElementById('publisherSelect').value = 'All';
-            document.getElementById('handleSelect').value = 'All';
-            document.getElementById('languageSelect').value = 'All';
-            document.getElementById('searchInput').value = '';
-            document.getElementById('startDate').value = '';
-            document.getElementById('endDate').value = '';
-            document.getElementById('timeFilterSelect').value = 'all';
-            
-            currentContinent = 'All';
-            currentCountry = 'All';
-            currentPublisher = 'All';
-            currentHandle = 'All';
-            currentLanguage = 'All';
-            currentFeedType = 'ALL';
-            searchQuery = '';
-            switchFeedType('ALL');
-            populatePublishersDropdown();
             fetchNews(true);
         }
 
@@ -452,7 +367,7 @@
             ws.onopen = () => {
                 statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
                 statusBadge.innerHTML = "● Live Telemetry Sat-Link Active";
-                writeTerminal("CONNECTED TO MULTI-CHANNEL DATA STREAM.", "sys");
+                writeTerminal("CONNECTED TO TACTICAL DATA STREAM.", "sys");
             };
             
             ws.onmessage = (event) => {
@@ -514,9 +429,6 @@
             try {
                 const url = new URL(`${API_BASE}/api/news`);
                 url.searchParams.append('category', currentCategory);
-                url.searchParams.append('feed_type', currentFeedType);
-                url.searchParams.append('continent', currentContinent);
-                url.searchParams.append('country', currentCountry);
                 url.searchParams.append('publisher', currentPublisher);
                 url.searchParams.append('handle', currentHandle);
                 url.searchParams.append('language', currentLanguage);
@@ -566,18 +478,14 @@
                         : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
 
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
-                    const langBadge = item.language ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
+                    const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
                     
-                    const grad = publisherBadges[item.source] || publisherBadges['default'];
+                    // The "Smart Thumbnail" rendering
                     const thumbnailHtml = item.thumbnail ? `
-                        <div class="w-full h-36 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative">
-                            <img src="${item.thumbnail}" alt="Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.innerHTML='<div class=\'w-full h-36 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center text-xs font-mono font-bold text-slate-300 border border-slate-800\'>${item.source}</div>'">
+                        <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
+                            <img src="${item.thumbnail}" alt="Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
                         </div>
-                    ` : `
-                        <div class="w-full h-28 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center text-xs font-mono font-bold text-slate-300 border border-slate-800 mb-3 shadow-inner">
-                            ${item.source}
-                        </div>
-                    `;
+                    ` : '';
 
                     const card = `
                         <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
@@ -655,6 +563,34 @@
                 tickerHTML += `<span class="mx-6">♦ ${item.title.toUpperCase()} [${item.source.toUpperCase()}]</span>`;
             });
             ticker.innerHTML = tickerHTML;
+        }
+
+        function openBriefingModal() {
+            document.getElementById('briefing-modal').classList.remove('hidden');
+            const contentBox = document.getElementById('briefing-content');
+            contentBox.innerHTML = '';
+            const now = new Date().toLocaleString();
+            let text = `MULTILINGUAL GEOPOLITICAL INTELLIGENCE DOSSIER\nGenerated: ${now}\nCategory: ${currentCategory}\n----------------------------------------\n\n`;
+
+            if (currentFetchedNews.length === 0) {
+                text += "No records currently indexed under active parameters.";
+            } else {
+                currentFetchedNews.slice(0, 12).forEach((item, idx) => {
+                    const threat = item.threat_level === "CRITICAL" ? "[🔴 CRITICAL] " : (item.threat_level === "ELEVATED" ? "[🟧 ELEVATED] " : "");
+                    const src = item.feed_type === 'SOCIAL' ? item.handle : item.source;
+                    text += `${idx + 1}. ${threat}${item.title}\n   Source: ${src} | Country: ${item.country} | Lang: ${item.language}\n   URL: ${item.link}\n\n`;
+                });
+            }
+            contentBox.innerHTML = text;
+        }
+        function closeBriefingModal() { document.getElementById('briefing-modal').classList.add('hidden'); }
+        function copyBriefingToClipboard() {
+            navigator.clipboard.writeText(document.getElementById('briefing-content').innerText);
+            showToast("📋 Dossier copied to clipboard!", "success");
+        }
+
+        function exportCSV() {
+            window.location.href = `${API_BASE}/api/export?category=${currentCategory}`;
         }
 
         async function loadChartData() {
