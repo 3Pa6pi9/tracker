@@ -27,7 +27,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
         .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 35s linear infinite; padding-left: 100%; }
-        .critical-glow { box-shadow: 0 0 15px rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.6) !important; }
+        .critical-glow { box-shadow: 0 0 15px rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.6) !important; }
         #terminal-log::-webkit-scrollbar { width: 4px; }
         #terminal-log::-webkit-scrollbar-thumb { background: #16a34a; border-radius: 4px; }
         .cursor-blink { animation: blink 1s step-end infinite; }
@@ -61,7 +61,7 @@
             </div>
             <div id="briefing-content" class="font-mono text-xs text-slate-300 space-y-3 overflow-y-auto pr-2 flex-grow bg-slate-950/80 p-5 rounded-xl border border-slate-800/80 whitespace-pre-wrap"></div>
             <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
-                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Score</span>
+                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Matrix</span>
                 <button onclick="copyBriefingToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)] flex items-center gap-1.5">📋 Copy Dossier</button>
             </div>
         </div>
@@ -76,8 +76,8 @@
             <div class="absolute inset-0 rounded-full animate-radar bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(99,102,241,0.4)_360deg)]"></div>
             <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
         </div>
-        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">INTERCEPTING MULTILINGUAL SIGNALS</h3>
-        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Scanning global & African publisher networks...</p>
+        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HARVESTING GLOBAL FEEDS</h3>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Extracting preview media and metadata...</p>
         <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">Run in Background</button>
     </div>
 
@@ -94,8 +94,8 @@
                 <span id="last-sync-badge" class="text-[10px] font-mono text-slate-500 border border-slate-700/50 px-2 py-1 rounded bg-slate-800/30 hidden">Synced: <span id="sync-time">Just now</span></span>
                 <span id="ws-status" class="px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono">● Disconnected</span>
                 
-                <!-- Middle East Eye Investigative Toggle -->
-                <label class="flex items-center gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer hover:border-slate-500 transition-colors" title="Toggle Middle East Eye inclusion during live sweep">
+                <!-- MEE Investigative Toggle -->
+                <label class="flex items-center gap-2 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-700 cursor-pointer hover:border-slate-500 transition-colors" title="Toggle Middle East Eye inclusion during sweep">
                     <input type="checkbox" id="mee-toggle" class="accent-indigo-500 rounded cursor-pointer">
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Include MEE</span>
                 </label>
@@ -138,23 +138,20 @@
             </div>
         </div>
 
-        <!-- CATEGORY PROTOCOL TABS -->
+        <!-- CATEGORY TABS -->
         <div class="flex space-x-2 mb-6 border-b border-bordercolor pb-3">
             <button id="tab-all" onclick="switchCategory('ALL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL / GLOBAL TRENDS</button>
             <button id="tab-red" onclick="switchCategory('RED')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis & Conflict)</button>
             <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy & Trade)</button>
         </div>
 
-        <!-- ADVANCED FILTER COMMAND CONSOLE -->
+        <!-- ADVANCED FILTER CONSOLE -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             <div class="relative">
                 <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep search any keyword across languages (e.g. ጦርነት, Gaza, ceasefire, sanctions, Al-Shabaab)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
-            <!-- HIERARCHICAL GEOGRAPHIC & PUBLISHER DROPDOWNS -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                
-                <!-- 1. Continent Selector -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">1. Continent</label>
                     <select id="continentSelect" onchange="onContinentChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
@@ -162,7 +159,6 @@
                     </select>
                 </div>
 
-                <!-- 2. Country Selector -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">2. Country / Region</label>
                     <select id="countrySelect" onchange="onCountryChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
@@ -170,7 +166,6 @@
                     </select>
                 </div>
 
-                <!-- 3. Dedicated Publisher Filter Dropdown -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. Publisher (Local & Global)</label>
                     <select id="publisherSelect" onchange="applyDropdownFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
@@ -178,7 +173,6 @@
                     </select>
                 </div>
 
-                <!-- 4. Language Selector -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">4. Language Lexicon</label>
                     <select id="languageSelect" onchange="applyDropdownFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer">
@@ -189,7 +183,7 @@
 
             <!-- TIME & DATE CONTROLS -->
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs pt-2 border-t border-slate-800">
-                <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800" id="dateFilters">
+                <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
                     <select id="timeFilterSelect" onchange="applyTimePreset()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 cursor-pointer font-semibold shadow-inner">
                         <option value="all">🕒 All Time</option>
                         <option value="1h">Past 1 Hour</option>
@@ -254,12 +248,12 @@
         };
 
         const skeletonCard = `
-            <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-44 flex flex-col justify-between">
+            <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-64 flex flex-col justify-between">
                 <div>
-                    <div class="flex justify-between mb-4"><div class="h-4 bg-slate-700/50 rounded w-1/4"></div><div class="h-4 bg-slate-700/50 rounded w-1/6"></div></div>
-                    <div class="space-y-3"><div class="h-3 bg-slate-700/50 rounded w-3/4"></div><div class="h-3 bg-slate-700/50 rounded w-full"></div><div class="h-3 bg-slate-700/50 rounded w-5/6"></div></div>
+                    <div class="h-28 bg-slate-800/60 rounded-xl mb-3"></div>
+                    <div class="space-y-2"><div class="h-3 bg-slate-700/50 rounded w-3/4"></div><div class="h-3 bg-slate-700/50 rounded w-full"></div></div>
                 </div>
-                <div class="border-t border-slate-700/50 pt-3 mt-4 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div><div class="h-3 bg-slate-700/50 rounded w-1/5"></div></div>
+                <div class="border-t border-slate-700/50 pt-3 mt-2 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div></div>
             </div>`;
 
         function writeTerminal(msg, type='info') {
@@ -269,7 +263,6 @@
             if(type === 'error') color = 'text-red-500';
             if(type === 'warn') color = 'text-amber-500';
             if(type === 'sys') color = 'text-indigo-400';
-            if(type === 'crit') color = 'text-red-500 font-bold bg-red-950/30 px-1 inline-block';
             
             const line = document.createElement('div');
             line.className = `mb-1 ${color}`;
@@ -289,22 +282,33 @@
             typeChar();
         }
 
-        setTimeout(() => writeTerminal("COMMAND MATRIX INITIALIZED. HIERARCHICAL REPOSITORIES ARMED.", "sys"), 300);
-
         function showToast(message, type = 'info') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             let bgClass = "bg-slate-800 border-slate-700 text-slate-200";
             if (type === 'success') bgClass = "bg-emerald-950/90 border-emerald-800 text-emerald-300";
-            if (type === 'warning') bgClass = "bg-amber-950/90 border-amber-800 text-amber-300";
             if (type === 'error') bgClass = "bg-red-950/90 border-red-800 text-red-300";
-            if (type === 'info') bgClass = "bg-indigo-950/90 border-indigo-800 text-indigo-300";
 
             toast.className = `p-3.5 rounded-xl border text-xs font-mono shadow-2xl transition-all duration-300 transform translate-y-5 opacity-0 pointer-events-auto flex items-center justify-between backdrop-blur-md ${bgClass}`;
             toast.innerHTML = `<div class="flex items-center gap-2"><span>${message}</span></div><button onclick="this.parentElement.remove()" class="ml-3 opacity-60 hover:opacity-100">&times;</button>`;
             container.appendChild(toast);
             setTimeout(() => toast.classList.remove('translate-y-5', 'opacity-0'), 10);
-            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 6000);
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 5000);
+        }
+
+        function copyToClipboard(text, btnElement) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHTML = btnElement.innerHTML;
+                btnElement.innerHTML = "✓ Copied!";
+                btnElement.classList.replace('bg-slate-800', 'bg-emerald-600');
+                btnElement.classList.replace('text-slate-300', 'text-white');
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.classList.replace('bg-emerald-600', 'bg-slate-800');
+                    btnElement.classList.replace('text-white', 'text-slate-300');
+                }, 2000);
+                showToast("📋 Link copied to clipboard for posting!", "success");
+            });
         }
 
         function showSyncOverlay() {
@@ -325,49 +329,32 @@
             syncBtn.disabled = false;
             hideSyncOverlay();
         }
-        
-        function updateSyncBadge(timeStr) {
-            document.getElementById('last-sync-badge').classList.remove('hidden');
-            document.getElementById('sync-time').innerText = timeStr || "Just now";
-        }
 
-        // --- CASCADING HIERARCHICAL DROPDOWNS ---
         async function loadMetadata() {
             try {
                 const res = await fetch(`${API_BASE}/api/meta/catalog`);
                 catalogMeta = await res.json();
                 
-                // Populate Continents
                 const contSelect = document.getElementById('continentSelect');
                 let contHtml = '<option value="All">All Continents</option>';
-                Object.keys(catalogMeta.hierarchy).forEach(cont => {
-                    contHtml += `<option value="${cont}">${cont}</option>`;
-                });
+                Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
                 contSelect.innerHTML = contHtml;
 
-                // Populate Languages
                 const langSelect = document.getElementById('languageSelect');
                 let langHtml = '<option value="All">All Languages</option>';
-                catalogMeta.languages.forEach(l => {
-                    langHtml += `<option value="${l}">${l}</option>`;
-                });
+                catalogMeta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
                 langSelect.innerHTML = langHtml;
 
                 populatePublishersDropdown();
-            } catch(e) {
-                console.error("Meta load error", e);
-            }
+            } catch(e) {}
         }
 
         function onContinentChange() {
             currentContinent = document.getElementById('continentSelect').value;
             const countrySelect = document.getElementById('countrySelect');
-            
             let countryHtml = '<option value="All">All Countries</option>';
             if (currentContinent !== 'All' && catalogMeta.hierarchy[currentContinent]) {
-                Object.keys(catalogMeta.hierarchy[currentContinent]).forEach(c => {
-                    countryHtml += `<option value="${c}">${c}</option>`;
-                });
+                Object.keys(catalogMeta.hierarchy[currentContinent]).forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
             }
             countrySelect.innerHTML = countryHtml;
             currentCountry = 'All';
@@ -396,9 +383,7 @@
                 pubs = contObj[currentCountry] || [];
             }
 
-            Array.from(new Set(pubs)).sort().forEach(p => {
-                pubHtml += `<option value="${p}">${p}</option>`;
-            });
+            Array.from(new Set(pubs)).sort().forEach(p => pubHtml += `<option value="${p}">${p}</option>`);
             pubSelect.innerHTML = pubHtml;
         }
 
@@ -427,7 +412,6 @@
             fetchNews(true);
         }
 
-        // --- WEBSOCKET ENGINE ---
         function connectWebSocket() {
             ws = new WebSocket(WS_URL);
             const statusBadge = document.getElementById('ws-status');
@@ -445,7 +429,7 @@
                     syncBtn.classList.replace('bg-indigo-600', 'bg-slate-700');
                     syncBtn.disabled = true;
                     if(!data.silent) showSyncOverlay();
-                    writeTerminal("HARVESTING CHANNELS ACROSS CONTINENTS...", "warn");
+                    writeTerminal("HARVESTING MULTI-CHANNEL FEEDS...", "warn");
                     
                     clearInterval(syncTimerInterval);
                     secondsElapsed = 0;
@@ -457,16 +441,16 @@
                 }
                 else if (data.event === "new_intel") {
                     resetSyncButton();
-                    updateSyncBadge(data.time);
+                    document.getElementById('last-sync-badge').classList.remove('hidden');
+                    document.getElementById('sync-time').innerText = data.time || "Just now";
                     writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new multilingual packets.`, "sys");
-                    showToast(`✅ Sweep Finished! Intercepted ${data.count} new records.`, "success");
+                    showToast(`✅ Ingested ${data.count} new records.`, "success");
                     fetchNews(true);
                     loadChartData();
                 }
                 else if (data.event === "sync_finished_no_data") {
                     resetSyncButton();
-                    updateSyncBadge(data.time);
-                    writeTerminal("SWEEP COMPLETE: All local & global streams up to date.", "info");
+                    writeTerminal("SWEEP COMPLETE: Feeds are completely up to date.", "info");
                 }
             };
 
@@ -486,7 +470,6 @@
             }
         }
 
-        // --- FETCH INTEL ---
         async function fetchNews(overwrite = false) {
             const grid = document.getElementById('grid');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -532,7 +515,7 @@
                 if (data.length === 0 && currentPage === 1) {
                     grid.innerHTML = `
                         <div class="col-span-full text-center text-slate-500 py-16 bg-card/20 rounded-2xl border border-bordercolor">
-                            <p class="text-xs font-medium text-slate-400">No records found matching active regional/multilingual filters.</p>
+                            <p class="text-xs font-medium text-slate-400">No records found matching active filter criteria.</p>
                         </div>`;
                     return;
                 }
@@ -545,30 +528,45 @@
 
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
+                    
+                    const thumbnailHtml = item.thumbnail ? `
+                        <div class="w-full h-36 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative">
+                            <img src="${item.thumbnail}" alt="Thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
+                        </div>
+                    ` : '';
 
                     const card = `
-                        <a href="${item.link}" target="_blank" class="block group fade-in">
-                            <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
-                                <div>
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
-                                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">${item.source}</span>
-                                            ${threatBadge}
-                                            ${langBadge}
-                                            ${keywordBadge}
-                                        </div>
-                                        <span class="text-[10px] text-slate-500 font-mono">${item.country || item.continent}</span>
+                        <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
+                            <div>
+                                ${thumbnailHtml}
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">${item.source}</span>
+                                        ${threatBadge}
+                                        ${langBadge}
+                                        ${keywordBadge}
                                     </div>
-                                    <h3 class="text-slate-200 text-xs font-medium leading-relaxed group-hover:text-indigo-300 transition-colors line-clamp-3">
+                                    <span class="text-[10px] text-slate-500 font-mono">${item.country || item.continent}</span>
+                                </div>
+                                <a href="${item.link}" target="_blank" class="block group">
+                                    <h3 class="text-slate-200 text-xs font-medium leading-relaxed group-hover:text-indigo-300 transition-colors line-clamp-3 mb-2">
                                         ${item.title}
                                     </h3>
-                                </div>
-                                <div class="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500 group-hover:text-indigo-400 transition-colors">
-                                    <span>${dateString}</span>
-                                    <span class="flex items-center gap-1 font-bold">Access Source →</span>
+                                </a>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px]">
+                                <span class="text-slate-500 font-mono">${dateString}</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="copyToClipboard('${item.link}', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono rounded-lg border border-slate-700 transition-colors flex items-center gap-1 shadow-sm">
+                                        📋 Copy Link
+                                    </button>
+                                    <a href="${item.link}" target="_blank" class="px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 transition-colors flex items-center gap-1">
+                                        Access →
+                                    </a>
                                 </div>
                             </div>
-                        </a>
+                        </div>
                     `;
                     grid.insertAdjacentHTML('beforeend', card);
                 });
