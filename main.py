@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="25.0 - Smart Thumbnails & Language Filters")
+app = FastAPI(title="Global Geopolitical Command Center", version="26.0 - Josiah Master Parameters")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,13 +38,26 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# EXPANDED MULTILINGUAL LEXICONS
+# JOSIAH'S EXACT BOOLEAN & RED ACCOUNT TOPIC LEXICON
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
-        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat"],
-        "elevated": ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "counter-terrorism", "border security", "migration crisis", "ceasefire", "embargo", "coup"],
-        "general": ["bilateral", "state visit", "diplomatic", "diplomacy", "ambassador", "trade agreement", "foreign investment", "summit", "nato", "un resolution", "african union", "european union", "treaty", "foreign policy", "pact"]
+        "critical": [
+            "war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat",
+            # Josiah's Approved RED Account Topics
+            "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"
+        ],
+        "elevated": [
+            "sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup"
+        ],
+        "general": [
+            # Josiah's Diplomatic & Bilateral Relations (The Master Catch-All)
+            "bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks",
+            "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding",
+            "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty",
+            "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement",
+            "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"
+        ]
     },
     "Arabic": {
         "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران"],
@@ -64,74 +77,177 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# HIERARCHICAL REPOSITORIES & SUBREDDITS
+# HIERARCHICAL PUBLISHER MASTER LIST
 # ==============================================================================
 MASTER_CATALOG = [
-    # --- CONFLICT DESKS & REDDIT TRACKERS ---
-    {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
-    {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/geopolitics/new.rss"},
-    {"name": "r/WorldNews", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/worldnews/new.rss"},
-
-    # --- ARABIC NATIVE OUTLETS ---
-    {"name": "BBC Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
-    {"name": "Al Jazeera Arabic", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:aljazeera.net&hl=ar&gl=QA&ceid=QA:ar"},
-    {"name": "Sky News Arabia", "continent": "Middle East", "country": "UAE", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.skynewsarabia.com/rss"},
-    {"name": "Arab News", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.arabnews.com/cat/1/rss.xml"},
-    {"name": "Saba Net Yemen", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
-    {"name": "SUNA Sudan", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:suna-sd.net&hl=ar&gl=SD&ceid=SD:ar"},
-
-    # --- AMHARIC / HORN OF AFRICA NATIVE OUTLETS ---
-    {"name": "BBC News Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://feeds.bbci.co.uk/amharic/rss.xml"},
-    {"name": "VOA Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://amharic.voanews.com/api/z$_mye_i_m"},
-    {"name": "Deutsche Welle Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-amh-news"},
-    {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:fanabc.com/archives&hl=am&gl=ET&ceid=ET:am"},
-    {"name": "The Reporter Ethiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:thereporterethiopia.com&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Addis Fortune", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:addisfortune.news&hl=en-US&gl=US&ceid=US:en"},
-
-    # --- GLOBAL & US MAJORS ---
+    # US Majors
     {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
     {"name": "The Washington Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.washingtonpost.com/rss/world"},
     {"name": "The Wall Street Journal", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"},
-    {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "New York Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://nypost.com/feed/"},
     {"name": "CNN", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://rss.cnn.com/rss/edition_world.rss"},
     {"name": "Fox News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://moxie.foxnews.com/google-publisher/world.xml"},
-    {"name": "BBC World", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
-    {"name": "The Guardian", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.theguardian.com/world/rss"},
+    {"name": "ABC News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://abcnews.go.com/abcnews/internationalheadlines"},
+    {"name": "CBS News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.cbsnews.com/latest/rss/world"},
+    {"name": "NBC News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://feeds.nbcnews.com/nbcnews/public/world"},
+    
+    # Global / Geopolitical Focus
+    {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "The Economist", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.economist.com/international/rss.xml"},
+    {"name": "Politico", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.politico.com/politics-news.xml"},
+    {"name": "Foreign Policy", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://foreignpolicy.com/feed/"},
+    {"name": "Newsweek", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.newsweek.com/rss"},
+
+    # Europe - France
+    {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lemonde.fr/international/rss_full.xml"},
+    {"name": "Le Figaro", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lefigaro.fr/rss/figaro_international.xml"},
     {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.france24.com/fr/rss"},
+    {"name": "Libération", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.liberation.fr/arc/outboundfeeds/rss-all/collection/accueil-monde/"},
+    
+    # Europe - Germany
+    {"name": "Der Spiegel", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.spiegel.de/international/index.rss"},
+    {"name": "Süddeutsche Zeitung", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.sueddeutsche.de/app/service/rss/alles/index.rss?output=rss"},
+    {"name": "FAZ", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.faz.net/rss/aktuell/politik/ausland/"},
+    {"name": "Die Welt", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.welt.de/feeds/section/ausland.rss"},
     {"name": "Deutsche Welle", "continent": "Europe", "country": "Germany", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-en-world"},
-    {"name": "Africanews", "continent": "Africa", "country": "Pan-Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.africanews.com/feed/"},
+    
+    # Europe - UK
+    {"name": "BBC News", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
+    {"name": "The Guardian", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.theguardian.com/world/rss"},
+    {"name": "The Times", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.thetimes.co.uk/?service=rss"},
+    {"name": "The Telegraph", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.telegraph.co.uk/rss.xml"},
+    {"name": "The Independent", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.independent.co.uk/news/world/rss"},
+    
+    # Europe - Spain & Netherlands
+    {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
+    {"name": "El Mundo", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://e00-elmundo.uecdn.es/elmundo/rss/internacional.xml"},
+    {"name": "La Vanguardia", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lavanguardia.com/mvc/feed/rss/internacional"},
+    {"name": "RTVE", "continent": "Europe", "country": "Spain", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.rtve.es/api/noticias.rss"},
+    {"name": "NOS", "continent": "Europe", "country": "Netherlands", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.nos.nl/nosnieuwsbuitenland"},
+    {"name": "De Telegraaf", "continent": "Europe", "country": "Netherlands", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.telegraaf.nl/rss/buitenland"},
+    
+    # Europe - Italy, Greece, Portugal, Poland, Denmark
+    {"name": "Corriere della Sera", "continent": "Europe", "country": "Italy", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://xml2.corriere.it/rss/esteri.xml"},
+    {"name": "La Repubblica", "continent": "Europe", "country": "Italy", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.repubblica.it/rss/esteri/rss2.0.xml"},
+    {"name": "ANSA", "continent": "Europe", "country": "Italy", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml"},
+    {"name": "Kathimerini", "continent": "Europe", "country": "Greece", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.kathimerini.gr/world/rss"},
+    {"name": "Index.hu", "continent": "Europe", "country": "Hungary", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://index.hu/24ora/rss/"},
+    {"name": "Público", "continent": "Europe", "country": "Portugal", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.feedburner.com/PublicoRSS"},
+    {"name": "Gazeta Wyborcza", "continent": "Europe", "country": "Poland", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://wyborcza.pl/pub/rss/swiat.xml"},
+    {"name": "TVN24", "continent": "Europe", "country": "Poland", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://tvn24.pl/najnowsze.xml"},
+    {"name": "DR Nyheder", "continent": "Europe", "country": "Denmark", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.dr.dk/nyheder/service/feeds/udland"},
+
+    # Africa - West & Central
+    {"name": "Joy Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.myjoyonline.com/feed/"},
+    {"name": "GhanaWeb", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:ghanaweb.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Citi Newsroom", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://citinewsroom.com/feed/"},
+    {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Journal de Brazza", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:journaldebrazza.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Guineematin", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://guineematin.com/feed/"},
+    {"name": "Africaguinee", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:africaguinee.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Corbeau News Centrafrique", "continent": "Africa", "country": "Central African Republic", "category": "RED", "feed_type": "PUBLISHER", "url": "https://corbeaunews-centrafrique.org/feed/"},
+    
+    # Africa - East & Egypt
+    {"name": "L'Express Maurice", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://lexpress.mu/feed"},
+    {"name": "Al-Ahram Online", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://english.ahram.org.eg/RSS/All.aspx"},
+    {"name": "Daily News Egypt", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://dailynewsegypt.com/feed/"},
+    {"name": "Mada Masr", "continent": "Africa", "country": "Egypt", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.madamasr.com/en/feed/"},
     {"name": "Sudan Tribune", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://sudantribune.com/feed/"},
+    {"name": "Radio Dabanga", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.dabangasudan.org/en/feed"},
+    {"name": "SUNA", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:suna-sd.net&hl=ar&gl=SD&ceid=SD:ar"},
     {"name": "Hiiraan Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:hiiraan.com&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Al Jazeera (English)", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
-    {"name": "Times of Israel", "continent": "Middle East", "country": "Israel", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.timesofisrael.com/feed/"}
-]
+    {"name": "Garowe Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.garoweonline.com/en/rss/feed"},
+    {"name": "SONNA", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://sonna.so/en/feed/"},
 
-SOCIAL_CATALOG = [
-    {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED"},
-    {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
-    {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "RED"},
-    {"handle": "@MFAEthiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL"},
-    {"handle": "@WilliamsRuto", "continent": "Africa", "country": "Kenya", "category": "GENERAL"},
-    {"handle": "@StateDept", "continent": "North America", "country": "United States", "category": "ALL"},
-    {"handle": "@POTUS", "continent": "North America", "country": "United States", "category": "ALL"},
-    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL"},
-    {"handle": "@ReutersWorld", "continent": "Global", "country": "Global", "category": "ALL"},
-    {"handle": "@AJBreaking", "continent": "Middle East", "country": "Qatar", "category": "RED"}
+    # Middle Eastern Sources
+    {"name": "Arab News", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.arabnews.com/cat/1/rss.xml"},
+    {"name": "Asharq Al-Awsat", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://aawsat.com/feed"},
+    {"name": "Saudi Gazette", "continent": "Middle East", "country": "Saudi Arabia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://saudigazette.com.sa/rss"},
+    {"name": "IRNA", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://en.irna.ir/rss"},
+    {"name": "Mehr News Agency", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://en.mehrnews.com/rss"},
+    {"name": "Tehran Times", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.tehrantimes.com/rss"},
+    {"name": "Tasnim News Agency", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.tasnimnews.com/en/rss/feed"},
+    {"name": "Shafaq News", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "url": "https://shafaq.com/en/rss"},
+    {"name": "Rudaw", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.rudaw.net/english/rss"},
+    {"name": "Hürriyet", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.hurriyetdailynews.com/rss"},
+    {"name": "Daily Sabah", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.dailysabah.com/rss/world"},
+    {"name": "Anadolu Agency", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.aa.com.tr/en/rss/default?cat=current"},
+    {"name": "TRT World", "continent": "Middle East", "country": "Turkey", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.trtworld.com/feed/rss"},
+    {"name": "Saba Net", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
+    {"name": "Almasdar Online", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:almasdaronline.com&hl=ar&gl=YE&ceid=YE:ar"}
 ]
-
-OPTIONAL_FEEDS = {
-    "middle_east_eye": {
-        "name": "Middle East Eye",
-        "continent": "Middle East",
-        "country": "Regional",
-        "category": "RED",
-        "feed_type": "PUBLISHER",
-        "url": "https://www.middleeasteye.net/rss"
-    }
-}
 
 # ==============================================================================
-# DATABASE LAYER (WITH THUMBNAIL SUPPORT)
+# JOSIAH'S OFFICIAL DIPLOMATIC & NEWS DESK HANDLES
+# ==============================================================================
+SOCIAL_CATALOG = [
+    # US Officials
+    {"handle": "@POTUS", "continent": "North America", "country": "United States", "category": "ALL"},
+    {"handle": "@VP", "continent": "North America", "country": "United States", "category": "ALL"},
+    {"handle": "@SecRubio", "continent": "North America", "country": "United States", "category": "ALL"},
+    {"handle": "@marcorubio", "continent": "North America", "country": "United States", "category": "ALL"},
+    {"handle": "@StateDept", "continent": "North America", "country": "United States", "category": "ALL"},
+    
+    # Africa Leaders & Ministries
+    {"handle": "@WilliamsRuto", "continent": "Africa", "country": "Kenya", "category": "GENERAL"},
+    {"handle": "@PaulKagame", "continent": "Africa", "country": "Rwanda", "category": "GENERAL"},
+    {"handle": "@UrugwiroVillage", "continent": "Africa", "country": "Rwanda", "category": "GENERAL"},
+    {"handle": "@CyrilRamaphosa", "continent": "Africa", "country": "South Africa", "category": "GENERAL"},
+    {"handle": "@officialABAT", "continent": "Africa", "country": "Nigeria", "category": "GENERAL"},
+    {"handle": "@NGRPresident", "continent": "Africa", "country": "Nigeria", "category": "GENERAL"},
+    {"handle": "@AlsisiOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL"},
+    {"handle": "@MFAEthiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL"},
+    {"handle": "@MusaliaMudavadi", "continent": "Africa", "country": "Kenya", "category": "GENERAL"},
+    {"handle": "@ForeignOfficeKE", "continent": "Africa", "country": "Kenya", "category": "GENERAL"},
+    {"handle": "@RonaldLamola", "continent": "Africa", "country": "South Africa", "category": "GENERAL"},
+    {"handle": "@DIRCO_ZA", "continent": "Africa", "country": "South Africa", "category": "GENERAL"},
+    {"handle": "@NigeriaMFA", "continent": "Africa", "country": "Nigeria", "category": "GENERAL"},
+    {"handle": "@MFAEgOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL"},
+    {"handle": "@MfaEgypt", "continent": "Africa", "country": "Egypt", "category": "GENERAL"},
+    
+    # Europe Leaders & Ministries
+    {"handle": "@EmmanuelMacron", "continent": "Europe", "country": "France", "category": "GENERAL"},
+    {"handle": "@GiorgiaMeloni", "continent": "Europe", "country": "Italy", "category": "GENERAL"},
+    {"handle": "@sanchezcastejon", "continent": "Europe", "country": "Spain", "category": "GENERAL"},
+    {"handle": "@donaldtusk", "continent": "Europe", "country": "Poland", "category": "GENERAL"},
+    {"handle": "@_FriedrichMerz", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
+    {"handle": "@bundeskanzler", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
+    {"handle": "@AussenMinDE", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
+    {"handle": "@AuswaertigesAmt", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
+    {"handle": "@GermanyDiplo", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
+    {"handle": "@Ed_Miliband", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL"},
+    {"handle": "@FCDOGovUK", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL"},
+
+    # Middle East Leaders & Ministries
+    {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
+    {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "RED"},
+    {"handle": "@HHShkMohd", "continent": "Middle East", "country": "UAE", "category": "RED"},
+    {"handle": "@TamimBinHamad", "continent": "Middle East", "country": "Qatar", "category": "RED"},
+    {"handle": "@RTErdogan", "continent": "Middle East", "country": "Turkey", "category": "RED"},
+    {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED"},
+    {"handle": "@FaisalbinFarhan", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
+    {"handle": "@KSAMOFA", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
+    {"handle": "@KSAmofaEN", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
+    {"handle": "@ABZayed", "continent": "Middle East", "country": "UAE", "category": "RED"},
+    {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED"},
+    {"handle": "@OFMUAE", "continent": "Middle East", "country": "UAE", "category": "RED"},
+    {"handle": "@MBA_AlThani_", "continent": "Middle East", "country": "Qatar", "category": "RED"},
+    {"handle": "@MofaQatar_EN", "continent": "Middle East", "country": "Qatar", "category": "RED"},
+    {"handle": "@IsraelMFA", "continent": "Middle East", "country": "Israel", "category": "RED"},
+    {"handle": "@araghchi", "continent": "Middle East", "country": "Iran", "category": "RED"},
+    {"handle": "@IRIMFA_EN", "continent": "Middle East", "country": "Iran", "category": "RED"},
+    {"handle": "@MFATurkiye", "continent": "Middle East", "country": "Turkey", "category": "RED"},
+
+    # Breaking News Social Desks
+    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL"},
+    {"handle": "@ReutersWorld", "continent": "Global", "country": "Global", "category": "ALL"},
+    {"handle": "@CNNbrk", "continent": "North America", "country": "United States", "category": "ALL"},
+    {"handle": "@AJBreaking", "continent": "Middle East", "country": "Qatar", "category": "RED"},
+    {"handle": "@AlArabiya_Brk", "continent": "Middle East", "country": "UAE", "category": "RED"}
+]
+
+# ==============================================================================
+# DATABASE LAYER
 # ==============================================================================
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
@@ -162,12 +278,6 @@ def init_db():
                 threat_level TEXT DEFAULT 'INFORMATIONAL'
             )
         ''')
-        
-        c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='news'")
-        existing_cols = [row[0] for row in c.fetchall()]
-        if "thumbnail" not in existing_cols:
-            c.execute("ALTER TABLE news ADD COLUMN thumbnail TEXT DEFAULT ''")
-            
         c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, published_date);')
         conn.close()
     except Exception as e:
@@ -182,7 +292,6 @@ def detect_script_language(text: str) -> str:
     return "English"
 
 def extract_thumbnail(entry_obj):
-    """Deep search for media enclosures, OpenGraph tags, and embedded image strings"""
     if isinstance(entry_obj, dict):
         if entry_obj.get("thumbnail") and isinstance(entry_obj["thumbnail"], str):
             return entry_obj["thumbnail"]
@@ -290,24 +399,15 @@ async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
                     title = getattr(entry, 'title', '').strip()
                     link = getattr(entry, 'link', '').strip()
                     thumb = extract_thumbnail(entry)
-                    
                     try:
                         if hasattr(entry, 'published_parsed') and entry.published_parsed:
                             pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                        else:
-                            pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    except Exception:
-                        pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     if title and link:
                         threat, kw_badge, lang = analyze_multilingual_threat(title)
-                        items.append({
-                            'title': title, 'link': link, 'source': name, 'handle': 'N/A',
-                            'continent': continent, 'country': country, 'category': category,
-                            'feed_type': feed_type,
-                            'published_date': pub_date, 'keyword': kw_badge,
-                            'threat_level': threat, 'language': lang, 'thumbnail': thumb
-                        })
+                        items.append({'title': title, 'link': link, 'source': name, 'handle': 'N/A', 'continent': continent, 'country': country, 'category': category, 'feed_type': feed_type, 'published_date': pub_date, 'keyword': kw_badge, 'threat_level': threat, 'language': lang, 'thumbnail': thumb})
             else:
                 api_url = "https://api.rss2json.com/v1/api.json"
                 r = await client.get(api_url, params={"rss_url": url}, timeout=10.0)
@@ -321,13 +421,7 @@ async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
                             thumb = extract_thumbnail(entry)
                             if title and link:
                                 threat, kw_badge, lang = analyze_multilingual_threat(title)
-                                items.append({
-                                    'title': title, 'link': link, 'source': name, 'handle': 'N/A',
-                                    'continent': continent, 'country': country, 'category': category,
-                                    'feed_type': feed_type,
-                                    'published_date': pub_date, 'keyword': kw_badge,
-                                    'threat_level': threat, 'language': lang, 'thumbnail': thumb
-                                })
+                                items.append({'title': title, 'link': link, 'source': name, 'handle': 'N/A', 'continent': continent, 'country': country, 'category': category, 'feed_type': feed_type, 'published_date': pub_date, 'keyword': kw_badge, 'threat_level': threat, 'language': lang, 'thumbnail': thumb})
         except Exception:
             pass
     return items
@@ -352,24 +446,15 @@ async def fetch_social_target(client, semaphore, target, limit=20):
                     clean_title = raw_title.replace(" - X", "").replace(" on X", "").replace(" / X", "").strip()
                     link = getattr(entry, 'link', '').strip()
                     thumb = extract_thumbnail(entry)
-                    
                     try:
                         if hasattr(entry, 'published_parsed') and entry.published_parsed:
                             pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                        else:
-                            pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    except Exception:
-                        pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     if clean_title and link:
                         threat, kw_badge, lang = analyze_multilingual_threat(clean_title)
-                        items.append({
-                            'title': clean_title, 'link': link, 'source': 'X (Twitter)',
-                            'handle': handle, 'continent': continent, 'country': country,
-                            'category': category, 'feed_type': 'SOCIAL',
-                            'published_date': pub_date, 'keyword': kw_badge or f"Account: {handle}",
-                            'threat_level': threat, 'language': lang, 'thumbnail': thumb
-                        })
+                        items.append({'title': clean_title, 'link': link, 'source': 'X (Twitter)', 'handle': handle, 'continent': continent, 'country': country, 'category': category, 'feed_type': 'SOCIAL', 'published_date': pub_date, 'keyword': kw_badge or f"Account: {handle}", 'threat_level': threat, 'language': lang, 'thumbnail': thumb})
         except Exception:
             pass
     return items
@@ -391,31 +476,25 @@ class ConnectionManager:
 
     async def broadcast(self, message: str):
         for connection in self.active_connections.copy():
-            try:
-                await connection.send_text(message)
-            except Exception:
-                self.disconnect(connection)
+            try: await connection.send_text(message)
+            except Exception: self.disconnect(connection)
 
 manager = ConnectionManager()
 is_syncing = False
 
-async def run_fast_sweep(include_mee: bool = False):
+async def run_fast_sweep():
     semaphore = asyncio.Semaphore(50)
     limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
     
-    feed_roster = list(MASTER_CATALOG)
-    if include_mee:
-        feed_roster.append(OPTIONAL_FEEDS["middle_east_eye"])
-
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
-        tasks = [fetch_publisher_feed(client, semaphore, pub) for pub in feed_roster]
+        tasks = [fetch_publisher_feed(client, semaphore, pub) for pub in MASTER_CATALOG]
         tasks += [fetch_social_target(client, semaphore, sock) for sock in SOCIAL_CATALOG]
         
         results = await asyncio.gather(*tasks, return_exceptions=True)
         all_results = [item for sublist in results if isinstance(sublist, list) for item in sublist]
         return await asyncio.to_thread(save_items_bulk, all_results)
 
-async def async_sweep_controller(silent=False, include_mee=False):
+async def async_sweep_controller(silent=False):
     global is_syncing
     if is_syncing: return
     is_syncing = True
@@ -424,7 +503,7 @@ async def async_sweep_controller(silent=False, include_mee=False):
     await manager.broadcast(json.dumps({"event": event_start}))
 
     try:
-        total_added = await run_fast_sweep(include_mee=include_mee)
+        total_added = await run_fast_sweep()
         timestamp = datetime.now().strftime("%I:%M %p")
         if total_added > 0:
             await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
@@ -458,37 +537,28 @@ def read_root():
     raise HTTPException(status_code=404, detail="index.html not found")
 
 @app.get("/api/ping")
-def ping():
-    return {"status": "awake"}
+def ping(): return {"status": "awake"}
 
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        while True:
-            await websocket.receive_text()
+        while True: await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
 @app.post("/api/sync")
-async def trigger_manual_sync(background_tasks: BackgroundTasks, include_mee: bool = Query(False)):
+async def trigger_manual_sync(background_tasks: BackgroundTasks):
     global is_syncing
     if is_syncing: return {"status": "Sync in progress"}
-    background_tasks.add_task(async_sweep_controller, False, include_mee)
+    background_tasks.add_task(async_sweep_controller, False)
     return {"status": "Sweep triggered"}
 
 @app.get("/api/news")
 async def get_news(
-    category: str = Query("ALL"),
-    publisher: str = Query("All"),
-    handle: str = Query("All"),
-    language: str = Query("All"),
-    time_filter: str = Query("all"),
-    start_date: str = Query(None),
-    end_date: str = Query(None),
-    q: str = Query(None),
-    page: int = Query(1),
-    limit: int = Query(30)
+    category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"),
+    language: str = Query("All"), time_filter: str = Query("all"), start_date: str = Query(None),
+    end_date: str = Query(None), q: str = Query(None), page: int = Query(1), limit: int = Query(30)
 ):
     offset = (page - 1) * limit
     conn = get_db_connection()
@@ -511,20 +581,11 @@ async def get_news(
         params.append(language)
 
     if start_date or end_date:
-        if start_date:
-            query += " AND published_date >= %s::timestamp"
-            params.append(f"{start_date} 00:00:00")
-        if end_date:
-            query += " AND published_date <= %s::timestamp"
-            params.append(f"{end_date} 23:59:59")
+        if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
+        if end_date: query += " AND published_date <= %s::timestamp"; params.append(f"{end_date} 23:59:59")
     else:
-        time_mappings = {
-            "1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours",
-            "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", 
-            "30d": "30 days", "90d": "90 days"
-        }
-        if time_filter in time_mappings:
-            query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
+        time_mappings = {"1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours", "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
+        if time_filter in time_mappings: query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
 
     if q:
         query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
@@ -540,23 +601,32 @@ async def get_news(
     results = []
     for row in rows:
         r = dict(row)
-        if isinstance(r.get('published_date'), datetime):
-            r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
-            
-        if not r.get('language') or r.get('language') == 'English':
-            r['language'] = detect_script_language(r.get('title', ''))
-            
+        if isinstance(r.get('published_date'), datetime): r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
+        if not r.get('language') or r.get('language') == 'English': r['language'] = detect_script_language(r.get('title', ''))
         results.append(r)
-    
     return results
 
 @app.get("/api/meta/catalog")
 def get_catalog_metadata():
+    hierarchy = {}
+    publishers_set = set()
     handles_set = set()
+    
+    for item in MASTER_CATALOG:
+        cont = item["continent"]
+        country = item["country"]
+        pub = item["name"]
+        publishers_set.add(pub)
+        if cont not in hierarchy: hierarchy[cont] = {}
+        if country not in hierarchy[cont]: hierarchy[cont][country] = []
+        hierarchy[cont][country].append(pub)
+
     for item in SOCIAL_CATALOG:
         handles_set.add(item["handle"])
 
     return {
+        "hierarchy": hierarchy,
+        "publishers": sorted(list(publishers_set)),
         "handles": sorted(list(handles_set)),
         "languages": list(MULTILINGUAL_LEXICON.keys())
     }
@@ -565,14 +635,7 @@ def get_catalog_metadata():
 def get_stats():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        SELECT DATE(published_date) as date, category, COUNT(*) as count 
-        FROM news 
-        WHERE published_date IS NOT NULL 
-        GROUP BY DATE(published_date), category
-        ORDER BY DATE(published_date) ASC
-        LIMIT 14
-    """)
+    cursor.execute("SELECT DATE(published_date) as date, category, COUNT(*) as count FROM news WHERE published_date IS NOT NULL GROUP BY DATE(published_date), category ORDER BY DATE(published_date) ASC LIMIT 14")
     rows = cursor.fetchall()
     cursor.execute("SELECT COUNT(*) FROM news")
     total_intel = cursor.fetchone()[0]
@@ -596,29 +659,15 @@ def get_stats():
     return stats
 
 @app.get("/api/export")
-def export_csv(
-    category: str = Query("ALL"),
-    publisher: str = Query("All"),
-    handle: str = Query("All"),
-    language: str = Query("All")
-):
+def export_csv(category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"), language: str = Query("All")):
     conn = get_db_connection()
     cursor = conn.cursor()
-    
     query = "SELECT feed_type, source, handle, category, continent, country, language, keyword, threat_level, title, link, published_date FROM news WHERE 1=1"
     params = []
-    if category.upper() != "ALL":
-        query += " AND category = %s"
-        params.append(category.upper())
-    if publisher != "All":
-        query += " AND source = %s"
-        params.append(publisher)
-    if handle != "All":
-        query += " AND handle = %s"
-        params.append(handle)
-    if language != "All":
-        query += " AND language = %s"
-        params.append(language)
+    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
+    if publisher != "All": query += " AND source = %s"; params.append(publisher)
+    if handle != "All": query += " AND handle = %s"; params.append(handle)
+    if language != "All": query += " AND language = %s"; params.append(language)
         
     query += " ORDER BY published_date DESC"
     cursor.execute(query, params)
