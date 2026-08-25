@@ -156,12 +156,12 @@
                 <button onclick="filterSource('All')" class="src-btn active px-3 py-1 rounded-lg font-semibold bg-indigo-600 text-white transition-colors">All Sources</button>
                 <button onclick="filterSource('X (Twitter)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">X (Twitter)</button>
                 <button onclick="filterSource('r/UkrainianConflict')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Reddit</button>
-                <button onclick="filterSource('Reuters')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Reuters</button>
+                <button onclick="filterSource('Reuters World')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Reuters</button>
                 <button onclick="filterSource('BBC World')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">BBC World</button>
                 <button onclick="filterSource('Al Jazeera Arabic')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Al Jazeera (AR)</button>
                 <button onclick="filterSource('Al Jazeera (English)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Al Jazeera (EN)</button>
                 <button onclick="filterSource('Arab News')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Arab News</button>
-                <button onclick="filterSource('Fana Broadcasting')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Fana Broadcasting</button>
+                <button onclick="filterSource('Fana Broadcasting (Amharic)')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">Fana Broadcasting</button>
                 <button onclick="filterSource('The Reporter Ethiopia')" class="src-btn px-3 py-1 rounded-lg font-semibold bg-slate-900 text-slate-400 hover:bg-slate-800 transition-colors">The Reporter</button>
             </div>
 
@@ -202,7 +202,7 @@
             </div>
         </div>
 
-        <!-- INTEL CARDS GRID (Sleek Tactical Design with Smart Thumbnails) -->
+        <!-- INTEL CARDS GRID -->
         <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
         <div class="flex justify-center mb-8">
@@ -213,9 +213,13 @@
     </div>
 
     <script>
-        const API_BASE = window.location.origin;
-        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/news`;
+        // =====================================================================
+        // 🚨 VERCEL FIX: HARDCODED TO RENDER BACKEND 🚨
+        // Points directly to the intel-engine-beta API so it doesn't try to look for Python inside Vercel.
+        // Once testing is complete, change this to "https://tracker-u80b.onrender.com"
+        // =====================================================================
+        const API_BASE = "https://intel-engine-beta.onrender.com";
+        const WS_URL = "wss://intel-engine-beta.onrender.com/ws/news";
 
         let currentCategory = 'ALL';
         let currentPublisher = 'All';
@@ -480,7 +484,7 @@
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
                     
-                    // The "Smart Thumbnail" rendering
+                    // Smart Thumbnail Engine: Only injects HTML if a thumbnail URL exists
                     const thumbnailHtml = item.thumbnail ? `
                         <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
                             <img src="${item.thumbnail}" alt="Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
