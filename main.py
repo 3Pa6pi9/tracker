@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="36.0 - Executive Master Edition")
+app = FastAPI(title="Global Geopolitical Command Center", version="37.0 - Multi-Platform OSINT Engine")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +38,7 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# MULTILINGUAL THREAT & GEOPOLITICAL LEXICONS (10 LANGUAGES)
+# JOSIAH'S EXACT BOOLEAN & MULTILINGUAL LEXICONS
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
@@ -67,7 +67,7 @@ MULTILINGUAL_LEXICON = {
     "Spanish": {
         "critical": ["guerra", "ataque", "misil", "asesinato", "conflicto", "explosión", "invasión", "ataque aéreo", "víctimas", "nuclear", "bombardeo", "ofensiva", "rehén"],
         "elevated": ["sanciones", "protesta", "tensión", "advertencia", "prohibición", "disputa", "amenaza", "ciberataque", "disturbios", "crisis", "despliegue", "golpe de estado", "alto el fuego"],
-        "general": ["diplomacia", "visita de estado", "embajador", "acuerdo comercial", "cumbre", "tratado", "política exterior", "elección"]
+        "general": ["diplomacia", "visite de estado", "embajador", "acuerdo comercial", "cumbre", "tratado", "política exterior", "elección"]
     },
     "Russian": {
         "critical": ["война", "удар", "атака", "ракета", "убийство", "конфликт", "взрыв", "вторжение", "авиаудар", "жертвы", "ядерный", "бомбардировка", "артиллерия", "заложник", "наступление"],
@@ -82,10 +82,32 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# MASTER CATALOG (PUBLISHERS, REDDIT, & SOCIAL CHANNELS)
+# MASTER REPOSITORIES MATRIX (PUBLISHERS, YOUTUBE, REDDIT, TELEGRAM)
 # ==============================================================================
 MASTER_CATALOG = [
-    # --- ARABIC ---
+    # --- YOUTUBE OFFICIAL INTELLIGENCE & BRIEFINGS ---
+    {"name": "United Nations (YouTube)", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCq7vyS_sDkI7gZtS4zO9j6A"},
+    {"name": "The White House (YouTube)", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCV61VqLdH0lTRman42N3c7A"},
+    {"name": "BBC News (YouTube)", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC16niRr50-MSBwiO3YDb3RA"},
+    {"name": "Al Jazeera English (YouTube)", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCNye-wNBqNL5ZzHSJj3l8Bg"},
+    {"name": "DW News (YouTube)", "continent": "Europe", "country": "Germany", "category": "ALL", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCknLrEdhRCp1aegoMqRaCZg"},
+    {"name": "France 24 English (YouTube)", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC52X5HAGL9EZVALh2pNe6Gw"},
+    {"name": "Sky News (YouTube)", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "YOUTUBE", "language": "English", "url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCoLwkyY7DohKqE6l2f3V77g"},
+
+    # --- TELEGRAM OSINT & BREAKING INTEL ---
+    {"name": "Telegram OSINT Alert", "continent": "Global", "country": "Global", "category": "RED", "feed_type": "TELEGRAM", "language": "English", "url": "https://news.google.com/rss/search?q=site:t.me+(OSINT+OR+war+OR+missile+OR+breaking)&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Telegram Middle East Desk", "continent": "Middle East", "country": "Regional", "category": "RED", "feed_type": "TELEGRAM", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:t.me+(غزة+OR+الحوثي+OR+حزب_الله+OR+عاجل)&hl=ar&gl=AE&ceid=AE:ar"},
+    {"name": "Telegram Horn of Africa", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "TELEGRAM", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:t.me+(መከላከያ+OR+ሰበር+OR+ኢትዮጵያ)&hl=am&gl=ET&ceid=ET:am"},
+
+    # --- REDDIT CONFLICT & GEOPOLITICS DESKS ---
+    {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
+    {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/geopolitics/new.rss"},
+    {"name": "r/worldnews", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/worldnews/new.rss"},
+    {"name": "r/OSINT", "continent": "Global", "country": "Global", "category": "RED", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/OSINT/new.rss"},
+    {"name": "r/MiddleEastNews", "continent": "Middle East", "country": "Regional", "category": "RED", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/MiddleEastNews/new.rss"},
+    {"name": "r/Africa", "continent": "Africa", "country": "Regional", "category": "GENERAL", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/Africa/new.rss"},
+
+    # --- ARABIC OUTLETS ---
     {"name": "BBC Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
     {"name": "Sky News Arabia", "continent": "Middle East", "country": "UAE", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:skynewsarabia.com&hl=ar&gl=AE&ceid=AE:ar"},
     {"name": "France 24 (Arabic)", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://www.france24.com/ar/rss"},
@@ -94,7 +116,7 @@ MASTER_CATALOG = [
     {"name": "Asharq Al-Awsat (AR)", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://aawsat.com/feed"},
     {"name": "Saba Net Yemen", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
 
-    # --- AMHARIC ---
+    # --- AMHARIC OUTLETS ---
     {"name": "BBC News Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://feeds.bbci.co.uk/amharic/rss.xml"},
     {"name": "DW Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://rss.dw.com/rdf/rss-amh-news"},
     {"name": "VOA Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:amharic.voanews.com&hl=am&gl=ET&ceid=ET:am"},
@@ -131,13 +153,12 @@ MASTER_CATALOG = [
     {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Daily Nation", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:nation.africa&hl=en-KE&gl=KE&ceid=KE:en"},
     {"name": "News24", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:news24.com&hl=en-ZA&gl=ZA&ceid=ZA:en"},
-    {"name": "Al Jazeera (English)", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
-    
-    # --- REDDIT CONFLICT HUBS ---
-    {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
-    {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/geopolitics/new.rss"}
+    {"name": "Al Jazeera (English)", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.aljazeera.com/xml/rss/all.xml"}
 ]
 
+# ==============================================================================
+# JOSIAH'S OFFICIAL X (TWITTER) DESKS
+# ==============================================================================
 SOCIAL_CATALOG = [
     # US Officials
     {"handle": "@POTUS", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
@@ -159,12 +180,13 @@ SOCIAL_CATALOG = [
     {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
     {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
     
-    # Breaking Desks
-    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "SOCIAL", "language": "English"}
+    # Breaking News Desks
+    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@ReutersWorld", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "language": "English"}
 ]
 
 # ==============================================================================
-# DATABASE LAYER WITH DYNAMIC REPAIR ENGINE
+# DATABASE LAYER WITH DYNAMIC REPAIR & SCHEMA HEALER
 # ==============================================================================
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
@@ -233,11 +255,11 @@ def extract_thumbnail(entry_obj):
         img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', str(desc), re.IGNORECASE)
         if img_match: return img_match.group(1)
     else:
-        if hasattr(entry_obj, 'media_content') and entry_obj.media_content:
-            for m in entry_obj.media_content:
-                if isinstance(m, dict) and 'url' in m: return m['url']
         if hasattr(entry_obj, 'media_thumbnail') and entry_obj.media_thumbnail:
             for m in entry_obj.media_thumbnail:
+                if isinstance(m, dict) and 'url' in m: return m['url']
+        if hasattr(entry_obj, 'media_content') and entry_obj.media_content:
+            for m in entry_obj.media_content:
                 if isinstance(m, dict) and 'url' in m: return m['url']
         if hasattr(entry_obj, 'enclosures') and entry_obj.enclosures:
             for enc in entry_obj.enclosures:
@@ -309,7 +331,7 @@ def save_items_bulk(items):
     return added
 
 # ==============================================================================
-# HIGH SPEED HARVESTERS
+# HIGH SPEED PARALLEL HARVESTERS
 # ==============================================================================
 async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
     items = []
@@ -323,6 +345,7 @@ async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
         feed_lang = publisher.get("language", "English")
 
         try:
+            # High speed RSS proxy bypass for blocked endpoints
             api_url = "https://api.rss2json.com/v1/api.json"
             r = await client.get(api_url, params={"rss_url": url}, timeout=12.0)
             if r.status_code == 200:
@@ -509,7 +532,7 @@ async def get_news(
         query += " AND category = %s"
         params.append(category.upper())
     
-    # 2. Feed Type / Platform Selector
+    # 2. Platform / Feed Type Selector
     if feed_type.upper() != "ALL":
         query += " AND feed_type = %s"
         params.append(feed_type.upper())
