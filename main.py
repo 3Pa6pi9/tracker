@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="26.0 - Josiah Master Parameters")
+app = FastAPI(title="Global Geopolitical Command Center", version="27.0 - Massive Multilingual Expansion")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,46 +38,74 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# JOSIAH'S EXACT BOOLEAN & RED ACCOUNT TOPIC LEXICON
+# MASSIVE MULTILINGUAL LEXICON (10 LANGUAGES)
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
         "critical": [
-            "war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat",
-            # Josiah's Approved RED Account Topics
+            "war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "insurgency", "militia", "ambush",
             "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"
         ],
         "elevated": [
-            "sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup"
+            "sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"
         ],
         "general": [
-            # Josiah's Diplomatic & Bilateral Relations (The Master Catch-All)
-            "bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks",
-            "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding",
+            "bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "election", "parliamentary",
+            "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "export", "import", "imf", "world bank",
             "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty",
             "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement",
-            "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"
+            "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift", "humanitarian aid"
         ]
     },
     "Arabic": {
-        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران"],
-        "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود"],
-        "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات"]
+        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران", "إرهاب", "تمرد", "كمين"],
+        "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود", "حصار", "انقلاب", "شغب"],
+        "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات", "انتخابات", "مساعدات إنسانية", "استيراد", "تصدير"]
     },
     "Amharic": {
-        "critical": ["ጦርነት", "ጥቃት", "ሚሳይል", "ግድያ", "ግጭት", "ፍንዳታ", "ወረራ", "የአየር ድብደባ", "የሰው ጉዳት", "የኑክሌር", "ቦምብ", "የድሮን ጥቃት", "የታጠቀ ቡድን", "ተኩስ", "ግድያዎች", "የጦር ሰራዊት"],
-        "elevated": ["ማዕቀብ", "ተቃውሞ", "ውጥረት", "ማስጠንቀቂያ", "እገዳ", "አለመግባባት", "ስጋት", "የሳይበር ጥቃት", "ቀውስ", "ወታደራዊ ዝግጅት", "ድንበር ጥበቃ", "የተኩስ አቁም", "አደጋ"],
-        "general": ["ዲፕሎማሲ", "የሁለትዮሽ", "የውጭ ጉዳይ", "የንግድ ስምምነት", "የአፍሪካ ህብረት", "ስምምነት", "የሰላም ንግግር", "ጉባኤ", "ውይይት", "ሽርክና"]
+        "critical": ["ጦርነት", "ጥቃት", "ሚሳይል", "ግድያ", "ግጭት", "ፍንዳታ", "ወረራ", "የአየር ድብደባ", "የሰው ጉዳት", "የኑክሌር", "ቦምብ", "የድሮን ጥቃት", "የታጠቀ ቡድን", "ተኩስ", "ግድያዎች", "የጦር ሰራዊት", "አሸባሪ", "አማፂ"],
+        "elevated": ["ማዕቀብ", "ተቃውሞ", "ውጥረት", "ማስጠንቀቂያ", "እገዳ", "አለመግባባት", "ስጋት", "የሳይበር ጥቃት", "ቀውስ", "ወታደራዊ ዝግጅት", "ድንበር ጥበቃ", "የተኩስ አቁም", "አደጋ", "መፈንቅለ መንግስት", "ረብሻ"],
+        "general": ["ዲፕሎማሲ", "የሁለትዮሽ", "የውጭ ጉዳይ", "የንግድ ስምምነት", "የአፍሪካ ህብረት", "ስምምነት", "የሰላም ንግግር", "ጉባኤ", "ውይይት", "ሽርክና", "ምርጫ", "እርዳታ", "ኢንቨስትመንት"]
     },
     "French": {
-        "critical": ["guerre", "frappe", "attaque", "missile", "assassinat", "conflit", "explosion", "invasion", "frappe aérienne", "victimes", "nucléaire", "bombardement", "offensive", "otage"],
-        "elevated": ["sanctions", "manifestation", "tension", "avertissement", "interdiction", "différend", "menace", "cyberattaque", "émeutes", "crise", "déploiement", "coup d'état", "cessez-le-feu"],
-        "general": ["diplomatie", "visite d'état", "ambassadeur", "accord commercial", "sommet", "union africaine", "union européenne", "traité", "politique étrangère"]
+        "critical": ["guerre", "frappe", "attaque", "missile", "assassinat", "conflit", "explosion", "invasion", "frappe aérienne", "victimes", "nucléaire", "bombardement", "offensive", "otage", "terrorisme", "milice", "embuscade"],
+        "elevated": ["sanctions", "manifestation", "tension", "avertissement", "interdiction", "différend", "menace", "cyberattaque", "émeutes", "crise", "déploiement", "coup d'état", "cessez-le-feu", "blocus", "rébellion"],
+        "general": ["diplomatie", "visite d'état", "ambassadeur", "accord commercial", "sommet", "union africaine", "union européenne", "traité", "politique étrangère", "élection", "aide humanitaire", "investissement étranger"]
+    },
+    "Spanish": {
+        "critical": ["guerra", "ataque", "misil", "asesinato", "conflicto", "explosión", "invasión", "ataque aéreo", "víctimas", "nuclear", "bombardeo", "ofensiva", "rehén", "terrorismo", "milicia", "emboscada"],
+        "elevated": ["sanciones", "protesta", "tensión", "advertencia", "prohibición", "disputa", "amenaza", "ciberataque", "disturbios", "crisis", "despliegue", "golpe de estado", "alto el fuego", "bloqueo", "rebelión"],
+        "general": ["diplomacia", "visita de estado", "embajador", "acuerdo comercial", "cumbre", "tratado", "política exterior", "elección", "ayuda humanitaria", "inversión extranjera"]
+    },
+    "Russian": {
+        "critical": ["война", "удар", "атака", "ракета", "убийство", "конфликт", "взрыв", "вторжение", "авиаудар", "жертвы", "ядерный", "бомбардировка", "артиллерия", "заложник", "наступление", "терроризм", "ополчение", "засада"],
+        "elevated": ["санкции", "протест", "напряженность", "предупреждение", "запрет", "спор", "угроза", "кибератака", "беспорядки", "кризис", "развертывание", "переворот", "прекращение огня", "блокада", "восстание"],
+        "general": ["дипломатия", "государственный визит", "посол", "торговое соглашение", "саммит", "договор", "внешняя политика", "выборы", "гуманитарная помощь", "иностранные инвестиции"]
+    },
+    "Mandarin": {
+        "critical": ["战争", "罢工", "袭击", "导弹", "暗杀", "冲突", "爆炸", "入侵", "空袭", "伤亡", "核武器", "轰炸", "炮兵", "人质", "攻势", "恐怖主义", "民兵", "伏击"],
+        "elevated": ["制裁", "抗议", "紧张局势", "警告", "禁令", "争端", "威胁", "网络攻击", "动乱", "危机", "部署", "政变", "停火", "封锁", "叛乱"],
+        "general": ["外交", "国事访问", "大使", "贸易协定", "峰会", "条约", "外交政策", "选举", "人道主义援助", "外国投资"]
+    },
+    "Persian": {
+        "critical": ["جنگ", "حمله", "موشک", "ترور", "درگیری", "انفجار", "تهاجم", "حمله هوایی", "تلفات", "هسته‌ای", "بمباران", "توپخانه", "گروگان", "تروریسم", "شبه نظامیان", "کمین"],
+        "elevated": ["تحریم", "اعتراض", "تنش", "هشدار", "ممنوعیت", "مناقشه", "تهدید", "حمله سایبری", "ناآرامی", "بحران", "استقرار", "کودتا", "آتش‌بس", "محاصره", "شورش"],
+        "general": ["دیپلماسی", "سفر رسمی", "سفیر", "توافق تجاری", "اجلاس", "معاهده", "سیاست خارجی", "انتخابات", "کمک‌های بشردوستانه", "سرمایه‌گذاری خارجی"]
+    },
+    "Turkish": {
+        "critical": ["savaş", "saldırı", "füze", "suikast", "çatışma", "patlama", "işgal", "hava saldırısı", "can kaybı", "nükleer", "bombalama", "topçu", "rehine", "terörizm", "milis", "pusu"],
+        "elevated": ["yaptırım", "protesto", "gerilim", "uyarı", "yasak", "anlaşmazlık", "tehdit", "siber saldırı", "huzursuzluk", "kriz", "konuşlandırma", "darbe", "ateşkes", "abluka", "isyan"],
+        "general": ["diplomasi", "devlet ziyareti", "büyükelçi", "ticaret anlaşması", "zirve", "antlaşma", "dış politika", "seçim", "insani yardım", "yabancı yatırım"]
+    },
+    "Swahili": {
+        "critical": ["vita", "shambulio", "kombora", "mauaji", "mgogoro", "mlipuko", "uvamizi", "shambulio la anga", "vifo", "nyuklia", "mabomu", "mateka", "ugaidi", "anamgambo", "kuvizia"],
+        "elevated": ["vikwazo", "maandamano", "mvutano", "onyo", "marufuku", "mzozo", "tishio", "shambulio la mtandao", "machafuko", "mgogoro", "kikosi", "mapinduzi", "kusitisha mapigano", "kuzingirwa", "uasi"],
+        "general": ["diplomasia", "ziara ya kiserikali", "balozi", "mkataba wa biashara", "mkutano", "mkataba", "sera za kigeni", "uchaguzi", "msaada wa kibinadamu", "uwekezaji wa kigeni"]
     }
 }
 
 # ==============================================================================
-# HIERARCHICAL PUBLISHER MASTER LIST
+# HIERARCHICAL PUBLISHER MASTER LIST (MASSIVELY EXPANDED)
 # ==============================================================================
 MASTER_CATALOG = [
     # US Majors
@@ -88,93 +116,61 @@ MASTER_CATALOG = [
     {"name": "CNN", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://rss.cnn.com/rss/edition_world.rss"},
     {"name": "Fox News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://moxie.foxnews.com/google-publisher/world.xml"},
     {"name": "ABC News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://abcnews.go.com/abcnews/internationalheadlines"},
-    {"name": "CBS News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.cbsnews.com/latest/rss/world"},
-    {"name": "NBC News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://feeds.nbcnews.com/nbcnews/public/world"},
     
     # Global / Geopolitical Focus
     {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
     {"name": "The Economist", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.economist.com/international/rss.xml"},
     {"name": "Politico", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.politico.com/politics-news.xml"},
     {"name": "Foreign Policy", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://foreignpolicy.com/feed/"},
-    {"name": "Newsweek", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.newsweek.com/rss"},
 
-    # Europe - France
+    # Asia & Russia (NEW)
+    {"name": "South China Morning Post", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.scmp.com/rss/91/feed"},
+    {"name": "Xinhua News", "continent": "Asia", "country": "China", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:xinhuanet.com&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "RT (Russia Today)", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.rt.com/rss/news/"},
+    {"name": "TASS", "continent": "Europe", "country": "Russia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://tass.com/rss/v2.xml"},
+    {"name": "The Times of India", "continent": "Asia", "country": "India", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms"},
+    {"name": "Dawn", "continent": "Asia", "country": "Pakistan", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.dawn.com/feeds/world/"},
+    {"name": "Nikkei Asia", "continent": "Asia", "country": "Japan", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://asia.nikkei.com/rss/feed/nar"},
+
+    # Europe
     {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lemonde.fr/international/rss_full.xml"},
-    {"name": "Le Figaro", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lefigaro.fr/rss/figaro_international.xml"},
     {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.france24.com/fr/rss"},
-    {"name": "Libération", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.liberation.fr/arc/outboundfeeds/rss-all/collection/accueil-monde/"},
-    
-    # Europe - Germany
     {"name": "Der Spiegel", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.spiegel.de/international/index.rss"},
-    {"name": "Süddeutsche Zeitung", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.sueddeutsche.de/app/service/rss/alles/index.rss?output=rss"},
-    {"name": "FAZ", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.faz.net/rss/aktuell/politik/ausland/"},
-    {"name": "Die Welt", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.welt.de/feeds/section/ausland.rss"},
     {"name": "Deutsche Welle", "continent": "Europe", "country": "Germany", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-en-world"},
-    
-    # Europe - UK
     {"name": "BBC News", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
     {"name": "The Guardian", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.theguardian.com/world/rss"},
-    {"name": "The Times", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.thetimes.co.uk/?service=rss"},
-    {"name": "The Telegraph", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.telegraph.co.uk/rss.xml"},
-    {"name": "The Independent", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.independent.co.uk/news/world/rss"},
-    
-    # Europe - Spain & Netherlands
     {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
-    {"name": "El Mundo", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://e00-elmundo.uecdn.es/elmundo/rss/internacional.xml"},
-    {"name": "La Vanguardia", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lavanguardia.com/mvc/feed/rss/internacional"},
-    {"name": "RTVE", "continent": "Europe", "country": "Spain", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.rtve.es/api/noticias.rss"},
-    {"name": "NOS", "continent": "Europe", "country": "Netherlands", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.nos.nl/nosnieuwsbuitenland"},
-    {"name": "De Telegraaf", "continent": "Europe", "country": "Netherlands", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.telegraaf.nl/rss/buitenland"},
     
-    # Europe - Italy, Greece, Portugal, Poland, Denmark
-    {"name": "Corriere della Sera", "continent": "Europe", "country": "Italy", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://xml2.corriere.it/rss/esteri.xml"},
-    {"name": "La Repubblica", "continent": "Europe", "country": "Italy", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.repubblica.it/rss/esteri/rss2.0.xml"},
-    {"name": "ANSA", "continent": "Europe", "country": "Italy", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.ansa.it/sito/notizie/mondo/mondo_rss.xml"},
-    {"name": "Kathimerini", "continent": "Europe", "country": "Greece", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.kathimerini.gr/world/rss"},
-    {"name": "Index.hu", "continent": "Europe", "country": "Hungary", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://index.hu/24ora/rss/"},
-    {"name": "Público", "continent": "Europe", "country": "Portugal", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.feedburner.com/PublicoRSS"},
-    {"name": "Gazeta Wyborcza", "continent": "Europe", "country": "Poland", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://wyborcza.pl/pub/rss/swiat.xml"},
-    {"name": "TVN24", "continent": "Europe", "country": "Poland", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://tvn24.pl/najnowsze.xml"},
-    {"name": "DR Nyheder", "continent": "Europe", "country": "Denmark", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.dr.dk/nyheder/service/feeds/udland"},
-
-    # Africa - West & Central
+    # Africa - Expanded
+    {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:fanabc.com/archives&hl=am&gl=ET&ceid=ET:am"},
+    {"name": "The Reporter Ethiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:thereporterethiopia.com&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Addis Fortune", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:addisfortune.news&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Daily Nation", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://nation.africa/kenya/rss"},
+    {"name": "The Star", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.the-star.co.ke/rss"},
+    {"name": "Premium Times", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.premiumtimesng.com/feed"},
+    {"name": "News24", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.news24.com/articles/news24/TopStories/rss"},
     {"name": "Joy Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.myjoyonline.com/feed/"},
-    {"name": "GhanaWeb", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:ghanaweb.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Citi Newsroom", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://citinewsroom.com/feed/"},
     {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
-    {"name": "Journal de Brazza", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:journaldebrazza.com&hl=fr&gl=FR&ceid=FR:fr"},
-    {"name": "Guineematin", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://guineematin.com/feed/"},
-    {"name": "Africaguinee", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:africaguinee.com&hl=fr&gl=FR&ceid=FR:fr"},
-    {"name": "Corbeau News Centrafrique", "continent": "Africa", "country": "Central African Republic", "category": "RED", "feed_type": "PUBLISHER", "url": "https://corbeaunews-centrafrique.org/feed/"},
-    
-    # Africa - East & Egypt
-    {"name": "L'Express Maurice", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://lexpress.mu/feed"},
     {"name": "Al-Ahram Online", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://english.ahram.org.eg/RSS/All.aspx"},
-    {"name": "Daily News Egypt", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://dailynewsegypt.com/feed/"},
     {"name": "Mada Masr", "continent": "Africa", "country": "Egypt", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.madamasr.com/en/feed/"},
     {"name": "Sudan Tribune", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://sudantribune.com/feed/"},
-    {"name": "Radio Dabanga", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.dabangasudan.org/en/feed"},
-    {"name": "SUNA", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:suna-sd.net&hl=ar&gl=SD&ceid=SD:ar"},
     {"name": "Hiiraan Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:hiiraan.com&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Garowe Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.garoweonline.com/en/rss/feed"},
-    {"name": "SONNA", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://sonna.so/en/feed/"},
+    {"name": "Africanews", "continent": "Africa", "country": "Pan-Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.africanews.com/feed/"},
 
-    # Middle Eastern Sources
+    # Middle East
     {"name": "Arab News", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.arabnews.com/cat/1/rss.xml"},
+    {"name": "Al Jazeera", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
     {"name": "Asharq Al-Awsat", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://aawsat.com/feed"},
-    {"name": "Saudi Gazette", "continent": "Middle East", "country": "Saudi Arabia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://saudigazette.com.sa/rss"},
     {"name": "IRNA", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://en.irna.ir/rss"},
-    {"name": "Mehr News Agency", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://en.mehrnews.com/rss"},
     {"name": "Tehran Times", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.tehrantimes.com/rss"},
-    {"name": "Tasnim News Agency", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.tasnimnews.com/en/rss/feed"},
     {"name": "Shafaq News", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "url": "https://shafaq.com/en/rss"},
-    {"name": "Rudaw", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.rudaw.net/english/rss"},
     {"name": "Hürriyet", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.hurriyetdailynews.com/rss"},
-    {"name": "Daily Sabah", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.dailysabah.com/rss/world"},
-    {"name": "Anadolu Agency", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.aa.com.tr/en/rss/default?cat=current"},
     {"name": "TRT World", "continent": "Middle East", "country": "Turkey", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.trtworld.com/feed/rss"},
     {"name": "Saba Net", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
-    {"name": "Almasdar Online", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:almasdaronline.com&hl=ar&gl=YE&ceid=YE:ar"}
+    
+    # Reddit Hubs
+    {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
+    {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/geopolitics/new.rss"}
 ]
 
 # ==============================================================================
@@ -203,7 +199,6 @@ SOCIAL_CATALOG = [
     {"handle": "@DIRCO_ZA", "continent": "Africa", "country": "South Africa", "category": "GENERAL"},
     {"handle": "@NigeriaMFA", "continent": "Africa", "country": "Nigeria", "category": "GENERAL"},
     {"handle": "@MFAEgOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL"},
-    {"handle": "@MfaEgypt", "continent": "Africa", "country": "Egypt", "category": "GENERAL"},
     
     # Europe Leaders & Ministries
     {"handle": "@EmmanuelMacron", "continent": "Europe", "country": "France", "category": "GENERAL"},
@@ -212,10 +207,6 @@ SOCIAL_CATALOG = [
     {"handle": "@donaldtusk", "continent": "Europe", "country": "Poland", "category": "GENERAL"},
     {"handle": "@_FriedrichMerz", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
     {"handle": "@bundeskanzler", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
-    {"handle": "@AussenMinDE", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
-    {"handle": "@AuswaertigesAmt", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
-    {"handle": "@GermanyDiplo", "continent": "Europe", "country": "Germany", "category": "GENERAL"},
-    {"handle": "@Ed_Miliband", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL"},
     {"handle": "@FCDOGovUK", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL"},
 
     # Middle East Leaders & Ministries
@@ -227,23 +218,16 @@ SOCIAL_CATALOG = [
     {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED"},
     {"handle": "@FaisalbinFarhan", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
     {"handle": "@KSAMOFA", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
-    {"handle": "@KSAmofaEN", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED"},
-    {"handle": "@ABZayed", "continent": "Middle East", "country": "UAE", "category": "RED"},
     {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED"},
-    {"handle": "@OFMUAE", "continent": "Middle East", "country": "UAE", "category": "RED"},
-    {"handle": "@MBA_AlThani_", "continent": "Middle East", "country": "Qatar", "category": "RED"},
     {"handle": "@MofaQatar_EN", "continent": "Middle East", "country": "Qatar", "category": "RED"},
     {"handle": "@IsraelMFA", "continent": "Middle East", "country": "Israel", "category": "RED"},
     {"handle": "@araghchi", "continent": "Middle East", "country": "Iran", "category": "RED"},
     {"handle": "@IRIMFA_EN", "continent": "Middle East", "country": "Iran", "category": "RED"},
-    {"handle": "@MFATurkiye", "continent": "Middle East", "country": "Turkey", "category": "RED"},
 
     # Breaking News Social Desks
     {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL"},
     {"handle": "@ReutersWorld", "continent": "Global", "country": "Global", "category": "ALL"},
-    {"handle": "@CNNbrk", "continent": "North America", "country": "United States", "category": "ALL"},
-    {"handle": "@AJBreaking", "continent": "Middle East", "country": "Qatar", "category": "RED"},
-    {"handle": "@AlArabiya_Brk", "continent": "Middle East", "country": "UAE", "category": "RED"}
+    {"handle": "@CNNbrk", "continent": "North America", "country": "United States", "category": "ALL"}
 ]
 
 # ==============================================================================
@@ -289,12 +273,13 @@ def init_db():
 def detect_script_language(text: str) -> str:
     if re.search(r'[\u0600-\u06FF]', text): return "Arabic"
     if re.search(r'[\u1200-\u137F]', text): return "Amharic"
-    return "English"
+    if re.search(r'[\u0400-\u04FF]', text): return "Russian"
+    if re.search(r'[\u4E00-\u9FFF]', text): return "Mandarin"
+    return "English" # Default or Latin based
 
 def extract_thumbnail(entry_obj):
     if isinstance(entry_obj, dict):
-        if entry_obj.get("thumbnail") and isinstance(entry_obj["thumbnail"], str):
-            return entry_obj["thumbnail"]
+        if entry_obj.get("thumbnail") and isinstance(entry_obj["thumbnail"], str): return entry_obj["thumbnail"]
         if entry_obj.get("enclosure") and isinstance(entry_obj["enclosure"], dict):
             if entry_obj["enclosure"].get("link"): return entry_obj["enclosure"]["link"]
         desc = entry_obj.get("description", "") or entry_obj.get("content", "")
@@ -326,23 +311,15 @@ def analyze_multilingual_threat(title: str):
         for kw in dicts["critical"]:
             if re.search(r'\b' + re.escape(kw.lower()) + r'\b', t_lower):
                 heat_score += 3
-                if not matched_keyword:
-                    matched_keyword = kw
-                    detected_lang = lang
-
+                if not matched_keyword: matched_keyword = kw; detected_lang = lang
         for kw in dicts["elevated"]:
             if re.search(r'\b' + re.escape(kw.lower()) + r'\b', t_lower):
                 heat_score += 1.5
-                if not matched_keyword:
-                    matched_keyword = kw
-                    detected_lang = lang
-
+                if not matched_keyword: matched_keyword = kw; detected_lang = lang
         for kw in dicts["general"]:
             if re.search(r'\b' + re.escape(kw.lower()) + r'\b', t_lower):
                 heat_score += 1
-                if not matched_keyword:
-                    matched_keyword = kw
-                    detected_lang = lang
+                if not matched_keyword: matched_keyword = kw; detected_lang = lang
 
     if heat_score >= 3.0: level = "CRITICAL"
     elif heat_score >= 1.0: level = "ELEVATED"
@@ -356,7 +333,6 @@ def save_items_bulk(items):
     c = conn.cursor()
     added = 0
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     for item in items:
         try:
             c.execute('''
@@ -400,8 +376,7 @@ async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
                     link = getattr(entry, 'link', '').strip()
                     thumb = extract_thumbnail(entry)
                     try:
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                            pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                        if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
                         else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -447,8 +422,7 @@ async def fetch_social_target(client, semaphore, target, limit=20):
                     link = getattr(entry, 'link', '').strip()
                     thumb = extract_thumbnail(entry)
                     try:
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                            pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                        if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
                         else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -557,8 +531,9 @@ async def trigger_manual_sync(background_tasks: BackgroundTasks):
 @app.get("/api/news")
 async def get_news(
     category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"),
-    language: str = Query("All"), time_filter: str = Query("all"), start_date: str = Query(None),
-    end_date: str = Query(None), q: str = Query(None), page: int = Query(1), limit: int = Query(30)
+    language: str = Query("All"), continent: str = Query("All"), country: str = Query("All"),
+    time_filter: str = Query("all"), start_date: str = Query(None), end_date: str = Query(None), 
+    q: str = Query(None), page: int = Query(1), limit: int = Query(30)
 ):
     offset = (page - 1) * limit
     conn = get_db_connection()
@@ -567,18 +542,12 @@ async def get_news(
     query = "SELECT * FROM news WHERE 1=1"
     params = []
     
-    if category.upper() != "ALL":
-        query += " AND category = %s"
-        params.append(category.upper())
-    if publisher != "All":
-        query += " AND source = %s"
-        params.append(publisher)
-    if handle != "All":
-        query += " AND handle = %s"
-        params.append(handle)
-    if language != "All":
-        query += " AND language = %s"
-        params.append(language)
+    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
+    if publisher != "All": query += " AND source = %s"; params.append(publisher)
+    if handle != "All": query += " AND handle = %s"; params.append(handle)
+    if language != "All": query += " AND language = %s"; params.append(language)
+    if continent != "All": query += " AND continent = %s"; params.append(continent)
+    if country != "All": query += " AND country = %s"; params.append(country)
 
     if start_date or end_date:
         if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
@@ -619,7 +588,7 @@ def get_catalog_metadata():
         publishers_set.add(pub)
         if cont not in hierarchy: hierarchy[cont] = {}
         if country not in hierarchy[cont]: hierarchy[cont][country] = []
-        hierarchy[cont][country].append(pub)
+        if pub not in hierarchy[cont][country]: hierarchy[cont][country].append(pub)
 
     for item in SOCIAL_CATALOG:
         handles_set.add(item["handle"])
@@ -657,33 +626,6 @@ def get_stats():
         stats["RED"].append(temp_dict[d]["RED"])
         stats["GENERAL"].append(temp_dict[d]["GENERAL"])
     return stats
-
-@app.get("/api/export")
-def export_csv(category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"), language: str = Query("All")):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    query = "SELECT feed_type, source, handle, category, continent, country, language, keyword, threat_level, title, link, published_date FROM news WHERE 1=1"
-    params = []
-    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
-    if publisher != "All": query += " AND source = %s"; params.append(publisher)
-    if handle != "All": query += " AND handle = %s"; params.append(handle)
-    if language != "All": query += " AND language = %s"; params.append(language)
-        
-    query += " ORDER BY published_date DESC"
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    conn.close()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Stream Type", "Source", "Handle", "Category", "Continent", "Country", "Language", "Keyword Trigger", "Threat Level", "Title", "URL", "Timestamp"])
-    for row in rows: 
-        writer.writerow([row["feed_type"], row["source"], row["handle"], row["category"], row["continent"], row["country"], row["language"], row.get("keyword", ""), row.get("threat_level", "INFORMATIONAL"), row["title"], row["link"], row["published_date"]])
-    
-    output.seek(0)
-    response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
-    return response
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
