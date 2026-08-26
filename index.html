@@ -124,7 +124,6 @@
             <!-- CASCADING DROPDOWN MATRIX -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 border-b border-slate-800 pb-4">
                 
-                <!-- 1. Continent -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">1. Continent</label>
                     <select id="continentSelect" onchange="onContinentChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
@@ -132,7 +131,6 @@
                     </select>
                 </div>
 
-                <!-- 2. Country -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">2. Country / Region</label>
                     <select id="countrySelect" onchange="onCountryChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
@@ -140,7 +138,6 @@
                     </select>
                 </div>
 
-                <!-- 3. Publisher -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. News Publisher</label>
                     <select id="publisherSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
@@ -148,7 +145,6 @@
                     </select>
                 </div>
 
-                <!-- 4. Handle -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">4. Social Handle</label>
                     <select id="handleSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
@@ -156,7 +152,6 @@
                     </select>
                 </div>
 
-                <!-- 5. Language -->
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">5. Language</label>
                     <select id="languageSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
@@ -166,7 +161,6 @@
 
             </div>
 
-            <!-- Time and Date Controls -->
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs pt-1">
                 <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800" id="dateFilters">
                     <select id="timeFilterSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-semibold shadow-inner">
@@ -317,19 +311,16 @@
                 const res = await fetch(`${API_BASE}/api/meta/catalog`);
                 catalogMeta = await res.json();
                 
-                // Populate Continents
                 const contSelect = document.getElementById('continentSelect');
                 let contHtml = '<option value="All">All Continents</option>';
                 Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
                 contSelect.innerHTML = contHtml;
 
-                // Populate Handles
                 const handleSelect = document.getElementById('handleSelect');
                 let handleHtml = '<option value="All">All Social Handles & Desks</option>';
                 catalogMeta.handles.forEach(h => handleHtml += `<option value="${h}">${h}</option>`);
                 handleSelect.innerHTML = handleHtml;
 
-                // Populate Languages
                 const langSelect = document.getElementById('languageSelect');
                 let langHtml = '<option value="All">🌍 All Languages</option>';
                 catalogMeta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
@@ -341,16 +332,14 @@
 
         function onContinentChange() {
             currentContinent = document.getElementById('continentSelect').value;
-            
-            // Rebuild Country Dropdown
             const countrySelect = document.getElementById('countrySelect');
             let countryHtml = '<option value="All">All Countries</option>';
+            
             if (currentContinent !== 'All' && catalogMeta.hierarchy[currentContinent]) {
                 Object.keys(catalogMeta.hierarchy[currentContinent]).forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
             }
             countrySelect.innerHTML = countryHtml;
             
-            // Reset children DOM to 'All' to avoid impossible Ghost States
             document.getElementById('countrySelect').value = 'All';
             document.getElementById('publisherSelect').value = 'All';
             
@@ -387,7 +376,6 @@
         }
 
         function applyFilters() {
-            // Guaranteed single source of truth
             currentContinent = document.getElementById('continentSelect').value;
             currentCountry = document.getElementById('countrySelect').value;
             currentPublisher = document.getElementById('publisherSelect').value;
@@ -445,6 +433,7 @@
                     document.getElementById('sync-time').innerText = data.time || "Just now";
                     writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new records across localized feeds.`, "sys");
                     showToast(`✅ Ingested ${data.count} new records.`, "success");
+                    // Force a UI refresh to guarantee data appears!
                     fetchNews(true);
                     loadChartData();
                 }
