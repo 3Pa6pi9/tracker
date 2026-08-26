@@ -1,617 +1,711 @@
-from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse
-import psycopg2
-import psycopg2.extras
-import uvicorn
-import logging
-import csv
-import io
-import json
-import os
-import asyncio
-import feedparser
-import urllib.parse
-import httpx
-import time
-from datetime import datetime
-import re
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intel Command Center • Global Telemetry Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: '#050a15',
+                        card: '#0f172a',
+                        bordercolor: '#1e293b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes radar-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .animate-radar { animation: radar-sweep 2.5s linear infinite; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+        .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 35s linear infinite; padding-left: 100%; }
+        .critical-glow { box-shadow: 0 0 15px rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.6) !important; }
+        #terminal-log::-webkit-scrollbar { width: 4px; }
+        #terminal-log::-webkit-scrollbar-thumb { background: #16a34a; border-radius: 4px; }
+        .cursor-blink { animation: blink 1s step-end infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    </style>
+</head>
+<body class="bg-dark text-slate-300 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
-app = FastAPI(title="Global Geopolitical Command Center", version="35.0 - The Boardroom Build")
+    <div class="w-full bg-red-950/80 border-b border-red-900 overflow-hidden flex items-center h-8">
+        <div class="px-3 bg-red-600 text-white text-[10px] font-black h-full flex items-center uppercase tracking-widest z-10 shadow-[5px_0_15px_rgba(0,0,0,0.5)] whitespace-nowrap">
+            🔴 LIVE THREAT FEED
+        </div>
+        <div class="flex-grow overflow-hidden relative h-full flex items-center text-[11px] font-mono text-red-300">
+            <div id="news-ticker" class="animate-ticker">
+                [SYSTEM] MULTILINGUAL TELEMETRY ACTIVE... SCANNING ALL CONTINENTS & LOCAL REPOSITORIES...
+            </div>
+        </div>
+    </div>
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    <!-- Sync Radar Overlay -->
+    <div id="sync-overlay" class="fixed inset-0 bg-dark/95 backdrop-blur-md z-40 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="relative w-36 h-36 mb-6 flex items-center justify-center">
+            <div class="absolute inset-0 rounded-full border border-indigo-500/20"></div>
+            <div class="absolute inset-4 rounded-full border border-indigo-500/40"></div>
+            <div class="absolute inset-10 rounded-full border border-indigo-500/60"></div>
+            <div class="absolute inset-0 rounded-full animate-radar bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(99,102,241,0.4)_360deg)]"></div>
+            <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
+        </div>
+        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HARVESTING MULTI-CHANNEL INTEL</h3>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Running maximum yield concurrency sweep across 7 continents...</p>
+        <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">Run in Background</button>
+    </div>
 
-# SUPABASE CONNECTION 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql://postgres.afdzhavjcejvmnrwyaid:5wNGFgK3H5q3CwUZ@aws-0-eu-west-2.pooler.supabase.com:6543/postgres"
-)
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-
-# ==============================================================================
-# JOSIAH'S EXACT BOOLEAN & MULTILINGUAL LEXICONS
-# ==============================================================================
-MULTILINGUAL_LEXICON = {
-    "English": {
-        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
-        "elevated": ["sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"],
-        "general": ["bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty", "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement", "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"]
-    },
-    "Arabic": {
-        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران"],
-        "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود"],
-        "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات"]
-    },
-    "Amharic": {
-        "critical": ["ጦርነት", "ጥቃት", "ሚሳይል", "ግድያ", "ግጭት", "ፍንዳታ", "ወረራ", "የአየር ድብደባ", "የሰው ጉዳት", "የኑክሌር", "ቦምብ", "የድሮን ጥቃት", "የታጠቀ ቡድን", "ተኩስ", "ግድያዎች", "የጦር ሰራዊት"],
-        "elevated": ["ማዕቀብ", "ተቃውሞ", "ውጥረት", "ማስጠንቀቂያ", "እገዳ", "አለመግባባት", "ስጋት", "የሳይበር ጥቃት", "ቀውስ", "ወታደራዊ ዝግጅት", "ድንበር ጥበቃ", "የተኩስ አቁም", "አደጋ"],
-        "general": ["ዲፕሎማሲ", "የሁለትዮሽ", "የውጭ ጉዳይ", "የንግድ ስምምነት", "የአፍሪካ ህብረት", "ስምምነት", "የሰላም ንግግር", "ጉባኤ", "ውይይት", "ሽርክና"]
-    },
-    "French": {
-        "critical": ["guerre", "frappe", "attaque", "missile", "assassinat", "conflit", "explosion", "invasion", "frappe aérienne", "victimes", "nucléaire", "bombardement", "offensive", "otage"],
-        "elevated": ["sanctions", "manifestation", "tension", "avertissement", "interdiction", "différend", "menace", "cyberattaque", "émeutes", "crise", "déploiement", "coup d'état", "cessez-le-feu"],
-        "general": ["diplomatie", "visite d'état", "ambassadeur", "accord commercial", "sommet", "union africaine", "union européenne", "traité", "politique étrangère"]
-    },
-    "Spanish": {
-        "critical": ["guerra", "ataque", "misil", "asesinato", "conflicto", "explosión", "invasión", "ataque aéreo", "víctimas", "nuclear", "bombardeo", "ofensiva", "rehén"],
-        "elevated": ["sanciones", "protesta", "tensión", "advertencia", "prohibición", "disputa", "amenaza", "ciberataque", "disturbios", "crisis", "despliegue", "golpe de estado", "alto el fuego"],
-        "general": ["diplomacia", "visita de estado", "embajador", "acuerdo comercial", "cumbre", "tratado", "política exterior", "elección"]
-    },
-    "Russian": {
-        "critical": ["война", "удар", "атака", "ракета", "убийство", "конфликт", "взрыв", "вторжение", "авиаудар", "жертвы", "ядерный", "бомбардировка", "артиллерия", "заложник", "наступление"],
-        "elevated": ["санкции", "протест", "напряженность", "предупреждение", "запрет", "спор", "угроза", "кибератака", "беспорядки", "кризис", "развертывание", "переворот", "прекращение огня"],
-        "general": ["дипломатия", "государственный визит", "посол", "торговое соглашение", "саммит", "договор", "внешняя политика", "выборы"]
-    },
-    "Mandarin": {
-        "critical": ["战争", "罢工", "袭击", "导弹", "暗杀", "冲突", "爆炸", "入侵", "空袭", "伤亡", "核武器", "轰炸", "炮兵", "人质", "攻势"],
-        "elevated": ["制裁", "抗议", "紧张局势", "警告", "禁令", "争端", "威胁", "网络攻击", "动乱", "危机", "部署", "政变", "停火"],
-        "general": ["外交", "国事访问", "大使", "贸易协定", "峰会", "条约", "外交政策", "选举"]
-    }
-}
-
-# ==============================================================================
-# MASTER PUBLISHER LIST (ULTIMATE SANCTION-PROOF FIREWALL BYPASS)
-# ==============================================================================
-MASTER_CATALOG = [
-    # --- ARABIC (Bypass Google News Links) ---
-    {"name": "BBC Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
-    {"name": "Sky News Arabia", "continent": "Middle East", "country": "UAE", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:skynewsarabia.com&hl=ar&gl=AE&ceid=AE:ar"},
-    {"name": "France 24 (Arabic)", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://www.france24.com/ar/rss"},
-    {"name": "DW Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://rss.dw.com/rdf/rss-ar-all"},
-    {"name": "Al Arabiya", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:alarabiya.net&hl=ar&gl=SA&ceid=SA:ar"},
-    {"name": "Asharq Al-Awsat (AR)", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://aawsat.com/feed"},
-    {"name": "Saba Net Yemen", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
-
-    # --- AMHARIC (Bypass Google News Links) ---
-    {"name": "BBC News Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://feeds.bbci.co.uk/amharic/rss.xml"},
-    {"name": "DW Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://rss.dw.com/rdf/rss-amh-news"},
-    {"name": "VOA Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:amharic.voanews.com&hl=am&gl=ET&ceid=ET:am"},
-    {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:fanabc.com&hl=am&gl=ET&ceid=ET:am"},
-
-    # --- SPANISH / SOUTH AMERICA (Bypass Google News Links) ---
-    {"name": "CNN en Español", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.google.com/rss/search?q=site:cnnespanol.cnn.com&hl=es&gl=US&ceid=US:es"},
-    {"name": "Clarín", "continent": "South America", "country": "Argentina", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.google.com/rss/search?q=site:clarin.com&hl=es-419&gl=AR&ceid=AR:es-419"},
-    {"name": "El Tiempo", "continent": "South America", "country": "Colombia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.google.com/rss/search?q=site:eltiempo.com&hl=es-419&gl=CO&ceid=CO:es-419"},
-    {"name": "Folha de S.Paulo", "continent": "South America", "country": "Brazil", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.google.com/rss/search?q=site:folha.uol.com.br/mundo&hl=pt-BR&gl=BR&ceid=BR:pt-419"},
-    {"name": "RT Spanish", "continent": "South America", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.google.com/rss/search?q=site:actualidad.rt.com&hl=es-419&gl=US&ceid=US:es-419"},
-    {"name": "UN News Spanish", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.un.org/feed/subscribe/es/news/all/rss.xml"},
-    {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
-    
-    # --- FRENCH ---
-    {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.lemonde.fr/international/rss_full.xml"},
-    {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.france24.com/fr/rss"},
-    {"name": "RFI Afrique", "continent": "Africa", "country": "Regional", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:rfi.fr/fr/afrique&hl=fr&gl=FR&ceid=FR:fr"},
-    {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
-
-    # --- RUSSIAN ---
-    {"name": "BBC Russian", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://feeds.bbci.co.uk/russian/rss.xml"},
-    {"name": "DW Russian", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://rss.dw.com/rdf/rss-ru-all"},
-    {"name": "UN News Russian", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://news.un.org/feed/subscribe/ru/news/all/rss.xml"},
-
-    # --- MANDARIN / CHINESE ---
-    {"name": "BBC Chinese", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "http://feeds.bbci.co.uk/zhongwen/simp/rss.xml"},
-    {"name": "UN News Chinese", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://news.un.org/feed/subscribe/zh/news/all/rss.xml"},
-
-    # --- ENGLISH (AFRICA, MIDDLE EAST, GLOBAL) ---
-    {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
-    {"name": "The Washington Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://feeds.washingtonpost.com/rss/world"},
-    {"name": "CNN", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "http://rss.cnn.com/rss/edition_world.rss"},
-    {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Daily Nation", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:nation.africa&hl=en-KE&gl=KE&ceid=KE:en"},
-    {"name": "News24", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:news24.com&hl=en-ZA&gl=ZA&ceid=ZA:en"},
-    {"name": "Al Jazeera (English)", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
-    {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "SOCIAL", "language": "English", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
-    {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "language": "English", "url": "https://www.reddit.com/r/geopolitics/new.rss"}
-]
-
-# ==============================================================================
-# JOSIAH'S OFFICIAL SOCIAL HANDLES
-# ==============================================================================
-SOCIAL_CATALOG = [
-    # US Officials
-    {"handle": "@POTUS", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
-    {"handle": "@StateDept", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
-    
-    # Africa Leaders
-    {"handle": "@WilliamsRuto", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "language": "English"},
-    {"handle": "@PaulKagame", "continent": "Africa", "country": "Rwanda", "category": "GENERAL", "language": "English"},
-    {"handle": "@CyrilRamaphosa", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "language": "English"},
-    {"handle": "@NGRPresident", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "language": "English"},
-    {"handle": "@AlsisiOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "language": "Arabic"},
-    
-    # Europe Leaders
-    {"handle": "@EmmanuelMacron", "continent": "Europe", "country": "France", "category": "GENERAL", "language": "French"},
-    {"handle": "@sanchezcastejon", "continent": "Europe", "country": "Spain", "category": "GENERAL", "language": "Spanish"},
-
-    # Middle East
-    {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
-    {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
-    {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED", "language": "English"},
-    
-    # Desks
-    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "language": "English"}
-]
-
-# ==============================================================================
-# DATABASE LAYER WITH MASSIVE RETROACTIVE AUTO-HEALER
-# ==============================================================================
-def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
-    conn.autocommit = True
-    return conn
-
-def init_db():
-    try:
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS news (
-                id SERIAL PRIMARY KEY,
-                title TEXT,
-                link TEXT UNIQUE,
-                source TEXT,
-                category TEXT,
-                handle TEXT DEFAULT 'N/A',
-                continent TEXT DEFAULT 'Global',
-                country TEXT DEFAULT 'Global',
-                region TEXT DEFAULT 'Global',
-                language TEXT DEFAULT 'English',
-                thumbnail TEXT DEFAULT '',
-                feed_type TEXT DEFAULT 'PUBLISHER',
-                published_date TIMESTAMP,
-                fetched_at TIMESTAMP,
-                keyword TEXT DEFAULT '',
-                threat_level TEXT DEFAULT 'INFORMATIONAL'
-            )
-        ''')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow">
         
-        # AGGRESSIVE AUTO-HEALER: Forces perfect accuracy of old records so filters ALWAYS work
-        for pub in MASTER_CATALOG:
-            c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s WHERE source = %s", 
-                      (pub.get("language", "English"), pub["continent"], pub["country"], pub["category"], pub["name"]))
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-bordercolor pb-4 mb-6 gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
+                <span class="font-black text-xl text-white tracking-wider flex items-center gap-2">INTEL <span class="text-indigo-400 font-light">ENGINE</span></span>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3 text-xs">
+                <span id="last-sync-badge" class="text-[10px] font-mono text-slate-500 border border-slate-700/50 px-2 py-1 rounded bg-slate-800/30 hidden">Synced: <span id="sync-time">Just now</span></span>
+                <span id="ws-status" class="px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono">● Disconnected</span>
                 
-        for soc in SOCIAL_CATALOG:
-            c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s WHERE handle = %s", 
-                      (soc.get("language", "English"), soc["continent"], soc["country"], soc["category"], soc["handle"]))
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <span class="text-[10px] font-bold text-slate-300 tracking-wider">AUTO-PILOT ACTIVE</span>
+                </div>
+                <button id="sync-btn" onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all active:scale-95 flex items-center gap-1.5">⚡ Sync Live Feed</button>
+            </div>
+        </header>
+
+        <div class="w-full bg-black/95 border border-slate-800 rounded-xl p-3 h-28 overflow-y-auto font-mono text-[10px] text-green-500 shadow-inner mb-6 flex flex-col" id="terminal-log"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+            <div class="lg:col-span-3 bg-card/80 border border-bordercolor rounded-2xl p-4 h-60 relative shadow-xl backdrop-blur-md">
+                <canvas id="telemetryChart"></canvas>
+                <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 font-mono text-xs hidden bg-card/90 rounded-xl">
+                    <span>Awaiting Data Telemetry...</span>
+                    <span class="mt-1 opacity-75">Click 'Sync Live Feed' to ingest multi-channel feeds.</span>
+                </div>
+            </div>
+            <div class="flex flex-col gap-3">
+                <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Total Ingested Intel</span>
+                    <span id="kpi-total" class="text-2xl font-black text-indigo-400 font-mono mt-1">0</span>
+                </div>
+                <div class="bg-card/60 border border-red-900/40 p-4 rounded-2xl flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-mono text-red-400 uppercase tracking-wider">🔴 Critical Threats</span>
+                    <span id="kpi-critical" class="text-2xl font-black text-red-500 font-mono mt-1">0</span>
+                </div>
+                <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
+                    <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Channels Monitored</span>
+                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">120+ Active</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex space-x-2 mb-6 border-b border-bordercolor pb-3">
+            <button id="tab-all" onclick="switchCategory('ALL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL / GLOBAL TRENDS</button>
+            <button id="tab-red" onclick="switchCategory('RED')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis & Conflict)</button>
+            <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-5 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy & Trade)</button>
+        </div>
+
+        <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
+            
+            <div class="relative">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic across languages live (e.g. ጦርነት, غزة, ceasefire, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+            </div>
+
+            <!-- CASCADING DROPDOWN MATRIX -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 border-b border-slate-800 pb-4">
                 
-        conn.close()
-        logger.info("Database schema initialized and retroactive data auto-healer executed successfully.")
-    except Exception as e:
-        logger.error(f"Database init error: {e}")
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">1. Continent</label>
+                    <select id="continentSelect" onchange="onContinentChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
+                        <option value="All">All Continents</option>
+                    </select>
+                </div>
 
-# ==============================================================================
-# UNICODE SCRIPT DETECTOR & MEDIA EXTRACTOR
-# ==============================================================================
-def extract_thumbnail(entry_obj):
-    if isinstance(entry_obj, dict):
-        if entry_obj.get("thumbnail") and isinstance(entry_obj["thumbnail"], str): return entry_obj["thumbnail"]
-        if entry_obj.get("enclosure") and isinstance(entry_obj["enclosure"], dict):
-            if entry_obj["enclosure"].get("link"): return entry_obj["enclosure"]["link"]
-        desc = entry_obj.get("description", "") or entry_obj.get("content", "")
-        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', str(desc), re.IGNORECASE)
-        if img_match: return img_match.group(1)
-    else:
-        if hasattr(entry_obj, 'media_content') and entry_obj.media_content:
-            for m in entry_obj.media_content:
-                if isinstance(m, dict) and 'url' in m: return m['url']
-        if hasattr(entry_obj, 'media_thumbnail') and entry_obj.media_thumbnail:
-            for m in entry_obj.media_thumbnail:
-                if isinstance(m, dict) and 'url' in m: return m['url']
-        if hasattr(entry_obj, 'enclosures') and entry_obj.enclosures:
-            for enc in entry_obj.enclosures:
-                if hasattr(enc, 'href'): return enc.href
-                if isinstance(enc, dict) and 'href' in enc: return enc['href']
-        summary = getattr(entry_obj, 'summary', '') or getattr(entry_obj, 'description', '')
-        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', str(summary), re.IGNORECASE)
-        if img_match: return img_match.group(1)
-    return ""
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">2. Country / Region</label>
+                    <select id="countrySelect" onchange="onCountryChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
+                        <option value="All">All Countries</option>
+                    </select>
+                </div>
 
-def analyze_multilingual_threat(title: str, feed_lang: str):
-    t_lower = title.lower()
-    matched_keyword = ""
-    heat_score = 0
-    
-    for lang, dicts in MULTILINGUAL_LEXICON.items():
-        for kw in dicts["critical"]:
-            if kw.lower() in t_lower:
-                heat_score += 3
-                if not matched_keyword: matched_keyword = kw
-        for kw in dicts["elevated"]:
-            if kw.lower() in t_lower:
-                heat_score += 1.5
-                if not matched_keyword: matched_keyword = kw
-        for kw in dicts["general"]:
-            if kw.lower() in t_lower:
-                heat_score += 1
-                if not matched_keyword: matched_keyword = kw
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. News Publisher</label>
+                    <select id="publisherSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
+                        <option value="All">All Publishers</option>
+                    </select>
+                </div>
 
-    if heat_score >= 3.0: level = "CRITICAL"
-    elif heat_score >= 1.0: level = "ELEVATED"
-    else: level = "INFORMATIONAL"
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">4. Social Handle</label>
+                    <select id="handleSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
+                        <option value="All">All Social Handles & Desks</option>
+                    </select>
+                </div>
 
-    return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), feed_lang
+                <div>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">5. Language</label>
+                    <select id="languageSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
+                        <option value="All">🌍 All Languages</option>
+                    </select>
+                </div>
 
-def save_items_bulk(items):
-    if not items: return 0
-    conn = get_db_connection()
-    c = conn.cursor()
-    added = 0
-    now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    for item in items:
-        try:
-            c.execute('''
-                INSERT INTO news (title, link, source, category, handle, continent, country, region, language, thumbnail, feed_type, published_date, fetched_at, keyword, threat_level)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT(link) DO UPDATE SET
-                    language = EXCLUDED.language,
-                    keyword = CASE WHEN EXCLUDED.keyword != '' THEN EXCLUDED.keyword ELSE news.keyword END,
-                    threat_level = EXCLUDED.threat_level,
-                    continent = EXCLUDED.continent,
-                    country = EXCLUDED.country,
-                    source = EXCLUDED.source,
-                    thumbnail = CASE WHEN news.thumbnail = '' THEN EXCLUDED.thumbnail ELSE news.thumbnail END
-            ''', (
-                item['title'], item['link'], item['source'], item['category'],
-                item.get('handle', 'N/A'), item.get('continent', 'Global'),
-                item.get('country', 'Global'), item.get('country', 'Global'),
-                item.get('language', 'English'), item.get('thumbnail', ''),
-                item.get('feed_type', 'PUBLISHER'),
-                item['published_date'], now_iso, item.get('keyword', ''),
-                item.get('threat_level', 'INFORMATIONAL')
-            ))
-            if c.rowcount > 0: added += 1
-        except Exception:
-            pass
-    conn.close()
-    return added
+            </div>
 
-# ==============================================================================
-# HIGH SPEED HARVESTERS
-# ==============================================================================
-async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
-    items = []
-    async with semaphore:
-        url = publisher["url"]
-        name = publisher["name"]
-        continent = publisher["continent"]
-        country = publisher["country"]
-        category = publisher["category"]
-        feed_type = publisher.get("feed_type", "PUBLISHER")
-        feed_lang = publisher.get("language", "English")
+            <div class="flex flex-wrap justify-between items-center gap-3 text-xs pt-1">
+                <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800" id="dateFilters">
+                    <select id="timeFilterSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-semibold shadow-inner">
+                        <option value="all">🕒 All Time</option>
+                        <option value="1h">Past 1 Hour</option>
+                        <option value="4h">Past 4 Hours</option>
+                        <option value="8h">Past 8 Hours</option>
+                        <option value="12h">Past 12 Hours</option>
+                        <option value="1d">Past 24 Hours</option>
+                        <option value="3d">Past 3 Days</option>
+                        <option value="7d">Past 7 Days</option>
+                    </select>
 
-        try:
-            response = await client.get(url, timeout=9.0, follow_redirects=True)
-            if response.status_code == 200:
-                feed = await asyncio.to_thread(feedparser.parse, response.content)
-                for entry in feed.entries[:limit]:
-                    title = getattr(entry, 'title', '').strip()
-                    link = getattr(entry, 'link', '').strip()
-                    thumb = extract_thumbnail(entry)
-                    try:
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                        else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    <span class="text-slate-600 font-bold px-1 text-[10px]">OR</span>
+                    
+                    <div class="flex items-center gap-1.5">
+                        <input type="date" id="startDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 transition-colors [color-scheme:dark] shadow-inner cursor-pointer">
+                        <span class="text-slate-500 font-bold">-</span>
+                        <input type="date" id="endDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 transition-colors [color-scheme:dark] shadow-inner cursor-pointer">
+                        <button onclick="clearCustomDate()" class="px-2.5 py-1 bg-slate-800 hover:bg-red-900/80 hover:text-red-400 text-slate-400 border border-slate-700 rounded-lg text-xs font-bold transition-colors shadow-md">&times;</button>
+                    </div>
+                </div>
 
-                    if title and link:
-                        threat, kw_badge, final_lang = analyze_multilingual_threat(title, feed_lang)
-                        items.append({'title': title, 'link': link, 'source': name, 'handle': 'N/A', 'continent': continent, 'country': country, 'category': category, 'feed_type': feed_type, 'published_date': pub_date, 'keyword': kw_badge, 'threat_level': threat, 'language': final_lang, 'thumbnail': thumb})
-            else:
-                api_url = "https://api.rss2json.com/v1/api.json"
-                r = await client.get(api_url, params={"rss_url": url}, timeout=10.0)
-                if r.status_code == 200:
-                    data = r.json()
-                    if data.get("status") == "ok":
-                        for entry in data.get("items", [])[:limit]:
-                            title = entry.get("title", "").strip()
-                            link = entry.get("link", "").strip()
-                            pub_date = entry.get("pubDate", "") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            thumb = extract_thumbnail(entry)
-                            if title and link:
-                                threat, kw_badge, final_lang = analyze_multilingual_threat(title, feed_lang)
-                                items.append({'title': title, 'link': link, 'source': name, 'handle': 'N/A', 'continent': continent, 'country': country, 'category': category, 'feed_type': feed_type, 'published_date': pub_date, 'keyword': kw_badge, 'threat_level': threat, 'language': final_lang, 'thumbnail': thumb})
-        except Exception:
-            pass
-    return items
+                <button onclick="resetAllFilters()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg text-xs transition-colors">✖ Reset All Filters</button>
+            </div>
+        </div>
 
-async def fetch_social_target(client, semaphore, target, limit=20):
-    items = []
-    async with semaphore:
-        handle = target["handle"]
-        continent = target["continent"]
-        country = target["country"]
-        category = target["category"]
-        feed_lang = target.get("language", "English")
-        
-        encoded_h = urllib.parse.quote(handle)
-        url = f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
+        <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
-        try:
-            response = await client.get(url, timeout=8.0, follow_redirects=True)
-            if response.status_code == 200:
-                feed = await asyncio.to_thread(feedparser.parse, response.content)
-                for entry in feed.entries[:limit]:
-                    raw_title = getattr(entry, 'title', '').strip()
-                    clean_title = raw_title.replace(" - X", "").replace(" on X", "").replace(" / X", "").strip()
-                    link = getattr(entry, 'link', '').strip()
-                    thumb = extract_thumbnail(entry)
-                    try:
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                        else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        <div class="flex justify-center mb-8">
+            <button id="loadMoreBtn" onclick="loadMore()" class="hidden px-6 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl transition-all shadow-md">
+                Load More Intelligence ↓
+            </button>
+        </div>
+    </div>
 
-                    if clean_title and link:
-                        threat, kw_badge, final_lang = analyze_multilingual_threat(clean_title, feed_lang)
-                        items.append({'title': clean_title, 'link': link, 'source': 'X (Twitter)', 'handle': handle, 'continent': continent, 'country': country, 'category': category, 'feed_type': 'SOCIAL', 'published_date': pub_date, 'keyword': kw_badge or f"Account: {handle}", 'threat_level': threat, 'language': final_lang, 'thumbnail': thumb})
-        except Exception:
-            pass
-    return items
+    <script>
+        const API_BASE = "https://intel-engine-beta.onrender.com";
+        const WS_URL = "wss://intel-engine-beta.onrender.com/ws/news";
 
-# ==============================================================================
-# WEBSOCKET & SWEEP CONTROLLER
-# ==============================================================================
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        let currentCategory = 'ALL';
+        let currentContinent = 'All';
+        let currentCountry = 'All';
+        let currentPublisher = 'All';
+        let currentHandle = 'All';
+        let currentLanguage = 'All';
+        let searchQuery = '';
+        let currentPage = 1;
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
+        let catalogMeta = { hierarchy: {}, publishers: [], handles: [], languages: [] };
+        let telemetryChart = null;
+        let ws = null;
+        let syncTimerInterval;
+        let secondsElapsed = 0;
+        let currentFetchedNews = [];
 
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+        const threatBadges = {
+            'CRITICAL': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">🔴 CRITICAL</span>',
+            'ELEVATED': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">🟧 ELEVATED</span>',
+            'INFORMATIONAL': ''
+        };
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections.copy():
-            try: await connection.send_text(message)
-            except Exception: self.disconnect(connection)
+        const skeletonCard = `
+            <div class="bg-card/50 rounded-2xl p-5 border border-bordercolor animate-pulse h-44 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between mb-4"><div class="h-4 bg-slate-700/50 rounded w-1/4"></div><div class="h-4 bg-slate-700/50 rounded w-1/6"></div></div>
+                    <div class="space-y-3"><div class="h-3 bg-slate-700/50 rounded w-3/4"></div><div class="h-3 bg-slate-700/50 rounded w-full"></div><div class="h-3 bg-slate-700/50 rounded w-5/6"></div></div>
+                </div>
+                <div class="border-t border-slate-700/50 pt-3 mt-4 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div><div class="h-3 bg-slate-700/50 rounded w-1/5"></div></div>
+            </div>`;
 
-manager = ConnectionManager()
-is_syncing = False
+        function writeTerminal(msg, type='info') {
+            const term = document.getElementById('terminal-log');
+            const time = new Date().toLocaleTimeString('en-US', {hour12:false});
+            let color = 'text-green-500';
+            if(type === 'error') color = 'text-red-500';
+            if(type === 'warn') color = 'text-amber-500';
+            if(type === 'sys') color = 'text-indigo-400';
+            
+            const line = document.createElement('div');
+            line.className = `mb-1 ${color}`;
+            term.appendChild(line);
+            term.scrollTop = term.scrollHeight;
 
-async def run_fast_sweep():
-    semaphore = asyncio.Semaphore(15) 
-    limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
-    
-    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
-        tasks = [fetch_publisher_feed(client, semaphore, pub) for pub in MASTER_CATALOG]
-        tasks += [fetch_social_target(client, semaphore, sock) for sock in SOCIAL_CATALOG]
-        
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        all_results = [item for sublist in results if isinstance(sublist, list) for item in sublist]
-        return await asyncio.to_thread(save_items_bulk, all_results)
+            let i = 0;
+            function typeChar() {
+                if (i < msg.length) {
+                    line.innerHTML = `[${time}] ` + msg.substring(0, i+1) + `<span class="cursor-blink">_</span>`;
+                    i += 2;
+                    setTimeout(typeChar, 8);
+                } else {
+                    line.innerHTML = `[${time}] ` + msg;
+                }
+            }
+            typeChar();
+        }
 
-async def async_sweep_controller(silent=False):
-    global is_syncing
-    if is_syncing: return
-    is_syncing = True
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            let bgClass = "bg-slate-800 border-slate-700 text-slate-200";
+            if (type === 'success') bgClass = "bg-emerald-950/90 border-emerald-800 text-emerald-300";
+            if (type === 'error') bgClass = "bg-red-950/90 border-red-800 text-red-300";
 
-    event_start = "sync_started_silent" if silent else "sync_started"
-    await manager.broadcast(json.dumps({"event": event_start}))
+            toast.className = `p-3.5 rounded-xl border text-xs font-mono shadow-2xl transition-all duration-300 transform translate-y-5 opacity-0 pointer-events-auto flex items-center justify-between backdrop-blur-md ${bgClass}`;
+            toast.innerHTML = `<div class="flex items-center gap-2"><span>${message}</span></div><button onclick="this.parentElement.remove()" class="ml-3 opacity-60 hover:opacity-100">&times;</button>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-5', 'opacity-0'), 10);
+            setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 5000);
+        }
 
-    try:
-        total_added = await run_fast_sweep()
-        timestamp = datetime.now().strftime("%I:%M %p")
-        await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
-    except Exception as e:
-        logger.error(f"Sweep failure: {e}")
-        await manager.broadcast(json.dumps({"event": "sync_error"}))
-    finally:
-        is_syncing = False
+        function copyToClipboard(text, btnElement) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHTML = btnElement.innerHTML;
+                btnElement.innerHTML = "✓ Copied!";
+                btnElement.classList.replace('bg-slate-800', 'bg-emerald-600');
+                btnElement.classList.replace('text-slate-300', 'text-white');
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHTML;
+                    btnElement.classList.replace('bg-emerald-600', 'bg-slate-800');
+                    btnElement.classList.replace('text-white', 'text-slate-300');
+                }, 2000);
+                showToast("📋 Link copied to clipboard for posting!", "success");
+            });
+        }
 
-async def background_loop():
-    while True:
-        await asyncio.sleep(900)
-        await async_sweep_controller(silent=True)
+        function showSyncOverlay() {
+            document.getElementById('sync-overlay').classList.remove('opacity-0', 'pointer-events-none');
+            document.getElementById('sync-overlay').classList.add('opacity-100', 'pointer-events-auto');
+        }
 
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    asyncio.create_task(background_loop())
-    asyncio.create_task(async_sweep_controller(silent=True))
+        function hideSyncOverlay() {
+            document.getElementById('sync-overlay').classList.remove('opacity-100', 'pointer-events-auto');
+            document.getElementById('sync-overlay').classList.add('opacity-0', 'pointer-events-none');
+        }
 
-# ==============================================================================
-# REST API ENDPOINTS
-# ==============================================================================
-@app.get("/", response_class=FileResponse)
-def read_root():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    root_path = os.path.join(BASE_DIR, "index.html")
-    if os.path.exists(root_path): return FileResponse(root_path)
-    raise HTTPException(status_code=404, detail="index.html not found")
+        function resetSyncButton() {
+            clearInterval(syncTimerInterval);
+            const syncBtn = document.getElementById('sync-btn');
+            syncBtn.innerHTML = "⚡ Sync Live Feed";
+            syncBtn.classList.replace('bg-slate-700', 'bg-indigo-600');
+            syncBtn.disabled = false;
+            hideSyncOverlay();
+        }
 
-@app.get("/api/ping")
-def ping(): return {"status": "awake"}
+        async function loadMetadata() {
+            try {
+                const res = await fetch(`${API_BASE}/api/meta/catalog`);
+                catalogMeta = await res.json();
+                
+                // Populate Continents
+                const contSelect = document.getElementById('continentSelect');
+                let contHtml = '<option value="All">All Continents</option>';
+                Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
+                contSelect.innerHTML = contHtml;
 
-@app.websocket("/ws/news")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True: await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
+                // INITIALIZE COUNTRIES PROPERLY
+                const countrySelect = document.getElementById('countrySelect');
+                let countryHtml = '<option value="All">All Countries</option>';
+                let allCountries = new Set();
+                Object.values(catalogMeta.hierarchy).forEach(contObj => {
+                    Object.keys(contObj).forEach(c => allCountries.add(c));
+                });
+                Array.from(allCountries).sort().forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
+                countrySelect.innerHTML = countryHtml;
 
-@app.post("/api/sync")
-async def trigger_manual_sync(background_tasks: BackgroundTasks):
-    global is_syncing
-    if is_syncing: return {"status": "Sync in progress"}
-    background_tasks.add_task(async_sweep_controller, False)
-    return {"status": "Sweep triggered"}
+                // Populate Handles
+                const handleSelect = document.getElementById('handleSelect');
+                let handleHtml = '<option value="All">All Social Handles & Desks</option>';
+                catalogMeta.handles.forEach(h => handleHtml += `<option value="${h}">${h}</option>`);
+                handleSelect.innerHTML = handleHtml;
 
-@app.get("/api/news")
-async def get_news(
-    category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"),
-    language: str = Query("All"), continent: str = Query("All"), country: str = Query("All"),
-    time_filter: str = Query("all"), start_date: str = Query(None), end_date: str = Query(None), 
-    q: str = Query(None), page: int = Query(1), limit: int = Query(30)
-):
-    offset = (page - 1) * limit
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    query = "SELECT * FROM news WHERE 1=1"
-    params = []
-    
-    # FLAWLESS MATRIX ROUTING: Ensures no filters cancel each other out
-    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
-    
-    if publisher != "All" and handle != "All":
-        query += " AND (source = %s OR handle = %s)"
-        params.extend([publisher, handle])
-    elif publisher != "All":
-        query += " AND source = %s"
-        params.append(publisher)
-    elif handle != "All":
-        query += " AND handle = %s"
-        params.append(handle)
-        
-    if continent != "All": query += " AND continent = %s"; params.append(continent)
-    if country != "All": query += " AND country = %s"; params.append(country)
-    if language != "All": query += " AND language = %s"; params.append(language)
+                // Populate Languages
+                const langSelect = document.getElementById('languageSelect');
+                let langHtml = '<option value="All">🌍 All Languages</option>';
+                catalogMeta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
+                langSelect.innerHTML = langHtml;
 
-    if start_date or end_date:
-        if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
-        if end_date: query += " AND published_date <= %s::timestamp"; params.append(f"{end_date} 23:59:59")
-    else:
-        time_mappings = {"1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours", "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
-        if time_filter in time_mappings: query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
+                populatePublishersDropdown();
+            } catch(e) {}
+        }
 
-    if q:
-        query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
-        
-    query += " ORDER BY published_date DESC, id DESC LIMIT %s OFFSET %s"
-    params.extend([limit, offset])
-    
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    conn.close()
-    
-    results = []
-    for row in rows:
-        r = dict(row)
-        if isinstance(r.get('published_date'), datetime): r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
-        results.append(r)
-    return results
+        function onContinentChange() {
+            currentContinent = document.getElementById('continentSelect').value;
+            const countrySelect = document.getElementById('countrySelect');
+            let countryHtml = '<option value="All">All Countries</option>';
+            
+            if (currentContinent !== 'All' && catalogMeta.hierarchy[currentContinent]) {
+                Object.keys(catalogMeta.hierarchy[currentContinent]).forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
+            } else if (currentContinent === 'All') {
+                let allCountries = new Set();
+                Object.values(catalogMeta.hierarchy).forEach(contObj => {
+                    Object.keys(contObj).forEach(c => allCountries.add(c));
+                });
+                Array.from(allCountries).sort().forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
+            }
+            countrySelect.innerHTML = countryHtml;
+            
+            document.getElementById('countrySelect').value = 'All';
+            document.getElementById('publisherSelect').value = 'All';
+            
+            populatePublishersDropdown();
+            applyFilters();
+        }
 
-@app.get("/api/meta/catalog")
-def get_catalog_metadata():
-    hierarchy = {}
-    publishers_set = set()
-    handles_set = set()
-    
-    all_continents = ["Africa", "Middle East", "North America", "South America", "Europe", "Asia", "Oceania", "Global"]
-    for c in all_continents:
-        if c not in hierarchy:
-            hierarchy[c] = {}
+        function onCountryChange() {
+            document.getElementById('publisherSelect').value = 'All';
+            populatePublishersDropdown();
+            applyFilters();
+        }
 
-    for item in MASTER_CATALOG:
-        cont = item["continent"]
-        country = item["country"]
-        pub = item["name"]
-        publishers_set.add(pub)
-        if cont not in hierarchy: hierarchy[cont] = {}
-        if country not in hierarchy[cont]: hierarchy[cont][country] = []
-        if pub not in hierarchy[cont][country]: hierarchy[cont][country].append(pub)
+        function populatePublishersDropdown() {
+            const curCont = document.getElementById('continentSelect').value;
+            const curCountry = document.getElementById('countrySelect').value;
+            
+            const pubSelect = document.getElementById('publisherSelect');
+            let pubHtml = '<option value="All">All Publishers</option>';
+            let pubs = [];
 
-    for item in SOCIAL_CATALOG:
-        handles_set.add(item["handle"])
+            if (curCont === 'All' && curCountry === 'All') {
+                pubs = catalogMeta.publishers;
+            } else if (curCont !== 'All' && curCountry === 'All') {
+                const contObj = catalogMeta.hierarchy[curCont] || {};
+                Object.values(contObj).forEach(list => pubs.push(...list));
+            } else if (curCountry !== 'All') {
+                if (curCont !== 'All') {
+                    const contObj = catalogMeta.hierarchy[curCont] || {};
+                    pubs = contObj[curCountry] || [];
+                } else {
+                    Object.values(catalogMeta.hierarchy).forEach(contObj => {
+                        if (contObj[curCountry]) {
+                            pubs.push(...contObj[curCountry]);
+                        }
+                    });
+                }
+            }
 
-    return {
-        "hierarchy": hierarchy,
-        "publishers": sorted(list(publishers_set)),
-        "handles": sorted(list(handles_set)),
-        "languages": list(MULTILINGUAL_LEXICON.keys())
-    }
+            Array.from(new Set(pubs)).sort().forEach(p => pubHtml += `<option value="${p}">${p}</option>`);
+            pubSelect.innerHTML = pubHtml;
+        }
 
-@app.get("/api/stats")
-def get_stats():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DATE(published_date) as date, category, COUNT(*) as count FROM news WHERE published_date IS NOT NULL GROUP BY DATE(published_date), category ORDER BY DATE(published_date) ASC LIMIT 14")
-    rows = cursor.fetchall()
-    cursor.execute("SELECT COUNT(*) FROM news")
-    total_intel = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
-    critical_threats = cursor.fetchone()[0]
-    conn.close()
-    
-    stats = {"dates": [], "ALL": [], "RED": [], "GENERAL": [], "total_intel": total_intel, "critical_threats": critical_threats}
-    temp_dict = {}
-    for row in rows:
-        d = str(row["date"])
-        c = row["category"]
-        if d not in temp_dict: temp_dict[d] = {"ALL": 0, "RED": 0, "GENERAL": 0}
-        if c in temp_dict[d]: temp_dict[d][c] = row["count"]
-        
-    for d in sorted(temp_dict.keys()):
-        stats["dates"].append(d)
-        stats["ALL"].append(temp_dict[d]["ALL"])
-        stats["RED"].append(temp_dict[d]["RED"])
-        stats["GENERAL"].append(temp_dict[d]["GENERAL"])
-    return stats
+        function applyFilters() {
+            currentContinent = document.getElementById('continentSelect').value;
+            currentCountry = document.getElementById('countrySelect').value;
+            currentPublisher = document.getElementById('publisherSelect').value;
+            currentHandle = document.getElementById('handleSelect').value;
+            currentLanguage = document.getElementById('languageSelect').value;
+            fetchNews(true);
+        }
 
-@app.get("/api/export")
-def export_csv(
-    category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"),
-    language: str = Query("All"), continent: str = Query("All"), country: str = Query("All")
-):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    query = "SELECT feed_type, source, handle, category, continent, country, language, keyword, threat_level, title, link, published_date FROM news WHERE 1=1"
-    params = []
-    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
-    if publisher != "All": query += " AND source = %s"; params.append(publisher)
-    if handle != "All": query += " AND handle = %s"; params.append(handle)
-    if continent != "All": query += " AND continent = %s"; params.append(continent)
-    if country != "All": query += " AND country = %s"; params.append(country)
-    if language != "All": query += " AND language = %s"; params.append(language)
-        
-    query += " ORDER BY published_date DESC"
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    conn.close()
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Stream Type", "Source", "Handle", "Category", "Continent", "Country", "Language", "Keyword Trigger", "Threat Level", "Title", "URL", "Timestamp"])
-    for row in rows: 
-        writer.writerow([row["feed_type"], row["source"], row["handle"], row["category"], row["continent"], row["country"], row["language"], row.get("keyword", ""), row.get("threat_level", "INFORMATIONAL"), row["title"], row["link"], row["published_date"]])
-    
-    output.seek(0)
-    response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
-    return response
+        function resetAllFilters() {
+            document.getElementById('continentSelect').value = 'All';
+            onContinentChange(); // Resets country & publisher dropdowns logically
+            document.getElementById('handleSelect').value = 'All';
+            document.getElementById('languageSelect').value = 'All';
+            document.getElementById('searchInput').value = '';
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            document.getElementById('timeFilterSelect').value = 'all';
+            
+            searchQuery = '';
+            applyFilters();
+        }
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            const statusBadge = document.getElementById('ws-status');
+            const syncBtn = document.getElementById('sync-btn');
+            
+            ws.onopen = () => {
+                statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
+                statusBadge.innerHTML = "● Live Telemetry Sat-Link Active";
+                writeTerminal("CONNECTED TO TACTICAL DATA STREAM.", "sys");
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.event === "sync_started" || data.event === "sync_started_silent") {
+                    syncBtn.classList.replace('bg-indigo-600', 'bg-slate-700');
+                    syncBtn.disabled = true;
+                    if(!data.silent) showSyncOverlay();
+                    writeTerminal("HARVESTING FEEDS & LOCAL REPOSITORIES...", "warn");
+                    
+                    clearInterval(syncTimerInterval);
+                    secondsElapsed = 0;
+                    syncTimerInterval = setInterval(() => {
+                        secondsElapsed++;
+                        syncBtn.innerHTML = `⏳ Ingesting... ${secondsElapsed}s`;
+                        if (secondsElapsed > 25) resetSyncButton();
+                    }, 1000);
+                }
+                else if (data.event === "new_intel") {
+                    resetSyncButton();
+                    document.getElementById('last-sync-badge').classList.remove('hidden');
+                    document.getElementById('sync-time').innerText = data.time || "Just now";
+                    writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new records across localized feeds.`, "sys");
+                    showToast(`✅ Ingested ${data.count} new records.`, "success");
+                    fetchNews(true);
+                    loadChartData();
+                }
+                else if (data.event === "sync_finished_no_data") {
+                    resetSyncButton();
+                    writeTerminal("SWEEP COMPLETE: All local feeds and social desks are up to date.", "info");
+                }
+            };
+
+            ws.onclose = () => {
+                statusBadge.className = "px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono";
+                statusBadge.innerHTML = "● Reconnecting...";
+                setTimeout(connectWebSocket, 4000);
+            };
+        }
+
+        async function forceSync() {
+            try { 
+                await fetch(`${API_BASE}/api/sync`, { method: 'POST' }); 
+            } catch(e) { 
+                showToast("❌ Server communication failure.", "error"); 
+            }
+        }
+
+        async function fetchNews(overwrite = false) {
+            const grid = document.getElementById('grid');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            
+            if (overwrite) {
+                currentPage = 1;
+                grid.innerHTML = skeletonCard.repeat(6);
+            }
+            
+            try {
+                const url = new URL(`${API_BASE}/api/news`);
+                url.searchParams.append('category', currentCategory);
+                url.searchParams.append('continent', currentContinent);
+                url.searchParams.append('country', currentCountry);
+                url.searchParams.append('publisher', currentPublisher);
+                url.searchParams.append('handle', currentHandle);
+                url.searchParams.append('language', currentLanguage);
+                url.searchParams.append('page', currentPage);
+                url.searchParams.append('limit', 15);
+                if (searchQuery) url.searchParams.append('q', searchQuery);
+
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                if (startDate) url.searchParams.append('start_date', startDate);
+                if (endDate) url.searchParams.append('end_date', endDate);
+                if (!startDate && !endDate) {
+                    url.searchParams.append('time_filter', document.getElementById('timeFilterSelect').value);
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (overwrite) {
+                    grid.innerHTML = '';
+                    currentFetchedNews = data;
+                    updateLiveTicker(data);
+                } else {
+                    currentFetchedNews = currentFetchedNews.concat(data);
+                }
+
+                if (data.length < 15) loadMoreBtn.classList.add('hidden');
+                else loadMoreBtn.classList.remove('hidden');
+
+                if (data.length === 0 && currentPage === 1) {
+                    grid.innerHTML = `
+                        <div class="col-span-full text-center py-16 bg-card/20 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center">
+                            <span class="text-3xl mb-3">📡</span>
+                            <h3 class="text-sm font-bold text-slate-300 mb-1">0 Records Found</h3>
+                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just added a new language or publisher, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
+                        </div>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const threatBadge = threatBadges[item.threat_level] || '';
+                    const isCritical = item.threat_level === "CRITICAL" ? "critical-glow" : "";
+                    const dateObj = new Date(item.published_date || item.fetched_at);
+                    const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+
+                    const isSocial = item.feed_type === 'SOCIAL';
+                    const feedTypeBadge = isSocial 
+                        ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-blue-950/60 text-blue-300 border-blue-800/40">🐦 ${item.handle !== 'N/A' ? item.handle : item.source}</span>` 
+                        : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
+
+                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
+                    const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
+                    
+                    const thumbnailHtml = item.thumbnail ? `
+                        <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
+                            <img src="${item.thumbnail}" alt="Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
+                        </div>
+                    ` : '';
+
+                    const card = `
+                        <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
+                            <div>
+                                ${thumbnailHtml}
+                                <div class="flex items-center justify-between mb-3">
+                                    <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                        ${feedTypeBadge}
+                                        ${threatBadge}
+                                        ${langBadge}
+                                        ${keywordBadge}
+                                    </div>
+                                    <span class="text-[10px] text-slate-500 font-mono">${item.country || item.continent}</span>
+                                </div>
+                                <a href="${item.link}" target="_blank" class="block group">
+                                    <h3 class="text-slate-200 text-xs font-medium leading-relaxed group-hover:text-indigo-300 transition-colors line-clamp-3 mb-2">
+                                        ${item.title}
+                                    </h3>
+                                </a>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px]">
+                                <span class="text-slate-500 font-mono">${dateString}</span>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="copyToClipboard('${item.link}', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono rounded-lg border border-slate-700 transition-colors flex items-center gap-1 shadow-sm">
+                                        📋 Copy Link
+                                    </button>
+                                    <a href="${item.link}" target="_blank" class="px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 transition-colors flex items-center gap-1">
+                                        Access →
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    grid.insertAdjacentHTML('beforeend', card);
+                });
+            } catch (error) {
+                grid.innerHTML = `<div class="col-span-full text-center text-red-500 py-12 text-xs">Error loading feeds from server API.</div>`;
+            }
+        }
+
+        function switchCategory(cat) {
+            currentCategory = cat;
+            ['all', 'red', 'general'].forEach(c => {
+                const btn = document.getElementById(`tab-${c}`);
+                if (c === cat.toLowerCase()) btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
+                else btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800";
+            });
+            fetchNews(true);
+        }
+
+        let searchTimeout;
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchQuery = document.getElementById('searchInput').value.trim();
+                fetchNews(true);
+            }, 400);
+        }
+
+        function loadMore() { currentPage++; fetchNews(false); }
+        function applyCustomDate() { document.getElementById('timeFilterSelect').value = 'all'; applyFilters(); }
+        function clearCustomDate() { document.getElementById('startDate').value = ''; document.getElementById('endDate').value = ''; document.getElementById('timeFilterSelect').value = 'all'; applyFilters(); }
+
+        function updateLiveTicker(data) {
+            const ticker = document.getElementById('news-ticker');
+            const criticals = data.filter(item => item.threat_level === 'CRITICAL').slice(0, 5);
+            if(criticals.length === 0) {
+                ticker.innerHTML = "[STANDBY] NO CRITICAL THREATS IN CURRENT VIEW...";
+                return;
+            }
+            let tickerHTML = "";
+            criticals.forEach(item => {
+                tickerHTML += `<span class="mx-6">♦ ${item.title.toUpperCase()} [${item.source.toUpperCase()}]</span>`;
+            });
+            ticker.innerHTML = tickerHTML;
+        }
+
+        function openBriefingModal() {
+            document.getElementById('briefing-modal').classList.remove('hidden');
+            const contentBox = document.getElementById('briefing-content');
+            contentBox.innerHTML = '';
+            const now = new Date().toLocaleString();
+            let text = `MULTILINGUAL GEOPOLITICAL INTELLIGENCE DOSSIER\nGenerated: ${now}\nCategory: ${currentCategory}\n----------------------------------------\n\n`;
+
+            if (currentFetchedNews.length === 0) {
+                text += "No records currently indexed under active parameters.";
+            } else {
+                currentFetchedNews.slice(0, 12).forEach((item, idx) => {
+                    const threat = item.threat_level === "CRITICAL" ? "[🔴 CRITICAL] " : (item.threat_level === "ELEVATED" ? "[🟧 ELEVATED] " : "");
+                    const src = item.feed_type === 'SOCIAL' ? item.handle : item.source;
+                    text += `${idx + 1}. ${threat}${item.title}\n   Source: ${src} | Country: ${item.country} | Lang: ${item.language}\n   URL: ${item.link}\n\n`;
+                });
+            }
+            contentBox.innerHTML = text;
+        }
+        function closeBriefingModal() { document.getElementById('briefing-modal').classList.add('hidden'); }
+        function copyBriefingToClipboard() {
+            navigator.clipboard.writeText(document.getElementById('briefing-content').innerText);
+            showToast("📋 Dossier copied to clipboard!", "success");
+        }
+
+        function exportCSV() {
+            window.location.href = `${API_BASE}/api/export?category=${currentCategory}`;
+        }
+
+        async function loadChartData() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stats`);
+                const data = await response.json();
+                const emptyState = document.getElementById('chart-empty');
+                
+                if (data.total_intel !== undefined) document.getElementById('kpi-total').innerText = data.total_intel;
+                if (data.critical_threats !== undefined) document.getElementById('kpi-critical').innerText = data.critical_threats;
+
+                if (!data.dates || data.dates.length === 0) {
+                    emptyState.classList.remove('hidden');
+                    return;
+                } else {
+                    emptyState.classList.add('hidden');
+                }
+
+                const ctx = document.getElementById('telemetryChart').getContext('2d');
+                if(telemetryChart) telemetryChart.destroy();
+                
+                telemetryChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            { label: 'Global Stream', data: data.ALL, borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', borderWidth: 2, fill: true, tension: 0.3 },
+                            { label: 'RED Stream', data: data.RED, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderWidth: 2, fill: true, tension: 0.3 },
+                            { label: 'GENERAL Stream', data: data.GENERAL, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: '#94a3b8', font: { size: 10 } } } },
+                        scales: {
+                            x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 9 } } },
+                            y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 9 } } }
+                        }
+                    }
+                });
+            } catch (e){}
+        }
+
+        loadMetadata();
+        connectWebSocket();
+        loadChartData();
+        fetchNews(true);
+    </script>
+</body>
+</html>
