@@ -44,11 +44,12 @@
         </div>
         <div class="flex-grow overflow-hidden relative h-full flex items-center text-[11px] font-mono text-red-300">
             <div id="news-ticker" class="animate-ticker">
-                [SYSTEM] MULTILINGUAL TELEMETRY ACTIVE... SCANNING GLOBAL REPOSITORIES...
+                [SYSTEM] MULTILINGUAL TELEMETRY ACTIVE... SCANNING ALL CONTINENTS & LOCAL REPOSITORIES...
             </div>
         </div>
     </div>
 
+    <!-- Sync Radar Overlay -->
     <div id="sync-overlay" class="fixed inset-0 bg-dark/95 backdrop-blur-md z-40 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="relative w-36 h-36 mb-6 flex items-center justify-center">
             <div class="absolute inset-0 rounded-full border border-indigo-500/20"></div>
@@ -58,7 +59,7 @@
             <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
         </div>
         <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HARVESTING MULTI-CHANNEL INTEL</h3>
-        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Running maximum yield concurrency sweep...</p>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Running maximum yield concurrency sweep across 7 continents...</p>
         <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">Run in Background</button>
     </div>
 
@@ -103,7 +104,7 @@
                 </div>
                 <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
                     <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Channels Monitored</span>
-                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">100+ Active</span>
+                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">120+ Active</span>
                 </div>
             </div>
         </div>
@@ -117,15 +118,15 @@
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             
             <div class="relative">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic across languages live (e.g. ጦርነት, Gaza, ceasefire, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Search ANY topic across languages live (e.g. ጦርነት, غزة, ceasefire, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
-            <!-- CASCADING DROPDOWN FILTERS -->
+            <!-- CASCADING DROPDOWN MATRIX -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 border-b border-slate-800 pb-4">
                 
                 <!-- 1. Continent -->
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">Continent</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">1. Continent</label>
                     <select id="continentSelect" onchange="onContinentChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Continents</option>
                     </select>
@@ -133,7 +134,7 @@
 
                 <!-- 2. Country -->
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">Country / Region</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">2. Country / Region</label>
                     <select id="countrySelect" onchange="onCountryChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Countries</option>
                     </select>
@@ -141,7 +142,7 @@
 
                 <!-- 3. Publisher -->
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">News Publisher</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. News Publisher</label>
                     <select id="publisherSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Publishers</option>
                     </select>
@@ -149,7 +150,7 @@
 
                 <!-- 4. Handle -->
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">Social Handle</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">4. Social Handle</label>
                     <select id="handleSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Social Handles & Desks</option>
                     </select>
@@ -157,7 +158,7 @@
 
                 <!-- 5. Language -->
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">Language</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">5. Language</label>
                     <select id="languageSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">🌍 All Languages</option>
                     </select>
@@ -203,8 +204,9 @@
     </div>
 
     <script>
-        const API_BASE = "https://intel-engine-beta.onrender.com";
-        const WS_URL = "wss://intel-engine-beta.onrender.com/ws/news";
+        const API_BASE = window.location.origin;
+        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/news`;
 
         let currentCategory = 'ALL';
         let currentContinent = 'All';
@@ -437,7 +439,7 @@
                     resetSyncButton();
                     document.getElementById('last-sync-badge').classList.remove('hidden');
                     document.getElementById('sync-time').innerText = data.time || "Just now";
-                    writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new records.`, "sys");
+                    writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new records across localized feeds.`, "sys");
                     showToast(`✅ Ingested ${data.count} new records.`, "success");
                     fetchNews(true);
                     loadChartData();
@@ -594,7 +596,6 @@
         }
 
         function loadMore() { currentPage++; fetchNews(false); }
-        function applyTimePreset() { document.getElementById('startDate').value = ''; document.getElementById('endDate').value = ''; fetchNews(true); }
         function applyCustomDate() { document.getElementById('timeFilterSelect').value = 'all'; fetchNews(true); }
         function clearCustomDate() { document.getElementById('startDate').value = ''; document.getElementById('endDate').value = ''; document.getElementById('timeFilterSelect').value = 'all'; fetchNews(true); }
 
