@@ -45,7 +45,7 @@
         </div>
         <div class="flex-grow overflow-hidden relative h-full flex items-center text-[11px] font-mono text-red-300">
             <div id="news-ticker" class="animate-ticker">
-                [SYSTEM] MULTILINGUAL TELEMETRY ACTIVE... SCANNING ALL CONTINENTS & LOCAL REPOSITORIES...
+                [SYSTEM] MULTI-PLATFORM TELEMETRY ACTIVE... SCANNING NEWS, X, REDDIT, TELEGRAM & YOUTUBE STREAMS...
             </div>
         </div>
     </div>
@@ -128,12 +128,12 @@
                 </div>
                 <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
                     <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Channels Monitored</span>
-                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">120+ Active</span>
+                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">150+ Active</span>
                 </div>
             </div>
         </div>
 
-        <!-- OUTSIDE PROMINENT PLATFORM & CATEGORY SELECTORS -->
+        <!-- PROMINENT PLATFORM SELECTOR BAR -->
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6 border-b border-bordercolor pb-4">
             
             <!-- Category Streams -->
@@ -146,10 +146,12 @@
             <!-- Prominent Platform Switcher -->
             <div class="flex flex-wrap items-center bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 gap-1.5">
                 <span class="text-[10px] font-mono text-slate-500 px-2 font-bold uppercase">Platform:</span>
-                <button id="plat-all" onclick="switchPlatform('ALL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md">🌐 All Feeds</button>
-                <button id="plat-pub" onclick="switchPlatform('PUBLISHER')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">📰 News Outlets</button>
+                <button id="plat-all" onclick="switchPlatform('ALL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md">🌐 All</button>
+                <button id="plat-pub" onclick="switchPlatform('PUBLISHER')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">📰 Outlets</button>
                 <button id="plat-soc" onclick="switchPlatform('SOCIAL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🐦 X (Twitter)</button>
-                <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit Conflict</button>
+                <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
+                <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
+                <button id="plat-yt" onclick="switchPlatform('YOUTUBE')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ YouTube</button>
             </div>
         </div>
 
@@ -178,9 +180,9 @@
                 </div>
 
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. News Publisher</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. Channel / Publisher</label>
                     <select id="publisherSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
-                        <option value="All">All Publishers</option>
+                        <option value="All">All Sources</option>
                     </select>
                 </div>
 
@@ -359,7 +361,7 @@
                 Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
                 contSelect.innerHTML = contHtml;
 
-                // Populate Countries
+                // INITIALIZE COUNTRIES PROPERLY
                 const countrySelect = document.getElementById('countrySelect');
                 let countryHtml = '<option value="All">All Countries</option>';
                 let allCountries = new Set();
@@ -387,9 +389,14 @@
 
         function switchPlatform(plat) {
             currentPlatform = plat;
-            ['all', 'pub', 'soc', 'red'].forEach(p => {
+            ['all', 'pub', 'soc', 'red', 'tel', 'yt'].forEach(p => {
                 const btn = document.getElementById(`plat-${p}`);
-                if ((p === 'all' && plat === 'ALL') || (p === 'pub' && plat === 'PUBLISHER') || (p === 'soc' && plat === 'SOCIAL') || (p === 'red' && plat === 'REDDIT')) {
+                if ((p === 'all' && plat === 'ALL') || 
+                    (p === 'pub' && plat === 'PUBLISHER') || 
+                    (p === 'soc' && plat === 'SOCIAL') || 
+                    (p === 'red' && plat === 'REDDIT') ||
+                    (p === 'tel' && plat === 'TELEGRAM') ||
+                    (p === 'yt' && plat === 'YOUTUBE')) {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md";
                 } else {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all";
@@ -432,7 +439,7 @@
             const curCountry = document.getElementById('countrySelect').value;
             
             const pubSelect = document.getElementById('publisherSelect');
-            let pubHtml = '<option value="All">All Publishers</option>';
+            let pubHtml = '<option value="All">All Sources</option>';
             let pubs = [];
 
             if (curCont === 'All' && curCountry === 'All') {
@@ -489,7 +496,7 @@
             ws.onopen = () => {
                 statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
                 statusBadge.innerHTML = "● Live Telemetry Sat-Link Active";
-                writeTerminal("CONNECTED TO TACTICAL DATA STREAM.", "sys");
+                writeTerminal("CONNECTED TO MULTI-CHANNEL DATA STREAM.", "sys");
             };
             
             ws.onmessage = (event) => {
@@ -587,7 +594,7 @@
                         <div class="col-span-full text-center py-16 bg-card/20 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center">
                             <span class="text-3xl mb-3">📡</span>
                             <h3 class="text-sm font-bold text-slate-300 mb-1">0 Records Found</h3>
-                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just added a new language or publisher, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
+                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just switched platforms, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
                         </div>`;
                     return;
                 }
@@ -603,6 +610,10 @@
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-blue-950/60 text-blue-300 border-blue-800/40">🐦 ${item.handle !== 'N/A' ? item.handle : item.source}</span>`;
                     } else if (item.feed_type === 'REDDIT') {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-orange-950/60 text-orange-300 border-orange-800/40">👾 ${item.source}</span>`;
+                    } else if (item.feed_type === 'TELEGRAM') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-sky-950/60 text-sky-300 border-sky-800/40">✈️ ${item.source}</span>`;
+                    } else if (item.feed_type === 'YOUTUBE') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-rose-950/60 text-rose-300 border-rose-800/40">▶️ ${item.source}</span>`;
                     } else {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
                     }
