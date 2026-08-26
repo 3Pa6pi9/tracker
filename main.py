@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="31.0 - Logic Overhaul & Matrix Fix")
+app = FastAPI(title="Global Geopolitical Command Center", version="32.0 - Flawless Matrix Filter Engine")
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,10 +42,7 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
-        "critical": [
-            "war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror",
-            "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"
-        ],
+        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
         "elevated": ["sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"],
         "general": ["bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty", "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement", "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"]
     },
@@ -82,7 +79,7 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# MASTER PUBLISHER LIST (WITH HARDCODED LANGUAGE MATRIX)
+# MASTER PUBLISHER LIST
 # ==============================================================================
 MASTER_CATALOG = [
     # --- ARABIC ---
@@ -125,7 +122,7 @@ MASTER_CATALOG = [
     {"name": "NYT Chinese", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://cn.nytimes.com/rss/"},
     {"name": "Xinhua Mandarin", "continent": "Asia", "country": "China", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://news.google.com/rss/search?q=site:xinhuanet.com/politics&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"},
 
-    # --- ENGLISH (AFRICA, MIDDLE EAST, GLOBAL) ---
+    # --- ENGLISH ---
     {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
     {"name": "The Washington Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://feeds.washingtonpost.com/rss/world"},
     {"name": "The Wall Street Journal", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"},
@@ -205,19 +202,17 @@ def init_db():
         ''')
         c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
         
-        # INSTANT DATABASE AUTO-HEALER
+        # AGGRESSIVE AUTO-HEALER: Forces perfect accuracy of old records
         for pub in MASTER_CATALOG:
-            pub_lang = pub.get("language", "English")
-            if pub_lang != "English":
-                c.execute("UPDATE news SET language = %s WHERE source = %s AND language != %s", (pub_lang, pub["name"], pub_lang))
+            c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s WHERE source = %s", 
+                      (pub.get("language", "English"), pub["continent"], pub["country"], pub["category"], pub["name"]))
                 
         for soc in SOCIAL_CATALOG:
-            soc_lang = soc.get("language", "English")
-            if soc_lang != "English":
-                c.execute("UPDATE news SET language = %s WHERE handle = %s AND language != %s", (soc_lang, soc["handle"], soc_lang))
+            c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s WHERE handle = %s", 
+                      (soc.get("language", "English"), soc["continent"], soc["country"], soc["category"], soc["handle"]))
                 
         conn.close()
-        logger.info("Database schema initialized and retroactive language auto-healer executed successfully.")
+        logger.info("Database schema initialized and retroactive data auto-healer executed successfully.")
     except Exception as e:
         logger.error(f"Database init error: {e}")
 
@@ -498,8 +493,18 @@ async def get_news(
     params = []
     
     if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
-    if publisher != "All": query += " AND source = %s"; params.append(publisher)
-    if handle != "All": query += " AND handle = %s"; params.append(handle)
+    
+    # 🚨 SMART SQL MATRIX: Prevents Mutually Exclusive Overlap 🚨
+    if publisher != "All" and handle != "All":
+        query += " AND (source = %s OR handle = %s)"
+        params.extend([publisher, handle])
+    elif publisher != "All":
+        query += " AND source = %s"
+        params.append(publisher)
+    elif handle != "All":
+        query += " AND handle = %s"
+        params.append(handle)
+        
     if continent != "All": query += " AND continent = %s"; params.append(continent)
     if country != "All": query += " AND country = %s"; params.append(country)
     if language != "All": query += " AND language = %s"; params.append(language)
@@ -535,7 +540,6 @@ def get_catalog_metadata():
     publishers_set = set()
     handles_set = set()
     
-    # 1. Base Continents Roster
     all_continents = ["Africa", "Middle East", "North America", "South America", "Europe", "Asia", "Oceania", "Global"]
     for c in all_continents:
         if c not in hierarchy:
