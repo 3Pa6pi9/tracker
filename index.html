@@ -204,9 +204,8 @@
     </div>
 
     <script>
-        const API_BASE = window.location.origin;
-        const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws/news`;
+        const API_BASE = "https://intel-engine-beta.onrender.com";
+        const WS_URL = "wss://intel-engine-beta.onrender.com/ws/news";
 
         let currentCategory = 'ALL';
         let currentContinent = 'All';
@@ -340,40 +339,50 @@
             } catch(e) {}
         }
 
+        // ==============================================================
+        // SMART DROPDOWN ROUTER - PREVENTS GHOST STATES
+        // ==============================================================
         function onContinentChange() {
             currentContinent = document.getElementById('continentSelect').value;
+            
+            // Rebuild Country Dropdown
             const countrySelect = document.getElementById('countrySelect');
             let countryHtml = '<option value="All">All Countries</option>';
-            
             if (currentContinent !== 'All' && catalogMeta.hierarchy[currentContinent]) {
                 Object.keys(catalogMeta.hierarchy[currentContinent]).forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
             }
-            
             countrySelect.innerHTML = countryHtml;
-            currentCountry = 'All';
+            
+            // Clean specific children to prevent impossible combinations
+            document.getElementById('countrySelect').value = 'All';
+            document.getElementById('publisherSelect').value = 'All';
+            
             populatePublishersDropdown();
-            fetchNews(true);
+            applyFilters();
         }
 
         function onCountryChange() {
-            currentCountry = document.getElementById('countrySelect').value;
+            document.getElementById('publisherSelect').value = 'All';
             populatePublishersDropdown();
-            fetchNews(true);
+            applyFilters();
         }
 
         function populatePublishersDropdown() {
+            const curCont = document.getElementById('continentSelect').value;
+            const curCountry = document.getElementById('countrySelect').value;
+            
             const pubSelect = document.getElementById('publisherSelect');
             let pubHtml = '<option value="All">All Publishers</option>';
             let pubs = [];
 
-            if (currentContinent === 'All' && currentCountry === 'All') {
+            if (curCont === 'All' && curCountry === 'All') {
                 pubs = catalogMeta.publishers;
-            } else if (currentContinent !== 'All' && currentCountry === 'All') {
-                const contObj = catalogMeta.hierarchy[currentContinent] || {};
+            } else if (curCont !== 'All' && curCountry === 'All') {
+                const contObj = catalogMeta.hierarchy[curCont] || {};
                 Object.values(contObj).forEach(list => pubs.push(...list));
-            } else if (currentCountry !== 'All') {
-                const contObj = catalogMeta.hierarchy[currentContinent] || {};
-                pubs = contObj[currentCountry] || [];
+            } else if (curCountry !== 'All') {
+                const contObj = catalogMeta.hierarchy[curCont] || {};
+                pubs = contObj[curCountry] || [];
             }
 
             Array.from(new Set(pubs)).sort().forEach(p => pubHtml += `<option value="${p}">${p}</option>`);
@@ -381,6 +390,8 @@
         }
 
         function applyFilters() {
+            currentContinent = document.getElementById('continentSelect').value;
+            currentCountry = document.getElementById('countrySelect').value;
             currentPublisher = document.getElementById('publisherSelect').value;
             currentHandle = document.getElementById('handleSelect').value;
             currentLanguage = document.getElementById('languageSelect').value;
@@ -398,14 +409,9 @@
             document.getElementById('endDate').value = '';
             document.getElementById('timeFilterSelect').value = 'all';
             
-            currentContinent = 'All';
-            currentCountry = 'All';
-            currentPublisher = 'All';
-            currentHandle = 'All';
-            currentLanguage = 'All';
             searchQuery = '';
             populatePublishersDropdown();
-            fetchNews(true);
+            applyFilters();
         }
 
         function connectWebSocket() {
@@ -510,8 +516,10 @@
 
                 if (data.length === 0 && currentPage === 1) {
                     grid.innerHTML = `
-                        <div class="col-span-full text-center text-slate-500 py-16 bg-card/20 rounded-2xl border border-bordercolor">
-                            <p class="text-xs font-medium text-slate-400">No records found matching active filter criteria.</p>
+                        <div class="col-span-full text-center py-16 bg-card/20 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center">
+                            <span class="text-3xl mb-3">📡</span>
+                            <h3 class="text-sm font-bold text-slate-300 mb-1">0 Records Found</h3>
+                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just added a new language, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news.</p>
                         </div>`;
                     return;
                 }
@@ -596,8 +604,8 @@
         }
 
         function loadMore() { currentPage++; fetchNews(false); }
-        function applyCustomDate() { document.getElementById('timeFilterSelect').value = 'all'; fetchNews(true); }
-        function clearCustomDate() { document.getElementById('startDate').value = ''; document.getElementById('endDate').value = ''; document.getElementById('timeFilterSelect').value = 'all'; fetchNews(true); }
+        function applyCustomDate() { document.getElementById('timeFilterSelect').value = 'all'; applyFilters(); }
+        function clearCustomDate() { document.getElementById('startDate').value = ''; document.getElementById('endDate').value = ''; document.getElementById('timeFilterSelect').value = 'all'; applyFilters(); }
 
         function updateLiveTicker(data) {
             const ticker = document.getElementById('news-ticker');
@@ -611,6 +619,34 @@
                 tickerHTML += `<span class="mx-6">♦ ${item.title.toUpperCase()} [${item.source.toUpperCase()}]</span>`;
             });
             ticker.innerHTML = tickerHTML;
+        }
+
+        function openBriefingModal() {
+            document.getElementById('briefing-modal').classList.remove('hidden');
+            const contentBox = document.getElementById('briefing-content');
+            contentBox.innerHTML = '';
+            const now = new Date().toLocaleString();
+            let text = `MULTILINGUAL GEOPOLITICAL INTELLIGENCE DOSSIER\nGenerated: ${now}\nCategory: ${currentCategory}\n----------------------------------------\n\n`;
+
+            if (currentFetchedNews.length === 0) {
+                text += "No records currently indexed under active parameters.";
+            } else {
+                currentFetchedNews.slice(0, 12).forEach((item, idx) => {
+                    const threat = item.threat_level === "CRITICAL" ? "[🔴 CRITICAL] " : (item.threat_level === "ELEVATED" ? "[🟧 ELEVATED] " : "");
+                    const src = item.feed_type === 'SOCIAL' ? item.handle : item.source;
+                    text += `${idx + 1}. ${threat}${item.title}\n   Source: ${src} | Country: ${item.country} | Lang: ${item.language}\n   URL: ${item.link}\n\n`;
+                });
+            }
+            contentBox.innerHTML = text;
+        }
+        function closeBriefingModal() { document.getElementById('briefing-modal').classList.add('hidden'); }
+        function copyBriefingToClipboard() {
+            navigator.clipboard.writeText(document.getElementById('briefing-content').innerText);
+            showToast("📋 Dossier copied to clipboard!", "success");
+        }
+
+        function exportCSV() {
+            window.location.href = `${API_BASE}/api/export?category=${currentCategory}`;
         }
 
         async function loadChartData() {
