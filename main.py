@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="32.0 - Flawless Matrix Filter Engine")
+app = FastAPI(title="Global Geopolitical Command Center", version="33.0 - Sanction-Proof Feeds & Matrix Engine")
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,7 +79,7 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# MASTER PUBLISHER LIST
+# MASTER PUBLISHER LIST (SANCTION-PROOF GLOBAL FEEDS)
 # ==============================================================================
 MASTER_CATALOG = [
     # --- ARABIC ---
@@ -87,11 +87,9 @@ MASTER_CATALOG = [
     {"name": "Sky News Arabia", "continent": "Middle East", "country": "UAE", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://www.skynewsarabia.com/rss"},
     {"name": "France 24 (Arabic)", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://www.france24.com/ar/rss"},
     {"name": "DW Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://rss.dw.com/rdf/rss-ar-all"},
-    {"name": "RT Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://arabic.rt.com/rss/"},
     {"name": "Al Arabiya", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://www.alarabiya.net/.mrss/ar.xml"},
     {"name": "Asharq Al-Awsat (AR)", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://aawsat.com/feed"},
     {"name": "Saba Net Yemen", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
-    {"name": "Al Jazeera Arabic", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:aljazeera.net&hl=ar&gl=QA&ceid=QA:ar"},
 
     # --- AMHARIC ---
     {"name": "BBC News Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://feeds.bbci.co.uk/amharic/rss.xml"},
@@ -99,28 +97,24 @@ MASTER_CATALOG = [
     {"name": "VOA Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://amharic.voanews.com/api/z$_mye_i_m"},
     {"name": "Fana Broadcasting (Amharic)", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:fanabc.com/archives&hl=am&gl=ET&ceid=ET:am"},
 
-    # --- SPANISH ---
+    # --- SPANISH (SANCTION PROOF) ---
+    {"name": "CNN en Español", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://cnnespanol.cnn.com/feed/"},
     {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
-    {"name": "El Mundo", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://e00-elmundo.uecdn.es/elmundo/rss/internacional.xml"},
-    {"name": "Clarín", "continent": "South America", "country": "Argentina", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://www.clarin.com/rss/mundo/"},
-    {"name": "El Tiempo", "continent": "South America", "country": "Colombia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://www.eltiempo.com/rss/mundo.xml"},
-    {"name": "RT Spanish", "continent": "South America", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://actualidad.rt.com/rss"},
+    {"name": "UN News Spanish", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://news.un.org/feed/subscribe/es/news/all/rss.xml"},
     
     # --- FRENCH ---
     {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.lemonde.fr/international/rss_full.xml"},
     {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.france24.com/fr/rss"},
     {"name": "RFI Afrique", "continent": "Africa", "country": "Regional", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.rfi.fr/fr/afrique/rss"},
-    {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
 
-    # --- RUSSIAN ---
-    {"name": "RT Russian", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://russian.rt.com/rss"},
-    {"name": "Lenta.ru", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://lenta.ru/rss/news"},
-    {"name": "TASS Russian", "continent": "Europe", "country": "Russia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://tass.ru/rss/v2.xml"},
+    # --- RUSSIAN (SANCTION PROOF) ---
+    {"name": "BBC Russian", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://feeds.bbci.co.uk/russian/rss.xml"},
+    {"name": "DW Russian", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://rss.dw.com/rdf/rss-ru-all"},
+    {"name": "UN News Russian", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://news.un.org/feed/subscribe/ru/news/all/rss.xml"},
 
-    # --- MANDARIN (CHINESE) ---
+    # --- MANDARIN / CHINESE (SANCTION PROOF) ---
     {"name": "BBC Chinese", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "http://feeds.bbci.co.uk/zhongwen/simp/rss.xml"},
-    {"name": "NYT Chinese", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://cn.nytimes.com/rss/"},
-    {"name": "Xinhua Mandarin", "continent": "Asia", "country": "China", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://news.google.com/rss/search?q=site:xinhuanet.com/politics&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"},
+    {"name": "UN News Chinese", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://news.un.org/feed/subscribe/zh/news/all/rss.xml"},
 
     # --- ENGLISH ---
     {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
@@ -131,7 +125,6 @@ MASTER_CATALOG = [
     {"name": "The Economist", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.economist.com/international/rss.xml"},
     {"name": "Politico", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://rss.politico.com/politics-news.xml"},
     {"name": "The Reporter Ethiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:thereporterethiopia.com&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "Addis Fortune", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:addisfortune.news&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Daily Nation", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://nation.africa/kenya/rss"},
     {"name": "News24", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://feeds.news24.com/articles/news24/TopStories/rss"},
     {"name": "Arab News", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.arabnews.com/cat/1/rss.xml"},
@@ -202,7 +195,7 @@ def init_db():
         ''')
         c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
         
-        # AGGRESSIVE AUTO-HEALER: Forces perfect accuracy of old records
+        # AGGRESSIVE AUTO-HEALER: Forces perfect accuracy of old records so filters ALWAYS work
         for pub in MASTER_CATALOG:
             c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s WHERE source = %s", 
                       (pub.get("language", "English"), pub["continent"], pub["country"], pub["category"], pub["name"]))
@@ -492,9 +485,10 @@ async def get_news(
     query = "SELECT * FROM news WHERE 1=1"
     params = []
     
+    # 🚨 FLAWLESS MATRIX ROUTING: Ensuring no filters cancel each other out
     if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
     
-    # 🚨 SMART SQL MATRIX: Prevents Mutually Exclusive Overlap 🚨
+    # Allow searching both handles and publishers simultaneously, or individually
     if publisher != "All" and handle != "All":
         query += " AND (source = %s OR handle = %s)"
         params.extend([publisher, handle])
