@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="30.0 - Hardcoded Language Matrix")
+app = FastAPI(title="Global Geopolitical Command Center", version="31.0 - Logic Overhaul & Matrix Fix")
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,16 +46,8 @@ MULTILINGUAL_LEXICON = {
             "war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror",
             "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"
         ],
-        "elevated": [
-            "sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"
-        ],
-        "general": [
-            "bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks",
-            "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding",
-            "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty",
-            "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement",
-            "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"
-        ]
+        "elevated": ["sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"],
+        "general": ["bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty", "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement", "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"]
     },
     "Arabic": {
         "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران"],
@@ -115,10 +107,12 @@ MASTER_CATALOG = [
     {"name": "El Mundo", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://e00-elmundo.uecdn.es/elmundo/rss/internacional.xml"},
     {"name": "Clarín", "continent": "South America", "country": "Argentina", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://www.clarin.com/rss/mundo/"},
     {"name": "El Tiempo", "continent": "South America", "country": "Colombia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://www.eltiempo.com/rss/mundo.xml"},
+    {"name": "RT Spanish", "continent": "South America", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://actualidad.rt.com/rss"},
     
     # --- FRENCH ---
     {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.lemonde.fr/international/rss_full.xml"},
     {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.france24.com/fr/rss"},
+    {"name": "RFI Afrique", "continent": "Africa", "country": "Regional", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.rfi.fr/fr/afrique/rss"},
     {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
 
     # --- RUSSIAN ---
@@ -129,6 +123,7 @@ MASTER_CATALOG = [
     # --- MANDARIN (CHINESE) ---
     {"name": "BBC Chinese", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "http://feeds.bbci.co.uk/zhongwen/simp/rss.xml"},
     {"name": "NYT Chinese", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://cn.nytimes.com/rss/"},
+    {"name": "Xinhua Mandarin", "continent": "Asia", "country": "China", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Mandarin", "url": "https://news.google.com/rss/search?q=site:xinhuanet.com/politics&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"},
 
     # --- ENGLISH (AFRICA, MIDDLE EAST, GLOBAL) ---
     {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
@@ -149,7 +144,7 @@ MASTER_CATALOG = [
 ]
 
 # ==============================================================================
-# JOSIAH'S OFFICIAL SOCIAL HANDLES (WITH LANGUAGE TAGS)
+# JOSIAH'S OFFICIAL SOCIAL HANDLES
 # ==============================================================================
 SOCIAL_CATALOG = [
     # US Officials
@@ -159,27 +154,21 @@ SOCIAL_CATALOG = [
     # Africa Leaders
     {"handle": "@WilliamsRuto", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "language": "English"},
     {"handle": "@PaulKagame", "continent": "Africa", "country": "Rwanda", "category": "GENERAL", "language": "English"},
-    {"handle": "@UrugwiroVillage", "continent": "Africa", "country": "Rwanda", "category": "GENERAL", "language": "English"},
     {"handle": "@CyrilRamaphosa", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "language": "English"},
     {"handle": "@NGRPresident", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "language": "English"},
     {"handle": "@AlsisiOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "language": "Arabic"},
-    {"handle": "@MFAEthiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "language": "English"},
     
     # Europe Leaders
     {"handle": "@EmmanuelMacron", "continent": "Europe", "country": "France", "category": "GENERAL", "language": "French"},
     {"handle": "@sanchezcastejon", "continent": "Europe", "country": "Spain", "category": "GENERAL", "language": "Spanish"},
-    {"handle": "@bundeskanzler", "continent": "Europe", "country": "Germany", "category": "GENERAL", "language": "English"},
 
     # Middle East
     {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
-    {"handle": "@KSAMOFA", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
     {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
     {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED", "language": "English"},
-    {"handle": "@araghchi", "continent": "Middle East", "country": "Iran", "category": "RED", "language": "Persian"},
     
     # Desks
-    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "language": "English"},
-    {"handle": "@ReutersWorld", "continent": "Global", "country": "Global", "category": "ALL", "language": "English"}
+    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "language": "English"}
 ]
 
 # ==============================================================================
@@ -217,7 +206,6 @@ def init_db():
         c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
         
         # INSTANT DATABASE AUTO-HEALER
-        # Iterates through the hardcoded master lists and retroactively fixes all legacy records
         for pub in MASTER_CATALOG:
             pub_lang = pub.get("language", "English")
             if pub_lang != "English":
@@ -234,7 +222,7 @@ def init_db():
         logger.error(f"Database init error: {e}")
 
 # ==============================================================================
-# THUMBNAIL & CROSS-LINGUAL THREAT ANALYZER
+# UNICODE SCRIPT DETECTOR & MEDIA EXTRACTOR
 # ==============================================================================
 def extract_thumbnail(entry_obj):
     if isinstance(entry_obj, dict):
@@ -265,7 +253,6 @@ def analyze_multilingual_threat(title: str, feed_lang: str):
     matched_keyword = ""
     heat_score = 0
     
-    # Scans ALL dictionaries to catch cross-lingual matches (e.g. searching for "Gaza" inside a Spanish feed)
     for lang, dicts in MULTILINGUAL_LEXICON.items():
         for kw in dicts["critical"]:
             if kw.lower() in t_lower:
@@ -287,7 +274,6 @@ def analyze_multilingual_threat(title: str, feed_lang: str):
     return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), feed_lang
 
 def save_items_bulk(items):
-    """Saves rows and retroactively updates language tags on conflict."""
     if not items: return 0
     conn = get_db_connection()
     c = conn.cursor()
