@@ -339,9 +339,6 @@
             } catch(e) {}
         }
 
-        // ==============================================================
-        // SMART DROPDOWN ROUTER - PREVENTS GHOST STATES
-        // ==============================================================
         function onContinentChange() {
             currentContinent = document.getElementById('continentSelect').value;
             
@@ -353,7 +350,7 @@
             }
             countrySelect.innerHTML = countryHtml;
             
-            // Clean specific children to prevent impossible combinations
+            // Reset children DOM to 'All' to avoid impossible Ghost States
             document.getElementById('countrySelect').value = 'All';
             document.getElementById('publisherSelect').value = 'All';
             
@@ -390,6 +387,7 @@
         }
 
         function applyFilters() {
+            // Guaranteed single source of truth
             currentContinent = document.getElementById('continentSelect').value;
             currentCountry = document.getElementById('countrySelect').value;
             currentPublisher = document.getElementById('publisherSelect').value;
@@ -519,7 +517,7 @@
                         <div class="col-span-full text-center py-16 bg-card/20 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center">
                             <span class="text-3xl mb-3">📡</span>
                             <h3 class="text-sm font-bold text-slate-300 mb-1">0 Records Found</h3>
-                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just added a new language, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news.</p>
+                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just added a new language or publisher, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
                         </div>`;
                     return;
                 }
