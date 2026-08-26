@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="27.0 - Massive Multilingual Expansion")
+app = FastAPI(title="Global Geopolitical Command Center", version="28.0 - Master All-Continents & Multilingual Matrix")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +38,7 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# MASSIVE MULTILINGUAL LEXICON (10 LANGUAGES)
+# MULTILINGUAL THREAT & GEOPOLITICAL LEXICONS (10 LANGUAGES)
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
@@ -58,9 +58,9 @@ MULTILINGUAL_LEXICON = {
         ]
     },
     "Arabic": {
-        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران", "إرهاب", "تمرد", "كمين"],
-        "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود", "حصار", "انقلاب", "شغب"],
-        "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات", "انتخابات", "مساعدات إنسانية", "استيراد", "تصدير"]
+        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران", "إرهاب", "تمرد", "كمين", "شهيد", "غزة", "الحوثي", "حماس", "حزب الله"],
+        "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود", "حصار", "انقلاب", "شغب", "لاجئين", "حدود"],
+        "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات", "انتخابات", "مساعدات إنسانية", "استيراد", "تصدير", "وزير الخارجية"]
     },
     "Amharic": {
         "critical": ["ጦርነት", "ጥቃት", "ሚሳይል", "ግድያ", "ግጭት", "ፍንዳታ", "ወረራ", "የአየር ድብደባ", "የሰው ጉዳት", "የኑክሌር", "ቦምብ", "የድሮን ጥቃት", "የታጠቀ ቡድን", "ተኩስ", "ግድያዎች", "የጦር ሰራዊት", "አሸባሪ", "አማፂ"],
@@ -105,50 +105,30 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# HIERARCHICAL PUBLISHER MASTER LIST (MASSIVELY EXPANDED)
+# HIERARCHICAL PUBLISHER MASTER LIST (ALL CONTINENTS & NATIVE ARABIC STREAMS)
 # ==============================================================================
 MASTER_CATALOG = [
-    # US Majors
-    {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
-    {"name": "The Washington Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.washingtonpost.com/rss/world"},
-    {"name": "The Wall Street Journal", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"},
-    {"name": "New York Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://nypost.com/feed/"},
-    {"name": "CNN", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://rss.cnn.com/rss/edition_world.rss"},
-    {"name": "Fox News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://moxie.foxnews.com/google-publisher/world.xml"},
-    {"name": "ABC News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://abcnews.go.com/abcnews/internationalheadlines"},
-    
-    # Global / Geopolitical Focus
-    {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "The Economist", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.economist.com/international/rss.xml"},
-    {"name": "Politico", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.politico.com/politics-news.xml"},
-    {"name": "Foreign Policy", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://foreignpolicy.com/feed/"},
+    # --- ARABIC NATIVE STREAMS (DIRECT HIGH-YIELD RSS) ---
+    {"name": "BBC Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
+    {"name": "Sky News Arabia", "continent": "Middle East", "country": "UAE", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.skynewsarabia.com/rss"},
+    {"name": "France 24 (Arabic)", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.france24.com/ar/rss"},
+    {"name": "DW Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-ar-all"},
+    {"name": "RT Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://arabic.rt.com/rss/"},
+    {"name": "Al Arabiya", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.alarabiya.net/.mrss/ar.xml"},
+    {"name": "Asharq Al-Awsat (AR)", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://aawsat.com/feed"},
+    {"name": "Hespress", "continent": "Africa", "country": "Morocco", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.hespress.com/feed"},
+    {"name": "Saba Net (Yemen)", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
 
-    # Asia & Russia (NEW)
-    {"name": "South China Morning Post", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.scmp.com/rss/91/feed"},
-    {"name": "Xinhua News", "continent": "Asia", "country": "China", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:xinhuanet.com&hl=en-US&gl=US&ceid=US:en"},
-    {"name": "RT (Russia Today)", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.rt.com/rss/news/"},
-    {"name": "TASS", "continent": "Europe", "country": "Russia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://tass.com/rss/v2.xml"},
-    {"name": "The Times of India", "continent": "Asia", "country": "India", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms"},
-    {"name": "Dawn", "continent": "Asia", "country": "Pakistan", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.dawn.com/feeds/world/"},
-    {"name": "Nikkei Asia", "continent": "Asia", "country": "Japan", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://asia.nikkei.com/rss/feed/nar"},
-
-    # Europe
-    {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lemonde.fr/international/rss_full.xml"},
-    {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.france24.com/fr/rss"},
-    {"name": "Der Spiegel", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.spiegel.de/international/index.rss"},
-    {"name": "Deutsche Welle", "continent": "Europe", "country": "Germany", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-en-world"},
-    {"name": "BBC News", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
-    {"name": "The Guardian", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.theguardian.com/world/rss"},
-    {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
-    
-    # Africa - Expanded
+    # --- AFRICA ---
+    {"name": "BBC News Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://feeds.bbci.co.uk/amharic/rss.xml"},
+    {"name": "DW Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-amh-news"},
     {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:fanabc.com/archives&hl=am&gl=ET&ceid=ET:am"},
     {"name": "The Reporter Ethiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:thereporterethiopia.com&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Addis Fortune", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:addisfortune.news&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Daily Nation", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://nation.africa/kenya/rss"},
-    {"name": "The Star", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.the-star.co.ke/rss"},
+    {"name": "The Star Kenya", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.the-star.co.ke/rss"},
     {"name": "Premium Times", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.premiumtimesng.com/feed"},
-    {"name": "News24", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.news24.com/articles/news24/TopStories/rss"},
+    {"name": "News24 South Africa", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.news24.com/articles/news24/TopStories/rss"},
     {"name": "Joy Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.myjoyonline.com/feed/"},
     {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
     {"name": "Al-Ahram Online", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://english.ahram.org.eg/RSS/All.aspx"},
@@ -157,18 +137,55 @@ MASTER_CATALOG = [
     {"name": "Hiiraan Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:hiiraan.com&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Africanews", "continent": "Africa", "country": "Pan-Africa", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.africanews.com/feed/"},
 
-    # Middle East
+    # --- MIDDLE EAST (ENGLISH & REGIONAL) ---
     {"name": "Arab News", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.arabnews.com/cat/1/rss.xml"},
-    {"name": "Al Jazeera", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
-    {"name": "Asharq Al-Awsat", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "url": "https://aawsat.com/feed"},
-    {"name": "IRNA", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://en.irna.ir/rss"},
+    {"name": "Al Jazeera (English)", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.aljazeera.com/xml/rss/all.xml"},
+    {"name": "Times of Israel", "continent": "Middle East", "country": "Israel", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.timesofisrael.com/feed/"},
     {"name": "Tehran Times", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "url": "https://www.tehrantimes.com/rss"},
     {"name": "Shafaq News", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "url": "https://shafaq.com/en/rss"},
-    {"name": "Hürriyet", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.hurriyetdailynews.com/rss"},
     {"name": "TRT World", "continent": "Middle East", "country": "Turkey", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.trtworld.com/feed/rss"},
-    {"name": "Saba Net", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:sabanew.net&hl=ar&gl=YE&ceid=YE:ar"},
-    
-    # Reddit Hubs
+    {"name": "Hürriyet", "continent": "Middle East", "country": "Turkey", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.hurriyetdailynews.com/rss"},
+
+    # --- NORTH AMERICA ---
+    {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
+    {"name": "The Washington Post", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.washingtonpost.com/rss/world"},
+    {"name": "The Wall Street Journal", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml"},
+    {"name": "CNN", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://rss.cnn.com/rss/edition_world.rss"},
+    {"name": "Fox News", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://moxie.foxnews.com/google-publisher/world.xml"},
+    {"name": "CBC News", "continent": "North America", "country": "Canada", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.cbc.ca/cmlink/rss-world"},
+    {"name": "El Universal", "continent": "North America", "country": "Mexico", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.eluniversal.com.mx/rss/mundo.xml"},
+
+    # --- SOUTH AMERICA ---
+    {"name": "Folha de S.Paulo", "continent": "South America", "country": "Brazil", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.folha.uol.com.br/mundo/rss091.xml"},
+    {"name": "Clarín", "continent": "South America", "country": "Argentina", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.clarin.com/rss/mundo/"},
+    {"name": "El Tiempo", "continent": "South America", "country": "Colombia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.eltiempo.com/rss/mundo.xml"},
+
+    # --- EUROPE ---
+    {"name": "BBC News", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
+    {"name": "The Guardian", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.theguardian.com/world/rss"},
+    {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.lemonde.fr/international/rss_full.xml"},
+    {"name": "France 24", "continent": "Europe", "country": "France", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.france24.com/fr/rss"},
+    {"name": "Der Spiegel", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.spiegel.de/international/index.rss"},
+    {"name": "Deutsche Welle", "continent": "Europe", "country": "Germany", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://rss.dw.com/rdf/rss-en-world"},
+    {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
+    {"name": "RT (Russia Today)", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.rt.com/rss/news/"},
+    {"name": "TASS", "continent": "Europe", "country": "Russia", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://tass.com/rss/v2.xml"},
+
+    # --- ASIA ---
+    {"name": "South China Morning Post", "continent": "Asia", "country": "China", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.scmp.com/rss/91/feed"},
+    {"name": "The Times of India", "continent": "Asia", "country": "India", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://timesofindia.indiatimes.com/rssfeeds/296589292.cms"},
+    {"name": "Nikkei Asia", "continent": "Asia", "country": "Japan", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://asia.nikkei.com/rss/feed/nar"},
+    {"name": "Dawn", "continent": "Asia", "country": "Pakistan", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.dawn.com/feeds/world/"},
+    {"name": "The Straits Times", "continent": "Asia", "country": "Singapore", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.straitstimes.com/news/world/rss.xml"},
+
+    # --- OCEANIA ---
+    {"name": "ABC News Australia", "continent": "Oceania", "country": "Australia", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://www.abc.net.au/news/feed/51120/rss.xml"},
+    {"name": "NZ Herald", "continent": "Oceania", "country": "New Zealand", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.nzherald.co.nz/arc/outboundfeeds/rss/section/world/?outputType=xml"},
+
+    # --- GLOBAL & REDDIT HUBS ---
+    {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "The Economist", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://www.economist.com/international/rss.xml"},
+    {"name": "Politico", "continent": "Global", "country": "Global", "category": "GENERAL", "feed_type": "PUBLISHER", "url": "https://rss.politico.com/politics-news.xml"},
     {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
     {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "url": "https://www.reddit.com/r/geopolitics/new.rss"}
 ]
@@ -231,7 +248,7 @@ SOCIAL_CATALOG = [
 ]
 
 # ==============================================================================
-# DATABASE LAYER
+# DATABASE LAYER WITH AUTO-REPAIR
 # ==============================================================================
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
@@ -262,7 +279,7 @@ def init_db():
                 threat_level TEXT DEFAULT 'INFORMATIONAL'
             )
         ''')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, published_date);')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
         conn.close()
     except Exception as e:
         logger.error(f"Database init error: {e}")
@@ -271,11 +288,11 @@ def init_db():
 # UNICODE SCRIPT DETECTOR & MEDIA EXTRACTOR
 # ==============================================================================
 def detect_script_language(text: str) -> str:
-    if re.search(r'[\u0600-\u06FF]', text): return "Arabic"
-    if re.search(r'[\u1200-\u137F]', text): return "Amharic"
+    if re.search(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]', text): return "Arabic"
+    if re.search(r'[\u1200-\u137F\u1380-\u139F\u2D80-\u2DDF\uAB00-\uAB2F]', text): return "Amharic"
     if re.search(r'[\u0400-\u04FF]', text): return "Russian"
     if re.search(r'[\u4E00-\u9FFF]', text): return "Mandarin"
-    return "English" # Default or Latin based
+    return "English"
 
 def extract_thumbnail(entry_obj):
     if isinstance(entry_obj, dict):
@@ -328,6 +345,7 @@ def analyze_multilingual_threat(title: str):
     return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), detected_lang
 
 def save_items_bulk(items):
+    """Saves rows and updates existing records with the latest language and threat level."""
     if not items: return 0
     conn = get_db_connection()
     c = conn.cursor()
@@ -338,7 +356,14 @@ def save_items_bulk(items):
             c.execute('''
                 INSERT INTO news (title, link, source, category, handle, continent, country, region, language, thumbnail, feed_type, published_date, fetched_at, keyword, threat_level)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT(link) DO NOTHING
+                ON CONFLICT(link) DO UPDATE SET
+                    language = EXCLUDED.language,
+                    keyword = CASE WHEN EXCLUDED.keyword != '' THEN EXCLUDED.keyword ELSE news.keyword END,
+                    threat_level = EXCLUDED.threat_level,
+                    continent = EXCLUDED.continent,
+                    country = EXCLUDED.country,
+                    source = EXCLUDED.source,
+                    thumbnail = CASE WHEN news.thumbnail = '' THEN EXCLUDED.thumbnail ELSE news.thumbnail END
             ''', (
                 item['title'], item['link'], item['source'], item['category'],
                 item.get('handle', 'N/A'), item.get('continent', 'Global'),
@@ -545,9 +570,9 @@ async def get_news(
     if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
     if publisher != "All": query += " AND source = %s"; params.append(publisher)
     if handle != "All": query += " AND handle = %s"; params.append(handle)
-    if language != "All": query += " AND language = %s"; params.append(language)
     if continent != "All": query += " AND continent = %s"; params.append(continent)
     if country != "All": query += " AND country = %s"; params.append(country)
+    if language != "All": query += " AND language = %s"; params.append(language)
 
     if start_date or end_date:
         if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
@@ -626,6 +651,38 @@ def get_stats():
         stats["RED"].append(temp_dict[d]["RED"])
         stats["GENERAL"].append(temp_dict[d]["GENERAL"])
     return stats
+
+@app.get("/api/export")
+def export_csv(
+    category: str = Query("ALL"), publisher: str = Query("All"), handle: str = Query("All"),
+    language: str = Query("All"), continent: str = Query("All"), country: str = Query("All")
+):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    query = "SELECT feed_type, source, handle, category, continent, country, language, keyword, threat_level, title, link, published_date FROM news WHERE 1=1"
+    params = []
+    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
+    if publisher != "All": query += " AND source = %s"; params.append(publisher)
+    if handle != "All": query += " AND handle = %s"; params.append(handle)
+    if continent != "All": query += " AND continent = %s"; params.append(continent)
+    if country != "All": query += " AND country = %s"; params.append(country)
+    if language != "All": query += " AND language = %s"; params.append(language)
+        
+    query += " ORDER BY published_date DESC"
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Stream Type", "Source", "Handle", "Category", "Continent", "Country", "Language", "Keyword Trigger", "Threat Level", "Title", "URL", "Timestamp"])
+    for row in rows: 
+        writer.writerow([row["feed_type"], row["source"], row["handle"], row["category"], row["continent"], row["country"], row["language"], row.get("keyword", ""), row.get("threat_level", "INFORMATIONAL"), row["title"], row["link"], row["published_date"]])
+    
+    output.seek(0)
+    response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
+    response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    return response
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
