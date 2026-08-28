@@ -15,11 +15,12 @@ import urllib.parse
 import httpx
 import time
 from datetime import datetime
+import re
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Intelligence Command Center", version="19.1 - Auto-Healing DB")
+app = FastAPI(title="Global Geopolitical Command Center", version="39.0 - Africa Priority & OSINT Matrix")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,99 +30,235 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# SUPABASE CONNECTION LINK
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
     "postgresql://postgres.afdzhavjcejvmnrwyaid:5wNGFgK3H5q3CwUZ@aws-0-eu-west-2.pooler.supabase.com:6543/postgres"
 )
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
-CRITICAL_WORDS = ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "military action", "airstrike", "casualty", "nuclear", "killing", "bombing"]
-ELEVATED_WORDS = ["sanctions", "protest", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment"]
+# ==============================================================================
+# EXPANDED 14-LANGUAGE LEXICON
+# ==============================================================================
+MULTILINGUAL_LEXICON = {
+    "English": {
+        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
+        "elevated": ["sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"],
+        "general": ["bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty", "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement", "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"]
+    },
+    "Arabic": {
+        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران", "الإخوان المسلمين", "حماس", "حزب الله"],
+        "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود"],
+        "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات"]
+    },
+    "Amharic": {
+        "critical": ["ጦርነት", "ጥቃት", "ሚሳይል", "ግድያ", "ግጭት", "ፍንዳታ", "ወረራ", "የአየር ድብደባ", "የሰው ጉዳት", "የኑክሌር", "ቦምብ", "የድሮን ጥቃት", "የታጠቀ ቡድን", "ተኩስ", "ግድያዎች", "የጦር ሰራዊት"],
+        "elevated": ["ማዕቀብ", "ተቃውሞ", "ውጥረት", "ማስጠንቀቂያ", "እገዳ", "አለመግባባት", "ስጋት", "የሳይበር ጥቃት", "ቀውስ", "ወታደራዊ ዝግጅት", "ድንበር ጥበቃ", "የተኩስ አቁም", "አደጋ"],
+        "general": ["ዲፕሎማሲ", "የሁለትዮሽ", "የውጭ ጉዳይ", "የንግድ ስምምነት", "የአፍሪካ ህብረት", "ስምምነት", "የሰላም ንግግር", "ጉባኤ", "ውይይት", "ሽርክና"]
+    },
+    "French": {
+        "critical": ["guerre", "frappe", "attaque", "missile", "assassinat", "conflit", "explosion", "invasion", "frappe aérienne", "victimes", "nucléaire", "bombardement", "offensive", "otage"],
+        "elevated": ["sanctions", "manifestation", "tension", "avertissement", "interdiction", "différend", "menace", "cyberattaque", "émeutes", "crise", "déploiement", "coup d'état", "cessez-le-feu"],
+        "general": ["diplomatie", "visite d'état", "ambassadeur", "accord commercial", "sommet", "union africaine", "union européenne", "traité", "politique étrangère"]
+    },
+    "Spanish": {
+        "critical": ["guerra", "ataque", "misil", "asesinato", "conflicto", "explosión", "invasión", "ataque aéreo", "víctimas", "nuclear", "bombardeo", "ofensiva", "rehén"],
+        "elevated": ["sanciones", "protesta", "tensión", "advertencia", "prohibición", "disputa", "amenaza", "ciberataque", "disturbios", "crisis", "despliegue", "golpe de estado", "alto el fuego"],
+        "general": ["diplomacia", "visita de estado", "embajador", "acuerdo comercial", "cumbre", "tratado", "política exterior", "elección"]
+    },
+    "Russian": {
+        "critical": ["война", "удар", "атака", "ракета", "убийство", "конфликт", "взрыв", "вторжение", "авиаудар", "жертвы", "ядерный", "бомбардировка", "артиллерия", "заложник", "наступление"],
+        "elevated": ["санкции", "протест", "напряженность", "предупреждение", "запрет", "спор", "угроза", "кибератака", "беспорядки", "кризис", "развертывание", "переворот", "прекращение огня"],
+        "general": ["дипломатия", "государственный визит", "посол", "торговое соглашение", "саммит", "договор", "внешняя политика", "выборы"]
+    },
+    "Portuguese": {
+        "critical": ["guerra", "ataque", "míssil", "assassinato", "conflito", "explosão", "invasão", "refém", "terrorismo"],
+        "elevated": ["sanções", "protesto", "tensão", "crise", "rebelde", "golpe"],
+        "general": ["diplomacia", "embaixador", "acordo", "governo", "tratado"]
+    },
+    "Italian": {
+        "critical": ["guerra", "attacco", "missile", "assassinio", "conflitto", "esplosione", "invasione", "ostaggio", "terrorismo"],
+        "elevated": ["sanzioni", "protesta", "tensione", "crisi", "sciopero", "ribelle"],
+        "general": ["diplomazia", "ambasciatore", "accordo", "governo", "trattato"]
+    },
+    "Hebrew": {
+        "critical": ["מלחמה", "תקיפה", "טיל", "התנקשות", "סכסוך", "פיצוץ", "פלישה", "חטוף", "טרור"],
+        "elevated": ["סנקציות", "מחאה", "מתיחות", "משבר"],
+        "general": ["דיפלומטיה", "שגריר", "הסכם", "ממשלה"]
+    },
+    "Bosnian": {
+        "critical": ["rat", "napad", "projektil", "atentat", "sukob", "eksplozija", "invazija", "talac", "terorizam"],
+        "elevated": ["sankcije", "protest", "tenzija", "kriza", "pobuna"],
+        "general": ["diplomatija", "ambasador", "sporazum", "vlada"]
+    },
+    "Danish": {
+        "critical": ["krig", "angreb", "missil", "attentat", "konflikt", "eksplosion", "invasion", "gidsel", "terrorisme"],
+        "elevated": ["sanktioner", "protest", "spænding", "krise", "oprør"],
+        "general": ["diplomati", "ambassadør", "aftale", "regering"]
+    },
+    "Mandarin": {
+        "critical": ["战争", "罢工", "袭击", "导弹", "暗杀", "冲突", "爆炸", "入侵", "空袭", "伤亡", "核武器", "轰炸", "炮兵", "人质", "攻势"],
+        "elevated": ["制裁", "抗议", "紧张局势", "警告", "禁令", "争端", "威胁", "网络攻击", "动乱", "危机", "部署", "政变", "停火"],
+        "general": ["外交", "国事访问", "大使", "贸易协定", "峰会", "条约", "外交政策", "选举"]
+    }
+}
 
-RED_KEYWORDS = [
-    "muslim brotherhood", "cair", "migration crisis", "refugee", "border security",
-    "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia",
-    "demonstration", "protest", "parliament", "counter-terrorism", "terror",
-    "israel", "gaza", "palestine", "hamas", "hezbollah", "lebanon", "syria",
-    "yemen", "houthi", "saudi", "qatar", "uae", "turkey", "egypt", "iraq",
-    "strike", "war", "military", "troops", "defense", "missile", "security",
-    "conflict", "unrest", "attack", "border", "ceasefire", "peace", "hostage",
-    "forces", "army", "netanyahu", "erdogan", "salman", "zayed", "araghchi",
-    "red sea", "drone", "sanctions", "crisis", "airstrike", "casualty", "retaliation",
-    "african countries", "western countries", "middle east", "idf", "mfa"
+# ==============================================================================
+# MASTER CATALOG (PRIORITY AFRICAN 6, OSINT & GLOBAL REPOSITORIES)
+# ==============================================================================
+MASTER_CATALOG = [
+    # --- GHANA (5 OUTLETS) ---
+    {"name": "Joy Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.myjoyonline.com/feed/"},
+    {"name": "GhanaWeb", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:ghanaweb.com&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Citi Newsroom", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://citinewsroom.com/feed/"},
+    {"name": "Daily Graphic", "continent": "Africa", "country": "Ghana", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:graphic.com.gh&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Peace FM Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:peacefmonline.com&hl=en-US&gl=US&ceid=US:en"},
+
+    # --- REPUBLIC OF THE CONGO (5 OUTLETS) ---
+    {"name": "Les Dépêches de Brazzaville", "continent": "Africa", "country": "Republic of the Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:adiac-congo.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Vox Congo", "continent": "Africa", "country": "Republic of the Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:vox.cg&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Journal de Brazza", "continent": "Africa", "country": "Republic of the Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:journaldebrazza.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "La Semaine Africaine", "continent": "Africa", "country": "Republic of the Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:lasemaineafricaine.info&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Congo Media Time", "continent": "Africa", "country": "Republic of the Congo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:congomediatime.com&hl=fr&gl=FR&ceid=FR:fr"},
+
+    # --- CENTRAL AFRICAN REPUBLIC (5 OUTLETS) ---
+    {"name": "Corbeau News Centrafrique", "continent": "Africa", "country": "Central African Republic", "category": "RED", "feed_type": "PUBLISHER", "language": "French", "url": "https://corbeaunews-centrafrique.org/feed/"},
+    {"name": "Oubangui Médias", "continent": "Africa", "country": "Central African Republic", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:oubangui-medias.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Ndeke Luka", "continent": "Africa", "country": "Central African Republic", "category": "RED", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:radiondekeluka.org&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Ndjoni Sango", "continent": "Africa", "country": "Central African Republic", "category": "RED", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:ndjonisango.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Centrafrique-Presse", "continent": "Africa", "country": "Central African Republic", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:centrafrique-presse.info&hl=fr&gl=FR&ceid=FR:fr"},
+
+    # --- MAURITIUS (5 OUTLETS) ---
+    {"name": "L'Express Maurice", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://lexpress.mu/feed"},
+    {"name": "Le Défi Media Group", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:defimedia.info&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Le Mauricien", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:lemauricien.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "MBC Radio", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:mbcradio.tv&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Zinfos Moris", "continent": "Africa", "country": "Mauritius", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:zinfos-moris.com&hl=fr&gl=FR&ceid=FR:fr"},
+
+    # --- GUINEA-BISSAU (5 OUTLETS) ---
+    {"name": "O Democrata", "continent": "Africa", "country": "Guinea-Bissau", "category": "ALL", "feed_type": "PUBLISHER", "language": "Portuguese", "url": "https://news.google.com/rss/search?q=site:odemocratagb.com&hl=pt-PT&gl=PT&ceid=PT:pt"},
+    {"name": "ANG Notícias", "continent": "Africa", "country": "Guinea-Bissau", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Portuguese", "url": "https://news.google.com/rss/search?q=site:angnoticias.blogspot.com&hl=pt-PT&gl=PT&ceid=PT:pt"},
+    {"name": "Rádio Sol Mansi", "continent": "Africa", "country": "Guinea-Bissau", "category": "ALL", "feed_type": "PUBLISHER", "language": "Portuguese", "url": "https://news.google.com/rss/search?q=site:radiosolmansi.net&hl=pt-PT&gl=PT&ceid=PT:pt"},
+    {"name": "Jornal Nô Pintcha", "continent": "Africa", "country": "Guinea-Bissau", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Portuguese", "url": "https://news.google.com/rss/search?q=site:jornalnopintcha.gw&hl=pt-PT&gl=PT&ceid=PT:pt"},
+    {"name": "AllAfrica Guinea-Bissau", "continent": "Africa", "country": "Guinea-Bissau", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:allafrica.com/guineabissau&hl=en-US&gl=US&ceid=US:en"},
+
+    # --- GUINEA (5 OUTLETS) ---
+    {"name": "Guineematin", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://guineematin.com/feed/"},
+    {"name": "Africaguinee", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:africaguinee.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Vision Guinee", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:visionguinee.info&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Aminata", "continent": "Africa", "country": "Guinea", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:aminata.com&hl=fr&gl=FR&ceid=FR:fr"},
+    {"name": "Mosaiqueguinee", "continent": "Africa", "country": "Guinea", "category": "ALL", "feed_type": "PUBLISHER", "language": "French", "url": "https://news.google.com/rss/search?q=site:mosaiqueguinee.com&hl=fr&gl=FR&ceid=FR:fr"},
+
+    # --- SOMALIA, SUDAN & EGYPT ---
+    {"name": "Hiiraan Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:hiiraan.com&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Garowe Online", "continent": "Africa", "country": "Somalia", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.garoweonline.com/en/rss/feed"},
+    {"name": "Sudan Tribune", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://sudantribune.com/feed/"},
+    {"name": "Radio Dabanga", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.dabangasudan.org/en/feed"},
+    {"name": "Al-Ahram Online", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://english.ahram.org.eg/RSS/All.aspx"},
+    {"name": "Mada Masr", "continent": "Africa", "country": "Egypt", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.madamasr.com/en/feed/"},
+
+    # --- ETHIOPIA & HORN ---
+    {"name": "BBC News Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://feeds.bbci.co.uk/amharic/rss.xml"},
+    {"name": "DW Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://rss.dw.com/rdf/rss-amh-news"},
+    {"name": "VOA Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:amharic.voanews.com&hl=am&gl=ET&ceid=ET:am"},
+    {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:fanabc.com&hl=am&gl=ET&ceid=ET:am"},
+
+    # --- MIDDLE EAST (ARABIC & REGIONAL) ---
+    {"name": "BBC Arabic", "continent": "Middle East", "country": "Regional", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://feeds.bbci.co.uk/arabic/rss.xml"},
+    {"name": "Sky News Arabia", "continent": "Middle East", "country": "UAE", "category": "ALL", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:skynewsarabia.com&hl=ar&gl=AE&ceid=AE:ar"},
+    {"name": "Al Arabiya", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:alarabiya.net&hl=ar&gl=SA&ceid=SA:ar"},
+    {"name": "Asharq Al-Awsat (AR)", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://aawsat.com/feed"},
+    {"name": "IRNA", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://en.irna.ir/rss"},
+    {"name": "Tehran Times", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.tehrantimes.com/rss"},
+    {"name": "Shafaq News", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://shafaq.com/en/rss"},
+    {"name": "SANA Syria", "continent": "Middle East", "country": "Syria", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:sana.sy&hl=ar&gl=SY&ceid=SY:ar"},
+    {"name": "NNA Lebanon", "continent": "Middle East", "country": "Lebanon", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:nna-leb.gov.lb&hl=en-US&gl=US&ceid=US:en"},
+
+    # --- EUROPEAN REPOSITORIES ---
+    {"name": "ANSA", "continent": "Europe", "country": "Italy", "category": "ALL", "feed_type": "PUBLISHER", "language": "Italian", "url": "https://news.google.com/rss/search?q=site:ansa.it&hl=it&gl=IT&ceid=IT:it"},
+    {"name": "B92", "continent": "Europe", "country": "Serbia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Bosnian", "url": "https://news.google.com/rss/search?q=site:b92.net&hl=sr&gl=RS&ceid=RS:sr"},
+    {"name": "Index.hu", "continent": "Europe", "country": "Hungary", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://index.hu/24ora/rss/"},
+    {"name": "TASS", "continent": "Europe", "country": "Russia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://tass.com/rss/v2.xml"},
+    {"name": "Belta", "continent": "Europe", "country": "Belarus", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Russian", "url": "https://news.google.com/rss/search?q=site:belta.by&hl=ru&gl=RU&ceid=RU:ru"},
+    {"name": "Agerpres", "continent": "Europe", "country": "Romania", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:agerpres.ro&hl=ro&gl=RO&ceid=RO:ro"},
+    {"name": "HRT", "continent": "Europe", "country": "Croatia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Bosnian", "url": "https://news.google.com/rss/search?q=site:hrt.hr&hl=hr&gl=HR&ceid=HR:hr"},
+    {"name": "Kathimerini", "continent": "Europe", "country": "Greece", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.kathimerini.gr/world/rss"},
+    {"name": "RTK", "continent": "Europe", "country": "Kosovo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:rtklive.com&hl=sq&gl=AL&ceid=AL:sq"},
+
+    # --- SOCIAL PLATFORMS (REDDIT, TELEGRAM, BLUESKY OSINT) ---
+    {"name": "r/UkrainianConflict", "continent": "Europe", "country": "Ukraine", "category": "RED", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/UkrainianConflict/new.rss"},
+    {"name": "r/Geopolitics", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/geopolitics/new.rss"},
+    {"name": "r/worldnews", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/worldnews/new.rss"},
+    {"name": "r/OSINT", "continent": "Global", "country": "Global", "category": "RED", "feed_type": "REDDIT", "language": "English", "url": "https://www.reddit.com/r/OSINT/new.rss"},
+    {"name": "Telegram OSINT Alert", "continent": "Global", "country": "Global", "category": "RED", "feed_type": "TELEGRAM", "language": "English", "url": "https://news.google.com/rss/search?q=site:t.me+(OSINT+OR+war+OR+missile+OR+breaking)&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "Telegram Middle East", "continent": "Middle East", "country": "Regional", "category": "RED", "feed_type": "TELEGRAM", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:t.me+(غزة+OR+الحوثي+OR+حزب_الله+OR+عاجل)&hl=ar&gl=AE&ceid=AE:ar"},
+    {"name": "Bluesky OSINT Wire", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "BLUESKY", "language": "English", "url": "https://news.google.com/rss/search?q=site:bsky.app+(geopolitics+OR+diplomacy+OR+conflict)&hl=en-US&gl=US&ceid=US:en"}
 ]
 
-GENERAL_KEYWORDS = [
-    "bilateral", "state visit", "diplomatic", "diplomacy", "strategic dialogue",
-    "ambassador", "foreign ministry", "trade agreement", "foreign investment",
-    "economic partnership", "trade deal", "sanctions", "memorandum of understanding",
-    "mou", "security partnership", "defense pact", "military agreement",
-    "joint military exercise", "security cooperation", "defense treaty",
-    "treaty", "summit", "multilateral", "un resolution", "convention",
-    "global governance", "geopolitical", "resource diplomacy", "foreign influence",
-    "strategic alliance", "kenya", "rwanda", "south africa", "nigeria", "ethiopia",
-    "france", "germany", "spain", "poland", "uk", "britain", "eu", "european union",
-    "african union", "macron", "meloni", "ruto", "kagame", "ramaphosa", "sanchez",
-    "tusk", "scholz", "merz", "cooperation", "talks", "envoy", "minister", "president",
-    "prime minister", "foreign policy", "aid", "development", "agreement", "pact"
+# ==============================================================================
+# JOSIAH'S OFFICIAL X (TWITTER) DESKS
+# ==============================================================================
+SOCIAL_CATALOG = [
+    # US
+    {"handle": "@POTUS", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@VP", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@SecRubio", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@marcorubio", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@StateDept", "continent": "North America", "country": "United States", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    
+    # Africa
+    {"handle": "@WilliamsRuto", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@PaulKagame", "continent": "Africa", "country": "Rwanda", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@CyrilRamaphosa", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@officialABAT", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@AlsisiOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@MFAEthiopia", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@MusaliaMudavadi", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@ForeignOfficeKE", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@RonaldLamola", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@DIRCO_ZA", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@NigeriaMFA", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@MFAEgOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@MfaEgypt", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "SOCIAL", "language": "Arabic"},
+
+    # Europe
+    {"handle": "@EmmanuelMacron", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "SOCIAL", "language": "French"},
+    {"handle": "@GiorgiaMeloni", "continent": "Europe", "country": "Italy", "category": "GENERAL", "feed_type": "SOCIAL", "language": "Italian"},
+    {"handle": "@sanchezcastejon", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "SOCIAL", "language": "Spanish"},
+    {"handle": "@donaldtusk", "continent": "Europe", "country": "Poland", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@_FriedrichMerz", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "SOCIAL", "language": "German"},
+    {"handle": "@bundeskanzler", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "SOCIAL", "language": "German"},
+    {"handle": "@AussenMinDE", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "SOCIAL", "language": "German"},
+    {"handle": "@AuswaertigesAmt", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "SOCIAL", "language": "German"},
+    {"handle": "@GermanyDiplo", "continent": "Europe", "country": "Germany", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@Ed_Miliband", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@FCDOGovUK", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL", "feed_type": "SOCIAL", "language": "English"},
+
+    # Middle East
+    {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@HHShkMohd", "continent": "Middle East", "country": "UAE", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@TamimBinHamad", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@RTErdogan", "continent": "Middle East", "country": "Turkey", "category": "RED", "feed_type": "SOCIAL", "language": "Turkish"},
+    {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@FaisalbinFarhan", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@KSAMOFA", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@KSAmofaEN", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@ABZayed", "continent": "Middle East", "country": "UAE", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@OFMUAE", "continent": "Middle East", "country": "UAE", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@MBA_AlThani_", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "SOCIAL", "language": "Arabic"},
+    {"handle": "@MofaQatar_EN", "continent": "Middle East", "country": "Qatar", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@IsraelMFA", "continent": "Middle East", "country": "Israel", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@araghchi", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "SOCIAL", "language": "Persian"},
+    {"handle": "@IRIMFA_EN", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@MFATurkiye", "continent": "Middle East", "country": "Turkey", "category": "RED", "feed_type": "SOCIAL", "language": "Turkish"},
+    {"handle": "@BBCBreaking", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "SOCIAL", "language": "English"},
+    {"handle": "@ReutersWorld", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "SOCIAL", "language": "English"}
 ]
 
-GLOBAL_SEARCH_TOPICS = [
-    "Geopolitics", "Bilateral Relations", "Trade Sanctions", 
-    "Foreign Policy", "POTUS", "White House", "US President",
-    "Pentagon", "Kremlin", "NATO", "Middle East Crisis", "Red Sea Security"
-]
-
-DIRECT_FEEDS = [
-    {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.middleeasteye.net/rss", "source": "Middle East Eye", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.arabnews.com/cat/1/rss.xml", "source": "Arab News", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.timesofisrael.com/feed/", "source": "Times of Israel", "category": "RED", "region": "Middle East"},
-    {"url": "https://news.google.com/rss/search?q=Middle+East+conflict+OR+Gaza+OR+Iran&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "RED", "region": "Middle East"},
-    {"url": "https://www.africanews.com/feed/", "source": "Africanews", "category": "GENERAL", "region": "Africa"},
-    {"url": "https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf", "source": "AllAfrica", "category": "GENERAL", "region": "Africa"},
-    {"url": "https://rss.dw.com/rdf/rss-en-world", "source": "DW News", "category": "GENERAL", "region": "Europe"},
-    {"url": "https://news.google.com/rss/search?q=Africa+diplomacy+OR+EU+foreign+policy&hl=en-US&gl=US&ceid=US:en", "source": "Google News", "category": "GENERAL", "region": "Global"},
-    {"url": "http://feeds.bbci.co.uk/news/world/rss.xml", "source": "BBC World", "category": "ALL", "region": "Global"}
-]
-
-RED_TARGETS = [{"handle": h, "region": "Middle East"} for h in [
-    "@KingSalman", "@MohamedBinZayed", "@HHShkMohd", "@TamimBinHamad", "@RTErdogan", "@netanyahu", 
-    "@FaisalbinFarhan", "@KSAMOFA", "@KSAmofaEN", "@ABZayed", "@mofauae", "@OFMUAE", "@MBA_AlThani_", 
-    "@MofaQatar_EN", "@IsraelMFA", "@araghchi", "@IRIMFA_EN", "@MFATurkiye"
-]]
-
-GENERAL_TARGETS = [{"handle": h, "region": "Africa"} for h in [
-    "@WilliamsRuto", "@PaulKagame", "@CyrilRamaphosa", "@officialABAT", "@AlsisiOfficial", "@MFAEthiopia", 
-    "@MusaliaMudavadi", "@ForeignOfficeKE", "@RonaldLamola", "@DIRCO_ZA", "@NigeriaMFA", "@MFAEgOfficial", 
-    "@MfaEgypt", "@UrugwiroVillage", "@NGRPresident"
-]] + [{"handle": h, "region": "Europe"} for h in [
-    "@EmmanuelMacron", "@GiorgiaMeloni", "@sanchezcastejon", "@donaldtusk", "@_FriedrichMerz", "@bundeskanzler", 
-    "@AussenMinDE", "@AuswaertigesAmt", "@GermanyDiplo", "@Ed_Miliband", "@FCDOGovUK"
-]]
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections.copy():
-            try:
-                await connection.send_text(message)
-            except Exception:
-                self.disconnect(connection)
-
-manager = ConnectionManager()
-
+# ==============================================================================
+# DATABASE LAYER WITH DYNAMIC REPAIR ENGINE
+# ==============================================================================
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
     conn.autocommit = True
@@ -138,34 +275,99 @@ def init_db():
                 link TEXT UNIQUE,
                 source TEXT,
                 category TEXT,
-                handle TEXT,
-                region TEXT,
+                handle TEXT DEFAULT 'N/A',
+                continent TEXT DEFAULT 'Global',
+                country TEXT DEFAULT 'Global',
+                region TEXT DEFAULT 'Global',
+                language TEXT DEFAULT 'English',
+                thumbnail TEXT DEFAULT '',
+                feed_type TEXT DEFAULT 'PUBLISHER',
                 published_date TIMESTAMP,
                 fetched_at TIMESTAMP,
-                keyword TEXT DEFAULT 'N/A',
+                keyword TEXT DEFAULT '',
                 threat_level TEXT DEFAULT 'INFORMATIONAL'
             )
         ''')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_reg ON news (category, source, region, published_date);')
+        
+        c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='news'")
+        existing_cols = [row[0] for row in c.fetchall()]
+        if "continent" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN continent TEXT DEFAULT 'Global'")
+        if "country" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN country TEXT DEFAULT 'Global'")
+        if "language" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN language TEXT DEFAULT 'English'")
+        if "thumbnail" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN thumbnail TEXT DEFAULT ''")
+        if "feed_type" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN feed_type TEXT DEFAULT 'PUBLISHER'")
+        if "keyword" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN keyword TEXT DEFAULT ''")
+        if "threat_level" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN threat_level TEXT DEFAULT 'INFORMATIONAL'")
+        
+        c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
+        
+        # Purge Al Jazeera per mandate
+        c.execute("DELETE FROM news WHERE source ILIKE '%Al Jazeera%' OR handle ILIKE '%AJBreaking%'")
+        
+        # Retroactive matrix alignment
+        for pub in MASTER_CATALOG:
+            c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s, feed_type = %s WHERE source = %s", 
+                      (pub["language"], pub["continent"], pub["country"], pub["category"], pub["feed_type"], pub["name"]))
+        for soc in SOCIAL_CATALOG:
+            c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s, feed_type = %s WHERE handle = %s", 
+                      (soc["language"], soc["continent"], soc["country"], soc["category"], "SOCIAL", soc["handle"]))
+                
         conn.close()
+        logger.info("Database matrix aligned and purged.")
     except Exception as e:
         logger.error(f"Database init error: {e}")
 
-def classify_threat_by_heat(title):
+# ==============================================================================
+# MEDIA EXTRACTOR & THREAT ANALYZER
+# ==============================================================================
+def extract_thumbnail(entry_obj):
+    if isinstance(entry_obj, dict):
+        if entry_obj.get("thumbnail") and isinstance(entry_obj["thumbnail"], str): return entry_obj["thumbnail"]
+        if entry_obj.get("enclosure") and isinstance(entry_obj["enclosure"], dict):
+            if entry_obj["enclosure"].get("link"): return entry_obj["enclosure"]["link"]
+        desc = entry_obj.get("description", "") or entry_obj.get("content", "")
+        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', str(desc), re.IGNORECASE)
+        if img_match: return img_match.group(1)
+    else:
+        if hasattr(entry_obj, 'media_thumbnail') and entry_obj.media_thumbnail:
+            for m in entry_obj.media_thumbnail:
+                if isinstance(m, dict) and 'url' in m: return m['url']
+        if hasattr(entry_obj, 'media_content') and entry_obj.media_content:
+            for m in entry_obj.media_content:
+                if isinstance(m, dict) and 'url' in m: return m['url']
+        if hasattr(entry_obj, 'enclosures') and entry_obj.enclosures:
+            for enc in entry_obj.enclosures:
+                if hasattr(enc, 'href'): return enc.href
+                if isinstance(enc, dict) and 'href' in enc: return enc['href']
+        summary = getattr(entry_obj, 'summary', '') or getattr(entry_obj, 'description', '')
+        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', str(summary), re.IGNORECASE)
+        if img_match: return img_match.group(1)
+    return ""
+
+def analyze_multilingual_threat(title: str, feed_lang: str):
     t_lower = title.lower()
+    matched_keyword = ""
     heat_score = 0
-    all_base_kws = set([k.lower() for k in RED_KEYWORDS + GENERAL_KEYWORDS])
     
-    for kw in all_base_kws:
-        if kw in t_lower: heat_score += 1
-    for ew in ELEVATED_WORDS:
-        if ew.lower() in t_lower: heat_score += 1
-    for cw in CRITICAL_WORDS:
-        if cw.lower() in t_lower: heat_score += 2
-            
-    if heat_score >= 3: return "CRITICAL"
-    elif heat_score >= 1: return "ELEVATED"
-    else: return "INFORMATIONAL"
+    for lang, dicts in MULTILINGUAL_LEXICON.items():
+        for kw in dicts["critical"]:
+            if kw.lower() in t_lower:
+                heat_score += 3
+                if not matched_keyword: matched_keyword = kw
+        for kw in dicts["elevated"]:
+            if kw.lower() in t_lower:
+                heat_score += 1.5
+                if not matched_keyword: matched_keyword = kw
+        for kw in dicts["general"]:
+            if kw.lower() in t_lower:
+                heat_score += 1
+                if not matched_keyword: matched_keyword = kw
+
+    if heat_score >= 3.0: level = "CRITICAL"
+    elif heat_score >= 1.0: level = "ELEVATED"
+    else: level = "INFORMATIONAL"
+
+    return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), feed_lang
 
 def save_items_bulk(items):
     if not items: return 0
@@ -173,164 +375,150 @@ def save_items_bulk(items):
     c = conn.cursor()
     added = 0
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     for item in items:
         try:
             c.execute('''
-                INSERT INTO news (title, link, source, category, handle, region, published_date, fetched_at, keyword, threat_level)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT(link) DO NOTHING
+                INSERT INTO news (title, link, source, category, handle, continent, country, region, language, thumbnail, feed_type, published_date, fetched_at, keyword, threat_level)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT(link) DO UPDATE SET
+                    language = EXCLUDED.language,
+                    keyword = CASE WHEN EXCLUDED.keyword != '' THEN EXCLUDED.keyword ELSE news.keyword END,
+                    threat_level = EXCLUDED.threat_level,
+                    continent = EXCLUDED.continent,
+                    country = EXCLUDED.country,
+                    source = EXCLUDED.source,
+                    feed_type = EXCLUDED.feed_type,
+                    thumbnail = CASE WHEN news.thumbnail = '' THEN EXCLUDED.thumbnail ELSE news.thumbnail END
             ''', (
                 item['title'], item['link'], item['source'], item['category'],
-                item.get('handle', 'N/A'), item.get('region', 'Global'),
-                item['published_date'], now_iso, item.get('keyword', 'N/A'),
+                item.get('handle', 'N/A'), item.get('continent', 'Global'),
+                item.get('country', 'Global'), item.get('country', 'Global'),
+                item.get('language', 'English'), item.get('thumbnail', ''),
+                item.get('feed_type', 'PUBLISHER'),
+                item['published_date'], now_iso, item.get('keyword', ''),
                 item.get('threat_level', 'INFORMATIONAL')
             ))
-            if c.rowcount > 0:
-                added += 1
+            if c.rowcount > 0: added += 1
         except Exception:
             pass
     conn.close()
     return added
 
-async def fetch_feed_max_speed(client, semaphore, url, source_label, category, handle="N/A", region="Global", keyword_badge="N/A", filter_keywords=None, limit=40):
+# ==============================================================================
+# HIGH SPEED PARALLEL HARVESTERS
+# ==============================================================================
+async def fetch_publisher_feed(client, semaphore, publisher, limit=40):
     items = []
     async with semaphore:
+        url = publisher["url"]
+        name = publisher["name"]
+        continent = publisher["continent"]
+        country = publisher["country"]
+        category = publisher["category"]
+        feed_type = publisher.get("feed_type", "PUBLISHER")
+        feed_lang = publisher.get("language", "English")
+
         try:
-            is_direct_news = "google" not in url and "reddit" not in url and "hnrss" not in url
-            
-            if is_direct_news:
-                api_url = "https://api.rss2json.com/v1/api.json"
-                response = await client.get(api_url, params={"rss_url": url}, timeout=10.0, follow_redirects=True)
-                response.raise_for_status()
-                data = response.json()
-                
+            api_url = "https://api.rss2json.com/v1/api.json"
+            r = await client.get(api_url, params={"rss_url": url}, timeout=12.0)
+            if r.status_code == 200:
+                data = r.json()
                 if data.get("status") == "ok":
-                    entries = data.get("items", [])[:limit]
-                    for entry in entries:
-                        title = entry.get("title", "")
-                        link = entry.get("link", "")
-                        pub_date = entry.get("pubDate", "")
-                        if not pub_date:
-                            pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        
-                        actual_badge = keyword_badge
-                        text_lower = title.lower()
-
-                        if filter_keywords:
-                            matched_kw = next((kw for kw in filter_keywords if kw in text_lower), None)
-                            handle_clean = handle.replace("@", "").lower() if handle != "N/A" else ""
-                            if not matched_kw and handle_clean and handle_clean in text_lower:
-                                matched_kw = handle
-                                
-                            if not matched_kw: continue
-                            actual_badge = f"Matched: '{matched_kw}'"
-                        
-                        items.append({
-                            'title': title.replace(" - X", "").replace(" on X", "").strip(),
-                            'link': link,
-                            'source': source_label,
-                            'category': category,
-                            'handle': handle,
-                            'region': region,
-                            'published_date': pub_date,
-                            'keyword': actual_badge,
-                            'threat_level': classify_threat_by_heat(title)
-                        })
+                    for entry in data.get("items", [])[:limit]:
+                        title = entry.get("title", "").strip()
+                        link = entry.get("link", "").strip()
+                        pub_date = entry.get("pubDate", "") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        thumb = extract_thumbnail(entry)
+                        if title and link:
+                            threat, kw_badge, final_lang = analyze_multilingual_threat(title, feed_lang)
+                            items.append({'title': title, 'link': link, 'source': name, 'handle': 'N/A', 'continent': continent, 'country': country, 'category': category, 'feed_type': feed_type, 'published_date': pub_date, 'keyword': kw_badge, 'threat_level': threat, 'language': final_lang, 'thumbnail': thumb})
             else:
-                response = await client.get(url, timeout=4.0, follow_redirects=True)
-                response.raise_for_status()
-                feed = await asyncio.to_thread(feedparser.parse, response.content)
-                
-                for entry in feed.entries[:limit]:
-                    title = getattr(entry, 'title', '')
-                    link = getattr(entry, 'link', '')
-                    
-                    try:
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
-                        else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    except Exception:
-                        pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                response = await client.get(url, timeout=9.0, follow_redirects=True)
+                if response.status_code == 200:
+                    feed = await asyncio.to_thread(feedparser.parse, response.content)
+                    for entry in feed.entries[:limit]:
+                        title = getattr(entry, 'title', '').strip()
+                        link = getattr(entry, 'link', '').strip()
+                        thumb = extract_thumbnail(entry)
+                        try:
+                            if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                            else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                    if title and link:
-                        actual_badge = keyword_badge
-                        text_lower = title.lower()
-
-                        if filter_keywords:
-                            matched_kw = next((kw for kw in filter_keywords if kw in text_lower), None)
-                            handle_clean = handle.replace("@", "").lower() if handle != "N/A" else ""
-                            if not matched_kw and handle_clean and handle_clean in text_lower:
-                                matched_kw = handle
-                                
-                            if not matched_kw: continue
-                            actual_badge = f"Matched: '{matched_kw}'"
-                        
-                        items.append({
-                            'title': title.replace(" - X", "").replace(" on X", "").strip(),
-                            'link': link,
-                            'source': source_label,
-                            'category': category,
-                            'handle': handle,
-                            'region': region,
-                            'published_date': pub_date,
-                            'keyword': actual_badge,
-                            'threat_level': classify_threat_by_heat(title)
-                        })
-        except Exception: 
+                        if title and link:
+                            threat, kw_badge, final_lang = analyze_multilingual_threat(title, feed_lang)
+                            items.append({'title': title, 'link': link, 'source': name, 'handle': 'N/A', 'continent': continent, 'country': country, 'category': category, 'feed_type': feed_type, 'published_date': pub_date, 'keyword': kw_badge, 'threat_level': threat, 'language': final_lang, 'thumbnail': thumb})
+        except Exception:
             pass
     return items
 
-async def run_live_web_search_async(q_text: str, category: str = "ALL"):
-    encoded = urllib.parse.quote(q_text)
-    semaphore = asyncio.Semaphore(60)
-    limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
-    async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
-        tasks = [
-            fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", category, keyword_badge=f"Live Search: {q_text}"),
-            fetch_feed_max_speed(client, semaphore, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", category, keyword_badge=f"Live Search: {q_text}"),
-            fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, keyword_badge=f"Live Search: {q_text}")
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        all_new = []
-        for res in results:
-            if isinstance(res, list): all_new.extend(res)
-        if all_new:
-            await asyncio.to_thread(save_items_bulk, all_new)
+async def fetch_social_target(client, semaphore, target, limit=20):
+    items = []
+    async with semaphore:
+        handle = target["handle"]
+        continent = target["continent"]
+        country = target["country"]
+        category = target["category"]
+        feed_lang = target.get("language", "English")
+        
+        encoded_h = urllib.parse.quote(handle)
+        url = f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en"
+
+        try:
+            response = await client.get(url, timeout=8.0, follow_redirects=True)
+            if response.status_code == 200:
+                feed = await asyncio.to_thread(feedparser.parse, response.content)
+                for entry in feed.entries[:limit]:
+                    raw_title = getattr(entry, 'title', '').strip()
+                    clean_title = raw_title.replace(" - X", "").replace(" on X", "").replace(" / X", "").strip()
+                    link = getattr(entry, 'link', '').strip()
+                    thumb = extract_thumbnail(entry)
+                    try:
+                        if hasattr(entry, 'published_parsed') and entry.published_parsed: pub_date = time.strftime("%Y-%m-%d %H:%M:%S", entry.published_parsed)
+                        else: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    except: pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                    if clean_title and link:
+                        threat, kw_badge, final_lang = analyze_multilingual_threat(clean_title, feed_lang)
+                        items.append({'title': clean_title, 'link': link, 'source': 'X (Twitter)', 'handle': handle, 'continent': continent, 'country': country, 'category': category, 'feed_type': 'SOCIAL', 'published_date': pub_date, 'keyword': kw_badge or f"Account: {handle}", 'threat_level': threat, 'language': final_lang, 'thumbnail': thumb})
+        except Exception:
+            pass
+    return items
+
+# ==============================================================================
+# WEBSOCKET & SWEEP CONTROLLER
+# ==============================================================================
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections.copy():
+            try: await connection.send_text(message)
+            except Exception: self.disconnect(connection)
+
+manager = ConnectionManager()
+is_syncing = False
 
 async def run_fast_sweep():
-    logger.info("Executing Maximum Yield Concurrency Sweep...")
-    tasks = []
-    semaphore = asyncio.Semaphore(60)
+    semaphore = asyncio.Semaphore(15) 
     limits = httpx.Limits(max_keepalive_connections=60, max_connections=120)
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}, limits=limits) as client:
-        for feed in DIRECT_FEEDS:
-            kw_filter = RED_KEYWORDS if feed["category"] == "RED" else GENERAL_KEYWORDS if feed["category"] == "GENERAL" else None
-            tasks.append(fetch_feed_max_speed(client, semaphore, feed["url"], feed["source"], feed["category"], region=feed["region"], filter_keywords=kw_filter, keyword_badge=f"Feed: {feed['source']}"))
-
-        for topic in GLOBAL_SEARCH_TOPICS:
-            encoded = urllib.parse.quote(topic)
-            tasks.append(fetch_feed_max_speed(client, semaphore, f"https://www.reddit.com/search.rss?q={encoded}&sort=new", "Reddit", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
-            tasks.append(fetch_feed_max_speed(client, semaphore, f"https://hnrss.org/newest?q={encoded}", "Hacker News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
-            tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded}&hl=en-US&gl=US&ceid=US:en", "Google News", "ALL", region="Global", keyword_badge=f"Topic: {topic}"))
-
-        for category, target_list, kw_list in [("RED", RED_TARGETS, RED_KEYWORDS), ("GENERAL", GENERAL_TARGETS, GENERAL_KEYWORDS)]:
-            for target in target_list:
-                h = target["handle"]
-                r = target["region"]
-                encoded_h = urllib.parse.quote(h)
-                tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded_h}&hl=en-US&gl=US&ceid=US:en", "Google News", category, handle=h, region=r, filter_keywords=kw_list))
-                tasks.append(fetch_feed_max_speed(client, semaphore, f"https://news.google.com/rss/search?q={encoded_h}+site:twitter.com+OR+site:x.com&hl=en-US&gl=US&ceid=US:en", "X (Twitter)", category, handle=h, region=r, filter_keywords=kw_list))
-
+        tasks = [fetch_publisher_feed(client, semaphore, pub) for pub in MASTER_CATALOG]
+        tasks += [fetch_social_target(client, semaphore, sock) for sock in SOCIAL_CATALOG]
+        
         results = await asyncio.gather(*tasks, return_exceptions=True)
-        all_results = []
-        for res in results:
-            if isinstance(res, list): all_results.extend(res)
-
-        total_new = await asyncio.to_thread(save_items_bulk, all_results)
-        return total_new
-
-is_syncing = False
+        all_results = [item for sublist in results if isinstance(sublist, list) for item in sublist]
+        return await asyncio.to_thread(save_items_bulk, all_results)
 
 async def async_sweep_controller(silent=False):
     global is_syncing
@@ -343,12 +531,9 @@ async def async_sweep_controller(silent=False):
     try:
         total_added = await run_fast_sweep()
         timestamp = datetime.now().strftime("%I:%M %p")
-        if total_added > 0:
-            await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
-        else:
-            await manager.broadcast(json.dumps({"event": "sync_finished_no_data", "silent": silent, "time": timestamp}))
+        await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
     except Exception as e:
-        logger.error(f"Sweep failed: {e}")
+        logger.error(f"Sweep failure: {e}")
         await manager.broadcast(json.dumps({"event": "sync_error"}))
     finally:
         is_syncing = False
@@ -364,46 +549,51 @@ async def startup_event():
     asyncio.create_task(background_loop())
     asyncio.create_task(async_sweep_controller(silent=True))
 
+# ==============================================================================
+# REST API ENDPOINTS
+# ==============================================================================
 @app.get("/", response_class=FileResponse)
 def read_root():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     root_path = os.path.join(BASE_DIR, "index.html")
-    template_path = os.path.join(BASE_DIR, "templates", "index.html")
     if os.path.exists(root_path): return FileResponse(root_path)
-    elif os.path.exists(template_path): return FileResponse(template_path)
-    raise HTTPException(status_code=404, detail="index.html not found on server")
+    raise HTTPException(status_code=404, detail="index.html not found")
 
 @app.get("/api/ping")
-def ping():
-    return {"status": "awake"}
+def ping(): return {"status": "awake"}
 
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        while True:
-            await websocket.receive_text()
+        while True: await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
 @app.post("/api/sync")
-async def trigger_manual_sync(background_tasks: BackgroundTasks, silent: bool = False):
+async def trigger_manual_sync(background_tasks: BackgroundTasks):
     global is_syncing
-    if is_syncing: return {"status": "Sync already in progress."}
-    background_tasks.add_task(async_sweep_controller, silent)
-    return {"status": "Sync process initiated."}
+    if is_syncing: return {"status": "Sync in progress"}
+    background_tasks.add_task(async_sweep_controller, False)
+    return {"status": "Sweep triggered"}
 
 @app.get("/api/news")
 async def get_news(
-    category: str = Query("ALL"), source: str = Query("All"),
-    region: str = Query("All"), handle: str = Query("All"),
-    time_filter: str = Query("all"),
-    start_date: str = Query(None), end_date: str = Query(None),
-    q: str = Query(None), page: int = Query(1), limit: int = Query(30)
+    category: str = Query("ALL"), 
+    feed_type: str = Query("ALL"),
+    publisher: str = Query("All"), 
+    handle: str = Query("All"),
+    language: str = Query("All"), 
+    continent: str = Query("All"), 
+    country: str = Query("All"),
+    time_filter: str = Query("all"), 
+    start_date: str = Query(None), 
+    end_date: str = Query(None), 
+    q: str = Query(None), 
+    exclude_me_red: bool = Query(False),
+    page: int = Query(1), 
+    limit: int = Query(30)
 ):
-    if q and len(q.strip()) > 1:
-        await run_live_web_search_async(q.strip(), category)
-
     offset = (page - 1) * limit
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -411,37 +601,47 @@ async def get_news(
     query = "SELECT * FROM news WHERE 1=1"
     params = []
     
-    if category.upper() != "ALL":
+    if category.upper() != "ALL": 
         query += " AND category = %s"
         params.append(category.upper())
-    if source != "All":
+    
+    if feed_type.upper() != "ALL":
+        query += " AND feed_type = %s"
+        params.append(feed_type.upper())
+
+    if publisher != "All" and handle != "All":
+        query += " AND (source = %s OR handle = %s)"
+        params.extend([publisher, handle])
+    elif publisher != "All":
         query += " AND source = %s"
-        params.append(source)
-    if region != "All":
-        query += " AND region = %s"
-        params.append(region)
-    if handle != "All":
+        params.append(publisher)
+    elif handle != "All":
         query += " AND handle = %s"
         params.append(handle)
+        
+    if continent != "All": 
+        query += " AND continent = %s"
+        params.append(continent)
+    if country != "All": 
+        query += " AND country = %s"
+        params.append(country)
+    if language != "All": 
+        query += " AND language = %s"
+        params.append(language)
+    
+    # DYNAMIC EXCLUSION: Filters out Middle East crisis exclusively
+    if exclude_me_red:
+        query += " AND NOT (continent = 'Middle East' AND category = 'RED')"
 
     if start_date or end_date:
-        if start_date:
-            query += " AND published_date >= %s::timestamp"
-            params.append(f"{start_date} 00:00:00")
-        if end_date:
-            query += " AND published_date <= %s::timestamp"
-            params.append(f"{end_date} 23:59:59")
+        if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
+        if end_date: query += " AND published_date <= %s::timestamp"; params.append(f"{end_date} 23:59:59")
     else:
-        time_mappings = {
-            "1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours",
-            "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", 
-            "30d": "30 days", "90d": "90 days"
-        }
-        if time_filter in time_mappings:
-            query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
+        time_mappings = {"1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours", "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
+        if time_filter in time_mappings: query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
 
     if q:
-        query += " AND (title ILIKE %s OR handle ILIKE %s OR source ILIKE %s OR keyword ILIKE %s)"
+        query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
         
     query += " ORDER BY published_date DESC, id DESC LIMIT %s OFFSET %s"
@@ -452,63 +652,52 @@ async def get_news(
     conn.close()
     
     results = []
-    # Sort keywords by length so it matches "Middle East" before just "East"
-    all_kws = sorted(RED_KEYWORDS + GENERAL_KEYWORDS, key=len, reverse=True)
-    
     for row in rows:
         r = dict(row)
-        if isinstance(r.get('published_date'), datetime):
-            r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
-            
-        # THE RETROACTIVE AUTO-HEALER
-        # If the database serves up an ugly N/A, we intercept it and fix it live.
-        if r.get('keyword') in ['N/A', None, '']:
-            t_lower = r.get('title', '').lower()
-            matched = next((kw for kw in all_kws if kw in t_lower), None)
-            
-            if matched:
-                r['keyword'] = f"Matched: '{matched}'"
-            else:
-                # If there truly is no keyword, setting this to an empty string 
-                # tells the frontend to completely hide the badge instead of showing 'N/A'
-                r['keyword'] = "" 
-                
+        if isinstance(r.get('published_date'), datetime): r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
         results.append(r)
-    
     return results
 
-@app.get("/api/meta/filters")
-def get_filter_metadata():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT region FROM news WHERE region IS NOT NULL AND region != ''")
-    regions = [r[0] for r in cursor.fetchall()]
-    cursor.execute("SELECT DISTINCT handle FROM news WHERE handle IS NOT NULL AND handle != 'N/A'")
-    handles = [h[0] for h in cursor.fetchall()]
-    conn.close()
-    return {"regions": regions, "handles": handles}
+@app.get("/api/meta/catalog")
+def get_catalog_metadata():
+    hierarchy = {}
+    publishers_set = set()
+    handles_set = set()
+    
+    all_continents = ["Africa", "Middle East", "North America", "South America", "Europe", "Asia", "Oceania", "Global"]
+    for c in all_continents:
+        if c not in hierarchy:
+            hierarchy[c] = {}
+
+    for item in MASTER_CATALOG:
+        cont = item["continent"]
+        country = item["country"]
+        pub = item["name"]
+        publishers_set.add(pub)
+        if cont not in hierarchy: hierarchy[cont] = {}
+        if country not in hierarchy[cont]: hierarchy[cont][country] = []
+        if pub not in hierarchy[cont][country]: hierarchy[cont][country].append(pub)
+
+    for item in SOCIAL_CATALOG:
+        handles_set.add(item["handle"])
+
+    return {
+        "hierarchy": hierarchy,
+        "publishers": sorted(list(publishers_set)),
+        "handles": sorted(list(handles_set)),
+        "languages": list(MULTILINGUAL_LEXICON.keys())
+    }
 
 @app.get("/api/stats")
 def get_stats():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT DATE(published_date) as date, category, COUNT(*) as count 
-        FROM news 
-        WHERE published_date IS NOT NULL 
-        GROUP BY DATE(published_date), category
-        ORDER BY DATE(published_date) ASC
-        LIMIT 14
-    """)
+    cursor.execute("SELECT DATE(published_date) as date, category, COUNT(*) as count FROM news WHERE published_date IS NOT NULL GROUP BY DATE(published_date), category ORDER BY DATE(published_date) ASC LIMIT 14")
     rows = cursor.fetchall()
-    
     cursor.execute("SELECT COUNT(*) FROM news")
     total_intel = cursor.fetchone()[0]
-    
     cursor.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
     critical_threats = cursor.fetchone()[0]
-
     conn.close()
     
     stats = {"dates": [], "ALL": [], "RED": [], "GENERAL": [], "total_intel": total_intel, "critical_threats": critical_threats}
@@ -527,25 +716,44 @@ def get_stats():
     return stats
 
 @app.get("/api/export")
-def export_csv(category: str = Query("ALL")):
+def export_csv(
+    category: str = Query("ALL"), 
+    feed_type: str = Query("ALL"),
+    publisher: str = Query("All"), 
+    handle: str = Query("All"),
+    language: str = Query("All"), 
+    continent: str = Query("All"), 
+    country: str = Query("All"),
+    exclude_me_red: bool = Query(False)
+):
     conn = get_db_connection()
     cursor = conn.cursor()
-    if category.upper() == "ALL":
-        cursor.execute("SELECT source, category, region, handle, keyword, threat_level, title, link, published_date FROM news ORDER BY published_date DESC")
-    else:
-        cursor.execute("SELECT source, category, region, handle, keyword, threat_level, title, link, published_date FROM news WHERE category = %s ORDER BY published_date DESC", (category.upper(),))
+    query = "SELECT feed_type, source, handle, category, continent, country, language, keyword, threat_level, title, link, published_date FROM news WHERE 1=1"
+    params = []
+    
+    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
+    if feed_type.upper() != "ALL": query += " AND feed_type = %s"; params.append(feed_type.upper())
+    if publisher != "All": query += " AND source = %s"; params.append(publisher)
+    if handle != "All": query += " AND handle = %s"; params.append(handle)
+    if continent != "All": query += " AND continent = %s"; params.append(continent)
+    if country != "All": query += " AND country = %s"; params.append(country)
+    if language != "All": query += " AND language = %s"; params.append(language)
+    if exclude_me_red: query += " AND NOT (continent = 'Middle East' AND category = 'RED')"
+        
+    query += " ORDER BY published_date DESC"
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Source", "Category", "Region", "Handle", "Keyword Trigger", "Threat Level", "Intel Title", "Source URL", "Timestamp"])
+    writer.writerow(["Platform Stream", "Publisher / Network", "Social Handle", "Threat Category", "Continent", "Country / Region", "Language Lexicon", "Keyword Trigger", "Threat Priority", "Headline", "Direct URL", "Timestamp"])
     for row in rows: 
-        writer.writerow([row["source"], row["category"], row["region"], row["handle"], row.get("keyword", "N/A"), row.get("threat_level", "INFORMATIONAL"), row["title"], row["link"], row["published_date"]])
+        writer.writerow([row["feed_type"], row["source"], row["handle"], row["category"], row["continent"], row["country"], row["language"], row.get("keyword", ""), row.get("threat_level", "INFORMATIONAL"), row["title"], row["link"], row["published_date"]])
     
     output.seek(0)
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
-    response.headers["Content-Disposition"] = f"attachment; filename=intel_export_{category}_{datetime.now().strftime('%Y%m%d')}.csv"
+    response.headers["Content-Disposition"] = f"attachment; filename=geopolitical_dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     return response
 
 if __name__ == "__main__":
