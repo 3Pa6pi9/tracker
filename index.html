@@ -38,13 +38,14 @@
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
+    <!-- LIVE THREAT TICKER -->
     <div class="w-full bg-red-950/80 border-b border-red-900 overflow-hidden flex items-center h-8">
         <div class="px-3 bg-red-600 text-white text-[10px] font-black h-full flex items-center uppercase tracking-widest z-10 shadow-[5px_0_15px_rgba(0,0,0,0.5)] whitespace-nowrap">
             🔴 LIVE THREAT FEED
         </div>
         <div class="flex-grow overflow-hidden relative h-full flex items-center text-[11px] font-mono text-red-300">
             <div id="news-ticker" class="animate-ticker">
-                [SYSTEM] MULTI-PLATFORM TELEMETRY ACTIVE... SCANNING NEWS, X, REDDIT, TELEGRAM & YOUTUBE STREAMS...
+                [SYSTEM] MULTI-PLATFORM TELEMETRY ACTIVE... MONITORING NEWS, X, REDDIT, TELEGRAM & BLUESKY OSINT...
             </div>
         </div>
     </div>
@@ -60,7 +61,7 @@
             </div>
             <div id="briefing-content" class="font-mono text-xs text-slate-300 space-y-3 overflow-y-auto pr-2 flex-grow bg-slate-950/80 p-5 rounded-xl border border-slate-800/80 whitespace-pre-wrap"></div>
             <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
-                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Score</span>
+                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Matrix</span>
                 <button onclick="copyBriefingToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)] flex items-center gap-1.5">📋 Copy Dossier</button>
             </div>
         </div>
@@ -82,6 +83,7 @@
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow">
         
+        <!-- HEADER & PRESENTATION CONTROLS -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-bordercolor pb-4 mb-6 gap-4">
             <div class="flex items-center space-x-3">
                 <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
@@ -99,12 +101,14 @@
                 
                 <button onclick="openBriefingModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 shadow-md transition-colors flex items-center gap-1.5">📋 Executive Brief</button>
                 <button id="sync-btn" onclick="forceSync()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(79,70,229,0.4)] transition-all active:scale-95 flex items-center gap-1.5">⚡ Sync Live Feed</button>
-                <button onclick="exportCSV()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5">📥 Export CSV</button>
+                <button onclick="exportCSV()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5">📥 Export CSV</button>
             </div>
         </header>
 
+        <!-- LIVE SYSTEM TERMINAL -->
         <div class="w-full bg-black/95 border border-slate-800 rounded-xl p-3 h-28 overflow-y-auto font-mono text-[10px] text-green-500 shadow-inner mb-6 flex flex-col" id="terminal-log"></div>
 
+        <!-- TELEMETRY GRIDS -->
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
             <div class="lg:col-span-3 bg-card/80 border border-bordercolor rounded-2xl p-4 h-60 relative shadow-xl backdrop-blur-md">
                 <canvas id="telemetryChart"></canvas>
@@ -124,34 +128,54 @@
                 </div>
                 <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
                     <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Channels Monitored</span>
-                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">150+ Active</span>
+                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">160+ Active</span>
                 </div>
             </div>
         </div>
 
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6 border-b border-bordercolor pb-4">
+        <!-- PROMINENT PLATFORM SELECTOR BAR -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-3 border-b border-bordercolor pb-4">
             
+            <!-- Category Streams -->
             <div class="flex flex-wrap gap-2">
                 <button id="tab-all" onclick="switchCategory('ALL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL THREATS</button>
                 <button id="tab-red" onclick="switchCategory('RED')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis)</button>
                 <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy)</button>
             </div>
 
-            <!-- JOSIAH EXCLUSION TOGGLE -->
-            <div class="flex items-center gap-3">
-                <label class="flex items-center gap-2 bg-red-950/40 px-2.5 py-1.5 rounded-lg border border-red-900/50 cursor-pointer hover:border-red-500 transition-colors">
-                    <input type="checkbox" id="uae-exclude-toggle" onchange="applyFilters()" class="accent-red-500 rounded cursor-pointer">
-                    <span class="text-[10px] font-bold text-red-400 uppercase tracking-wider">🚫 Exclude UAE (RED)</span>
-                </label>
+            <!-- Platform Switcher -->
+            <div class="flex flex-wrap items-center bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 gap-1.5">
+                <span class="text-[10px] font-mono text-slate-500 px-2 font-bold uppercase">Platform:</span>
+                <button id="plat-all" onclick="switchPlatform('ALL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md">🌐 All</button>
+                <button id="plat-pub" onclick="switchPlatform('PUBLISHER')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">📰 Outlets</button>
+                <button id="plat-soc" onclick="switchPlatform('SOCIAL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🐦 X (Twitter)</button>
+                <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
+                <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
+                <button id="plat-bsky" onclick="switchPlatform('BLUESKY')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🌐 Bluesky</button>
             </div>
         </div>
 
+        <!-- DYNAMIC RED EXCLUSION BAR (Visible when RED is selected) -->
+        <div id="red-exclusion-container" class="mb-4 hidden fade-in">
+            <div class="bg-red-950/30 border border-red-900/60 p-3 rounded-xl flex items-center justify-between flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs">🔴</span>
+                    <span class="text-xs font-bold text-red-300">RED Filter Active: Crisis & Armed Conflict Stream</span>
+                </div>
+                <button id="exclude-me-btn" onclick="toggleMeRedExclusion()" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border border-red-800/80 bg-slate-900 text-red-400 hover:bg-red-900/40">
+                    🚫 Exclude Middle East Crisis
+                </button>
+            </div>
+        </div>
+
+        <!-- ADVANCED FILTER CONSOLE -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             
             <div class="relative">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep exact-phrase search across all channels (e.g. ጦርነት, muslim brotherhood, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep search exact topics across languages (e.g. muslim brotherhood, ጦርነት, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
             </div>
 
+            <!-- CASCADING GEOGRAPHIC & ENTITY SELECTORS -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 border-b border-slate-800 pb-4">
                 
                 <div>
@@ -169,9 +193,9 @@
                 </div>
 
                 <div>
-                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. News Publisher</label>
+                    <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. Channel / Publisher</label>
                     <select id="publisherSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
-                        <option value="All">All Publishers</option>
+                        <option value="All">All Sources</option>
                     </select>
                 </div>
 
@@ -191,6 +215,7 @@
 
             </div>
 
+            <!-- TIME, DATE & RESET -->
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs pt-1">
                 <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800" id="dateFilters">
                     <select id="timeFilterSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-semibold shadow-inner">
@@ -218,6 +243,7 @@
             </div>
         </div>
 
+        <!-- CARDS GRID -->
         <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
         <div class="flex justify-center mb-8">
@@ -238,6 +264,7 @@
         let currentPublisher = 'All';
         let currentHandle = 'All';
         let currentLanguage = 'All';
+        let excludeMeRed = false;
         let searchQuery = '';
         let currentPage = 1;
 
@@ -342,11 +369,13 @@
                 const res = await fetch(`${API_BASE}/api/meta/catalog`);
                 catalogMeta = await res.json();
                 
+                // Continents
                 const contSelect = document.getElementById('continentSelect');
                 let contHtml = '<option value="All">All Continents</option>';
                 Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
                 contSelect.innerHTML = contHtml;
 
+                // Countries
                 const countrySelect = document.getElementById('countrySelect');
                 let countryHtml = '<option value="All">All Countries</option>';
                 let allCountries = new Set();
@@ -356,11 +385,13 @@
                 Array.from(allCountries).sort().forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
                 countrySelect.innerHTML = countryHtml;
 
+                // Handles
                 const handleSelect = document.getElementById('handleSelect');
                 let handleHtml = '<option value="All">All Social Handles & Desks</option>';
                 catalogMeta.handles.forEach(h => handleHtml += `<option value="${h}">${h}</option>`);
                 handleSelect.innerHTML = handleHtml;
 
+                // Languages
                 const langSelect = document.getElementById('languageSelect');
                 let langHtml = '<option value="All">🌍 All Languages</option>';
                 catalogMeta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
@@ -368,6 +399,62 @@
 
                 populatePublishersDropdown();
             } catch(e) {}
+        }
+
+        function switchPlatform(plat) {
+            currentPlatform = plat;
+            ['all', 'pub', 'soc', 'red', 'tel', 'bsky'].forEach(p => {
+                const btn = document.getElementById(`plat-${p}`);
+                if ((p === 'all' && plat === 'ALL') || 
+                    (p === 'pub' && plat === 'PUBLISHER') || 
+                    (p === 'soc' && plat === 'SOCIAL') || 
+                    (p === 'red' && plat === 'REDDIT') ||
+                    (p === 'tel' && plat === 'TELEGRAM') ||
+                    (p === 'bsky' && plat === 'BLUESKY')) {
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all";
+                }
+            });
+            fetchNews(true);
+        }
+
+        function switchCategory(cat) {
+            currentCategory = cat;
+            ['all', 'red', 'general'].forEach(c => {
+                const btn = document.getElementById(`tab-${c}`);
+                if (c === cat.toLowerCase()) btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
+                else btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800";
+            });
+
+            // Display Middle East Exclusion container specifically when RED is selected
+            const redContainer = document.getElementById('red-exclusion-container');
+            if (cat === 'RED') {
+                redContainer.classList.remove('hidden');
+            } else {
+                redContainer.classList.add('hidden');
+                excludeMeRed = false;
+                updateExcludeButtonUI();
+            }
+
+            fetchNews(true);
+        }
+
+        function toggleMeRedExclusion() {
+            excludeMeRed = !excludeMeRed;
+            updateExcludeButtonUI();
+            fetchNews(true);
+        }
+
+        function updateExcludeButtonUI() {
+            const btn = document.getElementById('exclude-me-btn');
+            if (excludeMeRed) {
+                btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border border-red-500 bg-red-600 text-white shadow-lg shadow-red-500/30";
+                btn.innerHTML = "✓ Middle East Crisis Excluded";
+            } else {
+                btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border border-red-800/80 bg-slate-900 text-red-400 hover:bg-red-900/40";
+                btn.innerHTML = "🚫 Exclude Middle East Crisis";
+            }
         }
 
         function onContinentChange() {
@@ -404,7 +491,7 @@
             const curCountry = document.getElementById('countrySelect').value;
             
             const pubSelect = document.getElementById('publisherSelect');
-            let pubHtml = '<option value="All">All Publishers</option>';
+            let pubHtml = '<option value="All">All Sources</option>';
             let pubs = [];
 
             if (curCont === 'All' && curCountry === 'All') {
@@ -447,9 +534,11 @@
             document.getElementById('startDate').value = '';
             document.getElementById('endDate').value = '';
             document.getElementById('timeFilterSelect').value = 'all';
-            document.getElementById('uae-exclude-toggle').checked = false;
             
+            excludeMeRed = false;
+            updateExcludeButtonUI();
             searchQuery = '';
+            switchPlatform('ALL');
             applyFilters();
         }
 
@@ -461,7 +550,7 @@
             ws.onopen = () => {
                 statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
                 statusBadge.innerHTML = "● Live Telemetry Sat-Link Active";
-                writeTerminal("CONNECTED TO TACTICAL DATA STREAM.", "sys");
+                writeTerminal("CONNECTED TO MULTI-CHANNEL DATA STREAM.", "sys");
             };
             
             ws.onmessage = (event) => {
@@ -513,7 +602,6 @@
         async function fetchNews(overwrite = false) {
             const grid = document.getElementById('grid');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
-            const excludeUaeRed = document.getElementById('uae-exclude-toggle').checked;
             
             if (overwrite) {
                 currentPage = 1;
@@ -523,12 +611,13 @@
             try {
                 const url = new URL(`${API_BASE}/api/news`);
                 url.searchParams.append('category', currentCategory);
+                url.searchParams.append('feed_type', currentPlatform);
                 url.searchParams.append('continent', currentContinent);
                 url.searchParams.append('country', currentCountry);
                 url.searchParams.append('publisher', currentPublisher);
                 url.searchParams.append('handle', currentHandle);
                 url.searchParams.append('language', currentLanguage);
-                url.searchParams.append('exclude_uae_red', excludeUaeRed);
+                url.searchParams.append('exclude_me_red', excludeMeRed);
                 url.searchParams.append('page', currentPage);
                 url.searchParams.append('limit', 15);
                 if (searchQuery) url.searchParams.append('q', searchQuery);
@@ -560,7 +649,7 @@
                         <div class="col-span-full text-center py-16 bg-card/20 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center">
                             <span class="text-3xl mb-3">📡</span>
                             <h3 class="text-sm font-bold text-slate-300 mb-1">0 Records Found</h3>
-                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. If you just added a new language or publisher, click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
+                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. Click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
                         </div>`;
                     return;
                 }
@@ -571,10 +660,18 @@
                     const dateObj = new Date(item.published_date || item.fetched_at);
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
-                    const isSocial = item.feed_type === 'SOCIAL';
-                    const feedTypeBadge = isSocial 
-                        ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-blue-950/60 text-blue-300 border-blue-800/40">🐦 ${item.handle !== 'N/A' ? item.handle : item.source}</span>` 
-                        : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
+                    let feedTypeBadge = '';
+                    if (item.feed_type === 'SOCIAL') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-blue-950/60 text-blue-300 border-blue-800/40">🐦 ${item.handle !== 'N/A' ? item.handle : item.source}</span>`;
+                    } else if (item.feed_type === 'REDDIT') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-orange-950/60 text-orange-300 border-orange-800/40">👾 ${item.source}</span>`;
+                    } else if (item.feed_type === 'TELEGRAM') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-sky-950/60 text-sky-300 border-sky-800/40">✈️ ${item.source}</span>`;
+                    } else if (item.feed_type === 'BLUESKY') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-cyan-950/60 text-cyan-300 border-cyan-800/40">🌐 ${item.source}</span>`;
+                    } else {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
+                    }
 
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
@@ -625,16 +722,6 @@
             }
         }
 
-        function switchCategory(cat) {
-            currentCategory = cat;
-            ['all', 'red', 'general'].forEach(c => {
-                const btn = document.getElementById(`tab-${c}`);
-                if (c === cat.toLowerCase()) btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
-                else btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800";
-            });
-            fetchNews(true);
-        }
-
         let searchTimeout;
         function handleSearch() {
             clearTimeout(searchTimeout);
@@ -670,7 +757,7 @@
             let text = `======================================================\n`;
             text += `  GLOBAL GEOPOLITICAL INTELLIGENCE DOSSIER\n`;
             text += `  Generated: ${now}\n`;
-            text += `  Stream Parameters: ${currentCategory}\n`;
+            text += `  Stream Parameters: ${currentCategory} | Platform: ${currentPlatform}\n`;
             text += `  Region: ${currentContinent} / ${currentCountry} | Lang: ${currentLanguage}\n`;
             text += `======================================================\n\n`;
 
@@ -697,11 +784,13 @@
         function exportCSV() {
             const url = new URL(`${API_BASE}/api/export`);
             url.searchParams.append('category', currentCategory);
+            url.searchParams.append('feed_type', currentPlatform);
             url.searchParams.append('continent', currentContinent);
             url.searchParams.append('country', currentCountry);
             url.searchParams.append('publisher', currentPublisher);
             url.searchParams.append('handle', currentHandle);
             url.searchParams.append('language', currentLanguage);
+            url.searchParams.append('exclude_me_red', excludeMeRed);
             window.location.href = url.toString();
         }
 
