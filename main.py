@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="38.0 - The Telegram Mandate")
+app = FastAPI(title="Global Geopolitical Command Center", version="39.0 - The Global Mandate Pro")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,11 +37,11 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# EXPANDED 14-LANGUAGE LEXICON (JOSIAH'S EUROPEAN + GLOBAL MANDATE)
+# EXPANDED 14-LANGUAGE LEXICON
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
-        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "muslim brotherhood", "cair", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
+        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "muslim brotherhood", "cair", "council on american-islamic relations", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
         "elevated": ["sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"],
         "general": ["bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty", "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement", "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"]
     },
@@ -103,7 +103,7 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# MASTER CATALOG (AFRICA 6, ME, EUROPE MASSIVE LIST - EXCLUDING AL JAZEERA)
+# MASTER CATALOG
 # ==============================================================================
 MASTER_CATALOG = [
     # --- PROJECT 6 + TARGETED AFRICA ---
@@ -122,6 +122,8 @@ MASTER_CATALOG = [
     {"name": "Sudan Tribune", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://sudantribune.com/feed/"},
     {"name": "Al-Ahram Online", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://english.ahram.org.eg/RSS/All.aspx"},
     {"name": "Mada Masr", "continent": "Africa", "country": "Egypt", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.madamasr.com/en/feed/"},
+    {"name": "Premium Times", "continent": "Africa", "country": "Nigeria", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.premiumtimesng.com/feed"},
+    {"name": "Borkena", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://borkena.com/feed/"},
 
     # --- EUROPE EXPANSION ---
     {"name": "ANSA", "continent": "Europe", "country": "Italy", "category": "ALL", "feed_type": "PUBLISHER", "language": "Italian", "url": "https://news.google.com/rss/search?q=site:ansa.it&hl=it&gl=IT&ceid=IT:it"},
@@ -135,6 +137,9 @@ MASTER_CATALOG = [
     {"name": "RTK", "continent": "Europe", "country": "Kosovo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:rtklive.com&hl=sq&gl=AL&ceid=AL:sq"},
     
     # --- MIDDLE EAST EXPANSION ---
+    {"name": "MEMRI", "continent": "Middle East", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.memri.org/rss/english"},
+    {"name": "SABA News", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.saba.ye/en/rss.xml"},
+    {"name": "Al Masirah", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:almasirah.net.ye&hl=ar&gl=YE&ceid=YE:ar"},
     {"name": "IRNA", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://en.irna.ir/rss"},
     {"name": "Tehran Times", "continent": "Middle East", "country": "Iran", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.tehrantimes.com/rss"},
     {"name": "Shafaq News", "continent": "Middle East", "country": "Iraq", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://shafaq.com/en/rss"},
@@ -152,7 +157,7 @@ MASTER_CATALOG = [
 ]
 
 # ==============================================================================
-# FULL DIPLOMATIC X/TWITTER REPOSITORY (ALL JOSIAH ACCOUNTS INCLUDED)
+# FULL DIPLOMATIC X/TWITTER REPOSITORY
 # ==============================================================================
 SOCIAL_CATALOG = [
     # US
@@ -191,6 +196,7 @@ SOCIAL_CATALOG = [
     {"handle": "@FCDOGovUK", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL", "language": "English"},
 
     # Middle East
+    {"handle": "@SabaNet", "continent": "Middle East", "country": "Yemen", "category": "RED", "language": "Arabic"},
     {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
     {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
     {"handle": "@HHShkMohd", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
@@ -256,7 +262,7 @@ def init_db():
         
         c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
         
-        # Scour and purge any traces of Al Jazeera
+        # Scour and purge any traces of Al Jazeera (Yemen explicitly preserved)
         c.execute("DELETE FROM news WHERE source ILIKE '%Al Jazeera%' OR handle ILIKE '%AJBreaking%'")
         
         # Retroactive Matrix Healing
@@ -545,6 +551,7 @@ async def get_news(
     end_date: str = Query(None), 
     q: str = Query(None), 
     exclude_uae_red: bool = Query(False),
+    uae_bilateral: bool = Query(False),
     page: int = Query(1), 
     limit: int = Query(30)
 ):
@@ -572,9 +579,11 @@ async def get_news(
     if country != "All": query += " AND country = %s"; params.append(country)
     if language != "All": query += " AND language = %s"; params.append(language)
     
-    # 🚨 UAE EXCLUSION TOGGLE FOR RED TOPICS
     if exclude_uae_red:
         query += " AND NOT (country = 'UAE' AND category = 'RED')"
+        
+    if uae_bilateral:
+        query += " AND (country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%') AND category = 'GENERAL'"
 
     if start_date or end_date:
         if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
@@ -583,7 +592,6 @@ async def get_news(
         time_mappings = {"1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours", "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
         if time_filter in time_mappings: query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
 
-    # Strict multi-word deep search logic
     if q:
         query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
