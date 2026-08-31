@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intel Command Center • Global Telemetry Engine</title>
+    <title>Intel Command Center • Global Telemetry & Intelligence Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -12,9 +12,11 @@
             theme: {
                 extend: {
                     colors: {
-                        dark: '#050a15',
+                        dark: '#030712',
                         card: '#0f172a',
-                        bordercolor: '#1e293b'
+                        cardhover: '#1e293b',
+                        bordercolor: '#1e293b',
+                        terminal: '#020617'
                     }
                 }
             }
@@ -22,46 +24,46 @@
     </script>
     <style>
         @keyframes radar-sweep { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .animate-radar { animation: radar-sweep 2.5s linear infinite; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        .animate-radar { animation: radar-sweep 2.2s linear infinite; }
+        .fade-in { animation: fadeIn 0.25s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-        .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 35s linear infinite; padding-left: 100%; }
-        .critical-glow { box-shadow: 0 0 15px rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.6) !important; }
+        .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 40s linear infinite; padding-left: 100%; }
+        .critical-glow { box-shadow: 0 0 18px rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.6) !important; }
         #terminal-log::-webkit-scrollbar { width: 4px; }
-        #terminal-log::-webkit-scrollbar-thumb { background: #16a34a; border-radius: 4px; }
+        #terminal-log::-webkit-scrollbar-thumb { background: #10b981; border-radius: 4px; }
         .cursor-blink { animation: blink 1s step-end infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
     </style>
 </head>
-<body class="bg-dark text-slate-300 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-x-hidden">
+<body class="bg-dark text-slate-300 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-600 selection:text-white relative overflow-x-hidden">
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
     <!-- LIVE THREAT TICKER -->
     <div class="w-full bg-red-950/80 border-b border-red-900 overflow-hidden flex items-center h-8">
         <div class="px-3 bg-red-600 text-white text-[10px] font-black h-full flex items-center uppercase tracking-widest z-10 shadow-[5px_0_15px_rgba(0,0,0,0.5)] whitespace-nowrap">
-            🔴 LIVE THREAT FEED
+            🔴 LIVE GLOBAL INTEL STREAM
         </div>
         <div class="flex-grow overflow-hidden relative h-full flex items-center text-[11px] font-mono text-red-300">
             <div id="news-ticker" class="animate-ticker">
-                [SYSTEM] MULTI-PLATFORM TELEMETRY ACTIVE... MONITORING NEWS, X, REDDIT, TELEGRAM & BLUESKY OSINT...
+                [SYSTEM] HYBRID TELEMETRY ACTIVE... SCANNING 150+ GLOBAL SOURCES, GOOGLE NEWS INDEXERS, X, TELEGRAM & REDDIT...
             </div>
         </div>
     </div>
 
     <!-- EXECUTIVE BRIEFING MODAL -->
     <div id="briefing-modal" class="fixed inset-0 bg-dark/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden fade-in">
-        <div class="bg-card border border-bordercolor rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
+        <div class="bg-card border border-bordercolor rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
                 <div class="flex items-center gap-2">
-                    <span class="text-indigo-400 font-black tracking-wider text-base">📋 EXECUTIVE INTEL DOSSIER</span>
+                    <span class="text-indigo-400 font-black tracking-wider text-base">📋 EXECUTIVE GEOPOLITICAL DOSSIER</span>
                 </div>
-                <button onclick="closeBriefingModal()" class="text-slate-400 hover:text-white text-lg">&times;</button>
+                <button onclick="closeBriefingModal()" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
             </div>
             <div id="briefing-content" class="font-mono text-xs text-slate-300 space-y-3 overflow-y-auto pr-2 flex-grow bg-slate-950/80 p-5 rounded-xl border border-slate-800/80 whitespace-pre-wrap"></div>
             <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center">
-                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Matrix</span>
+                <span class="text-[10px] text-slate-500 font-mono">Multilingual Threat Density Score: Optimized</span>
                 <button onclick="copyBriefingToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition-colors shadow-[0_0_15px_rgba(79,70,229,0.4)] flex items-center gap-1.5">📋 Copy Dossier</button>
             </div>
         </div>
@@ -76,8 +78,8 @@
             <div class="absolute inset-0 rounded-full animate-radar bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(99,102,241,0.4)_360deg)]"></div>
             <div class="w-4 h-4 bg-indigo-500 rounded-full animate-ping"></div>
         </div>
-        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">HARVESTING MULTI-CHANNEL INTEL</h3>
-        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Running maximum yield concurrency sweep across 7 continents...</p>
+        <h3 class="text-lg font-bold text-white tracking-wider mb-1 flex items-center gap-2">MULTI-GEO DEEP HARVEST IN PROGRESS</h3>
+        <p id="sync-progress-text" class="text-xs text-indigo-300 font-mono mb-6 text-center max-w-md animate-pulse">Running maximum concurrency sweep across all publishers, crisis desks, and live feeds...</p>
         <button onclick="hideSyncOverlay()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs font-semibold transition-colors pointer-events-auto shadow-lg">Run in Background</button>
     </div>
 
@@ -87,16 +89,16 @@
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-bordercolor pb-4 mb-6 gap-4">
             <div class="flex items-center space-x-3">
                 <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
-                <span class="font-black text-xl text-white tracking-wider flex items-center gap-2">INTEL <span class="text-indigo-400 font-light">ENGINE</span></span>
+                <span class="font-black text-xl text-white tracking-wider flex items-center gap-2">INTEL <span class="text-indigo-400 font-light">ENGINE PRO</span></span>
             </div>
             
             <div class="flex flex-wrap items-center gap-3 text-xs">
-                <span id="last-sync-badge" class="text-[10px] font-mono text-slate-500 border border-slate-700/50 px-2 py-1 rounded bg-slate-800/30 hidden">Synced: <span id="sync-time">Just now</span></span>
+                <span id="last-sync-badge" class="text-[10px] font-mono text-slate-400 border border-slate-700/50 px-2 py-1 rounded bg-slate-800/40 hidden">Synced: <span id="sync-time" class="text-indigo-300">Just now</span></span>
                 <span id="ws-status" class="px-3 py-1 rounded-lg border border-red-900 bg-red-950/50 text-red-400 font-mono">● Disconnected</span>
                 
-                <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner">
+                <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 shadow-inner">
                     <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                    <span class="text-[10px] font-bold text-slate-300 tracking-wider">AUTO-PILOT ACTIVE</span>
+                    <span class="text-[10px] font-bold text-slate-300 tracking-wider">HYBRID SCAN ACTIVE</span>
                 </div>
                 
                 <button onclick="openBriefingModal()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 shadow-md transition-colors flex items-center gap-1.5">📋 Executive Brief</button>
@@ -119,7 +121,7 @@
             </div>
             <div class="flex flex-col gap-3">
                 <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
-                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Total Ingested Intel</span>
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Total Indexed Intel</span>
                     <span id="kpi-total" class="text-2xl font-black text-indigo-400 font-mono mt-1">0</span>
                 </div>
                 <div class="bg-card/60 border border-red-900/40 p-4 rounded-2xl flex-1 flex flex-col justify-center">
@@ -127,20 +129,27 @@
                     <span id="kpi-critical" class="text-2xl font-black text-red-500 font-mono mt-1">0</span>
                 </div>
                 <div class="bg-card/60 border border-bordercolor p-4 rounded-2xl flex-1 flex flex-col justify-center">
-                    <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Channels Monitored</span>
-                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">160+ Active</span>
+                    <span class="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Targeted Asset Feeds</span>
+                    <span class="text-2xl font-black text-emerald-400 font-mono mt-1">165+ Global</span>
                 </div>
             </div>
         </div>
 
-        <!-- PROMINENT PLATFORM SELECTOR BAR -->
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-3 border-b border-bordercolor pb-4">
+        <!-- CATEGORY & SUB-FILTER CONTROL BAR -->
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6 border-b border-bordercolor pb-4">
             
-            <!-- Category Streams -->
-            <div class="flex flex-wrap gap-2">
-                <button id="tab-all" onclick="switchCategory('ALL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL THREATS</button>
-                <button id="tab-red" onclick="switchCategory('RED')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis)</button>
-                <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy)</button>
+            <div class="flex flex-col gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <button id="tab-all" onclick="switchCategory('ALL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL THREATS</button>
+                    <button id="tab-red" onclick="switchCategory('RED')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis)</button>
+                    <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy)</button>
+                </div>
+                
+                <!-- Dynamic Context Buttons for Josiah's Mandates -->
+                <div id="dynamic-subfilters" class="flex flex-wrap gap-2 hidden">
+                    <button id="btn-exclude-uae" onclick="toggleExcludeUae()" class="hidden px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:text-white">🚫 Exclude UAE</button>
+                    <button id="btn-uae-bilateral" onclick="toggleUaeBilateral()" class="hidden px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:text-white">🤝 UAE Bilateral</button>
+                </div>
             </div>
 
             <!-- Platform Switcher -->
@@ -151,31 +160,21 @@
                 <button id="plat-soc" onclick="switchPlatform('SOCIAL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🐦 X (Twitter)</button>
                 <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
                 <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
-                <button id="plat-bsky" onclick="switchPlatform('BLUESKY')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🌐 Bluesky</button>
+                <button id="plat-yt" onclick="switchPlatform('YOUTUBE')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ YouTube</button>
             </div>
         </div>
 
-        <!-- DYNAMIC RED EXCLUSION BAR (Visible when RED is selected) -->
-        <div id="red-exclusion-container" class="mb-4 hidden fade-in">
-            <div class="bg-red-950/30 border border-red-900/60 p-3 rounded-xl flex items-center justify-between flex-wrap gap-2">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs">🔴</span>
-                    <span class="text-xs font-bold text-red-300">RED Filter Active: Crisis & Armed Conflict Stream</span>
-                </div>
-                <button id="exclude-me-btn" onclick="toggleMeRedExclusion()" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border border-red-800/80 bg-slate-900 text-red-400 hover:bg-red-900/40">
-                    🚫 Exclude Middle East Crisis
-                </button>
-            </div>
-        </div>
-
-        <!-- ADVANCED FILTER CONSOLE -->
+        <!-- ADVANCED SEARCH & FILTER CONSOLE -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
             
             <div class="relative">
-                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep search exact topics across languages (e.g. muslim brotherhood, ጦርነት, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep search ANY entity, event, or keyword across languages (e.g. Muslim Brotherhood, CAIR, ጦርነት, غزة, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
+                <div id="search-spinner" class="absolute right-3 top-3 hidden">
+                    <span class="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin block"></span>
+                </div>
             </div>
 
-            <!-- CASCADING GEOGRAPHIC & ENTITY SELECTORS -->
+            <!-- CASCADING GEOGRAPHIC SELECTORS -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 border-b border-slate-800 pb-4">
                 
                 <div>
@@ -254,7 +253,7 @@
     </div>
 
     <script>
-        const API_BASE = "https://intel-engine-beta.onrender.com";
+        const API_BASE = "https://intel-engine-beta.onrender.com"; 
         const WS_URL = "wss://intel-engine-beta.onrender.com/ws/news";
 
         let currentCategory = 'ALL';
@@ -264,9 +263,11 @@
         let currentPublisher = 'All';
         let currentHandle = 'All';
         let currentLanguage = 'All';
-        let excludeMeRed = false;
         let searchQuery = '';
         let currentPage = 1;
+        
+        let excludeUaeRed = false;
+        let uaeBilateral = false;
 
         let catalogMeta = { hierarchy: {}, publishers: [], handles: [], languages: [] };
         let telemetryChart = null;
@@ -308,7 +309,7 @@
                 if (i < msg.length) {
                     line.innerHTML = `[${time}] ` + msg.substring(0, i+1) + `<span class="cursor-blink">_</span>`;
                     i += 2;
-                    setTimeout(typeChar, 8);
+                    setTimeout(typeChar, 6);
                 } else {
                     line.innerHTML = `[${time}] ` + msg;
                 }
@@ -330,18 +331,22 @@
             setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-2'); setTimeout(() => toast.remove(), 300); }, 5000);
         }
 
-        function copyToClipboard(text, btnElement) {
-            navigator.clipboard.writeText(text).then(() => {
+        function copyForPost(title, link, source, handle, threat, country, btnElement) {
+            let threatIcon = threat === 'CRITICAL' ? '🔴 [CRITICAL INTEL]' : (threat === 'ELEVATED' ? '🟧 [ELEVATED INTEL]' : '🔵 [GENERAL INTEL]');
+            let sourceText = (handle && handle !== 'N/A') ? `${source} (${handle})` : source;
+            let postText = `${threatIcon} • ${country}\n📰 Source: ${sourceText}\n\n${title}\n\n🔗 ${link}`;
+            
+            navigator.clipboard.writeText(postText).then(() => {
                 const originalHTML = btnElement.innerHTML;
-                btnElement.innerHTML = "✓ Copied!";
+                btnElement.innerHTML = "✓ Ready to Post!";
                 btnElement.classList.replace('bg-slate-800', 'bg-emerald-600');
                 btnElement.classList.replace('text-slate-300', 'text-white');
                 setTimeout(() => {
                     btnElement.innerHTML = originalHTML;
                     btnElement.classList.replace('bg-emerald-600', 'bg-slate-800');
                     btnElement.classList.replace('text-white', 'text-slate-300');
-                }, 2000);
-                showToast("📋 Link copied to clipboard for posting!", "success");
+                }, 2500);
+                showToast("📋 Formatted report copied! Ready to paste into Telegram/X.", "success");
             });
         }
 
@@ -369,13 +374,11 @@
                 const res = await fetch(`${API_BASE}/api/meta/catalog`);
                 catalogMeta = await res.json();
                 
-                // Continents
                 const contSelect = document.getElementById('continentSelect');
                 let contHtml = '<option value="All">All Continents</option>';
                 Object.keys(catalogMeta.hierarchy).forEach(cont => contHtml += `<option value="${cont}">${cont}</option>`);
                 contSelect.innerHTML = contHtml;
 
-                // Countries
                 const countrySelect = document.getElementById('countrySelect');
                 let countryHtml = '<option value="All">All Countries</option>';
                 let allCountries = new Set();
@@ -385,13 +388,11 @@
                 Array.from(allCountries).sort().forEach(c => countryHtml += `<option value="${c}">${c}</option>`);
                 countrySelect.innerHTML = countryHtml;
 
-                // Handles
                 const handleSelect = document.getElementById('handleSelect');
                 let handleHtml = '<option value="All">All Social Handles & Desks</option>';
                 catalogMeta.handles.forEach(h => handleHtml += `<option value="${h}">${h}</option>`);
                 handleSelect.innerHTML = handleHtml;
 
-                // Languages
                 const langSelect = document.getElementById('languageSelect');
                 let langHtml = '<option value="All">🌍 All Languages</option>';
                 catalogMeta.languages.forEach(l => langHtml += `<option value="${l}">${l}</option>`);
@@ -403,58 +404,20 @@
 
         function switchPlatform(plat) {
             currentPlatform = plat;
-            ['all', 'pub', 'soc', 'red', 'tel', 'bsky'].forEach(p => {
+            ['all', 'pub', 'soc', 'red', 'tel', 'yt'].forEach(p => {
                 const btn = document.getElementById(`plat-${p}`);
                 if ((p === 'all' && plat === 'ALL') || 
                     (p === 'pub' && plat === 'PUBLISHER') || 
                     (p === 'soc' && plat === 'SOCIAL') || 
                     (p === 'red' && plat === 'REDDIT') ||
                     (p === 'tel' && plat === 'TELEGRAM') ||
-                    (p === 'bsky' && plat === 'BLUESKY')) {
+                    (p === 'yt' && plat === 'YOUTUBE')) {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md";
                 } else {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all";
                 }
             });
             fetchNews(true);
-        }
-
-        function switchCategory(cat) {
-            currentCategory = cat;
-            ['all', 'red', 'general'].forEach(c => {
-                const btn = document.getElementById(`tab-${c}`);
-                if (c === cat.toLowerCase()) btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
-                else btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800";
-            });
-
-            // Display Middle East Exclusion container specifically when RED is selected
-            const redContainer = document.getElementById('red-exclusion-container');
-            if (cat === 'RED') {
-                redContainer.classList.remove('hidden');
-            } else {
-                redContainer.classList.add('hidden');
-                excludeMeRed = false;
-                updateExcludeButtonUI();
-            }
-
-            fetchNews(true);
-        }
-
-        function toggleMeRedExclusion() {
-            excludeMeRed = !excludeMeRed;
-            updateExcludeButtonUI();
-            fetchNews(true);
-        }
-
-        function updateExcludeButtonUI() {
-            const btn = document.getElementById('exclude-me-btn');
-            if (excludeMeRed) {
-                btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border border-red-500 bg-red-600 text-white shadow-lg shadow-red-500/30";
-                btn.innerHTML = "✓ Middle East Crisis Excluded";
-            } else {
-                btn.className = "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all border border-red-800/80 bg-slate-900 text-red-400 hover:bg-red-900/40";
-                btn.innerHTML = "🚫 Exclude Middle East Crisis";
-            }
         }
 
         function onContinentChange() {
@@ -535,11 +498,68 @@
             document.getElementById('endDate').value = '';
             document.getElementById('timeFilterSelect').value = 'all';
             
-            excludeMeRed = false;
-            updateExcludeButtonUI();
             searchQuery = '';
+            excludeUaeRed = false;
+            uaeBilateral = false;
             switchPlatform('ALL');
+            switchCategory('ALL');
             applyFilters();
+        }
+
+        function toggleExcludeUae() {
+            excludeUaeRed = !excludeUaeRed;
+            const btn = document.getElementById('btn-exclude-uae');
+            if(excludeUaeRed) {
+                btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-red-900 text-white border border-red-700 shadow-md";
+                btn.innerHTML = "🚫 Exclude UAE (Active)";
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:text-white";
+                btn.innerHTML = "🚫 Exclude UAE";
+            }
+            fetchNews(true);
+        }
+
+        function toggleUaeBilateral() {
+            uaeBilateral = !uaeBilateral;
+            const btn = document.getElementById('btn-uae-bilateral');
+            if(uaeBilateral) {
+                btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-blue-600 text-white border border-blue-500 shadow-md";
+                btn.innerHTML = "🤝 UAE Bilateral (Active)";
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:text-white";
+                btn.innerHTML = "🤝 UAE Bilateral";
+            }
+            fetchNews(true);
+        }
+
+        function switchCategory(cat) {
+            currentCategory = cat;
+            
+            ['all', 'red', 'general'].forEach(c => {
+                const btn = document.getElementById(`tab-${c}`);
+                if (c === cat.toLowerCase()) btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20";
+                else btn.className = "px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800";
+            });
+
+            const subContainer = document.getElementById('dynamic-subfilters');
+            const btnExclude = document.getElementById('btn-exclude-uae');
+            const btnBilateral = document.getElementById('btn-uae-bilateral');
+
+            if (cat === 'RED') {
+                subContainer.classList.remove('hidden');
+                btnExclude.classList.remove('hidden');
+                btnBilateral.classList.add('hidden');
+            } else if (cat === 'GENERAL') {
+                subContainer.classList.remove('hidden');
+                btnBilateral.classList.remove('hidden');
+                btnExclude.classList.add('hidden');
+            } else {
+                subContainer.classList.add('hidden');
+                btnExclude.classList.add('hidden');
+                btnBilateral.classList.add('hidden');
+            }
+
+            fetchNews(true);
         }
 
         function connectWebSocket() {
@@ -549,8 +569,8 @@
             
             ws.onopen = () => {
                 statusBadge.className = "px-3 py-1 rounded-lg border border-emerald-900 bg-emerald-950/50 text-emerald-400 font-mono";
-                statusBadge.innerHTML = "● Live Telemetry Sat-Link Active";
-                writeTerminal("CONNECTED TO MULTI-CHANNEL DATA STREAM.", "sys");
+                statusBadge.innerHTML = "● Live Telemetry Active";
+                writeTerminal("CONNECTED TO GLOBAL MULTI-CHANNEL DATASTREAM.", "sys");
             };
             
             ws.onmessage = (event) => {
@@ -559,28 +579,28 @@
                     syncBtn.classList.replace('bg-indigo-600', 'bg-slate-700');
                     syncBtn.disabled = true;
                     if(!data.silent) showSyncOverlay();
-                    writeTerminal("HARVESTING FEEDS & LOCAL REPOSITORIES...", "warn");
+                    writeTerminal("HARVESTING 165+ TARGETED ASSET FEEDS...", "warn");
                     
                     clearInterval(syncTimerInterval);
                     secondsElapsed = 0;
                     syncTimerInterval = setInterval(() => {
                         secondsElapsed++;
                         syncBtn.innerHTML = `⏳ Ingesting... ${secondsElapsed}s`;
-                        if (secondsElapsed > 25) resetSyncButton();
+                        if (secondsElapsed > 30) resetSyncButton();
                     }, 1000);
                 }
                 else if (data.event === "new_intel") {
                     resetSyncButton();
                     document.getElementById('last-sync-badge').classList.remove('hidden');
                     document.getElementById('sync-time').innerText = data.time || "Just now";
-                    writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new records across localized feeds.`, "sys");
-                    showToast(`✅ Ingested ${data.count} new records.`, "success");
+                    writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new items across all channels.`, "sys");
+                    showToast(`✅ Sweep complete: ${data.count} new items ingested.`, "success");
                     fetchNews(true);
                     loadChartData();
                 }
                 else if (data.event === "sync_finished_no_data") {
                     resetSyncButton();
-                    writeTerminal("SWEEP COMPLETE: All local feeds and social desks are up to date.", "info");
+                    writeTerminal("SWEEP COMPLETE: All feeds and intelligence nodes are current.", "info");
                 }
             };
 
@@ -602,11 +622,13 @@
         async function fetchNews(overwrite = false) {
             const grid = document.getElementById('grid');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const spinner = document.getElementById('search-spinner');
             
             if (overwrite) {
                 currentPage = 1;
                 grid.innerHTML = skeletonCard.repeat(6);
             }
+            if (searchQuery) spinner.classList.remove('hidden');
             
             try {
                 const url = new URL(`${API_BASE}/api/news`);
@@ -617,10 +639,16 @@
                 url.searchParams.append('publisher', currentPublisher);
                 url.searchParams.append('handle', currentHandle);
                 url.searchParams.append('language', currentLanguage);
-                url.searchParams.append('exclude_me_red', excludeMeRed);
                 url.searchParams.append('page', currentPage);
-                url.searchParams.append('limit', 15);
+                url.searchParams.append('limit', 18);
                 if (searchQuery) url.searchParams.append('q', searchQuery);
+
+                if (currentCategory === 'RED' && excludeUaeRed) {
+                    url.searchParams.append('exclude_uae_red', 'true');
+                }
+                if (currentCategory === 'GENERAL' && uaeBilateral) {
+                    url.searchParams.append('uae_bilateral', 'true');
+                }
 
                 const startDate = document.getElementById('startDate').value;
                 const endDate = document.getElementById('endDate').value;
@@ -632,6 +660,7 @@
 
                 const response = await fetch(url);
                 const data = await response.json();
+                spinner.classList.add('hidden');
                 
                 if (overwrite) {
                     grid.innerHTML = '';
@@ -641,15 +670,15 @@
                     currentFetchedNews = currentFetchedNews.concat(data);
                 }
 
-                if (data.length < 15) loadMoreBtn.classList.add('hidden');
+                if (data.length < 18) loadMoreBtn.classList.add('hidden');
                 else loadMoreBtn.classList.remove('hidden');
 
                 if (data.length === 0 && currentPage === 1) {
                     grid.innerHTML = `
                         <div class="col-span-full text-center py-16 bg-card/20 rounded-2xl border border-dashed border-slate-700 flex flex-col items-center justify-center">
-                            <span class="text-3xl mb-3">📡</span>
-                            <h3 class="text-sm font-bold text-slate-300 mb-1">0 Records Found</h3>
-                            <p class="text-xs font-medium text-slate-500 max-w-md">No articles matched these exact filters. Click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
+                            <span class="text-4xl mb-3">📡</span>
+                            <h3 class="text-sm font-bold text-slate-300 mb-1">No Indexed Intelligence Found</h3>
+                            <p class="text-xs font-medium text-slate-500 max-w-md">No records matched your active filter hierarchy. Click <strong class="text-indigo-400">⚡ Sync Live Feed</strong> to pull the latest regional news from global servers.</p>
                         </div>`;
                     return;
                 }
@@ -667,20 +696,24 @@
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-orange-950/60 text-orange-300 border-orange-800/40">👾 ${item.source}</span>`;
                     } else if (item.feed_type === 'TELEGRAM') {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-sky-950/60 text-sky-300 border-sky-800/40">✈️ ${item.source}</span>`;
-                    } else if (item.feed_type === 'BLUESKY') {
-                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-cyan-950/60 text-cyan-300 border-cyan-800/40">🌐 ${item.source}</span>`;
+                    } else if (item.feed_type === 'YOUTUBE') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-rose-950/60 text-rose-300 border-rose-800/40">▶️ ${item.source}</span>`;
                     } else {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
                     }
 
-                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
+                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
                     
                     const thumbnailHtml = item.thumbnail ? `
                         <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
-                            <img src="${item.thumbnail}" alt="Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
+                            <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
                         </div>
                     ` : '';
+                    
+                    const safeTitle = (item.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const safeSource = (item.source || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    const safeHandle = (item.handle || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
                     const card = `
                         <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
@@ -696,7 +729,7 @@
                                     <span class="text-[10px] text-slate-500 font-mono">${item.country || item.continent}</span>
                                 </div>
                                 <a href="${item.link}" target="_blank" class="block group">
-                                    <h3 class="text-slate-200 text-xs font-medium leading-relaxed group-hover:text-indigo-300 transition-colors line-clamp-3 mb-2">
+                                    <h3 class="text-slate-200 text-xs font-semibold leading-relaxed group-hover:text-indigo-300 transition-colors line-clamp-3 mb-2">
                                         ${item.title}
                                     </h3>
                                 </a>
@@ -705,11 +738,11 @@
                             <div class="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px]">
                                 <span class="text-slate-500 font-mono">${dateString}</span>
                                 <div class="flex items-center gap-2">
-                                    <button onclick="copyToClipboard('${item.link}', this)" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono rounded-lg border border-slate-700 transition-colors flex items-center gap-1 shadow-sm">
-                                        📋 Copy Link
+                                    <button onclick="copyForPost('${safeTitle}', '${item.link}', '${safeSource}', '${safeHandle}', '${item.threat_level}', '${item.country}', this)" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono rounded-lg border border-slate-700 transition-colors flex items-center gap-1 shadow-sm">
+                                        📋 Copy for Post
                                     </button>
-                                    <a href="${item.link}" target="_blank" class="px-2 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 transition-colors flex items-center gap-1">
-                                        Access →
+                                    <a href="${item.link}" target="_blank" class="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 font-bold rounded-lg border border-indigo-500/30 transition-colors flex items-center gap-1">
+                                        Read →
                                     </a>
                                 </div>
                             </div>
@@ -718,7 +751,8 @@
                     grid.insertAdjacentHTML('beforeend', card);
                 });
             } catch (error) {
-                grid.innerHTML = `<div class="col-span-full text-center text-red-500 py-12 text-xs">Error loading feeds from server API.</div>`;
+                spinner.classList.add('hidden');
+                grid.innerHTML = `<div class="col-span-full text-center text-red-500 py-12 text-xs">Error connecting to telemetry server. Check connection.</div>`;
             }
         }
 
@@ -728,7 +762,7 @@
             searchTimeout = setTimeout(() => {
                 searchQuery = document.getElementById('searchInput').value.trim();
                 fetchNews(true);
-            }, 400);
+            }, 350);
         }
 
         function loadMore() { currentPage++; fetchNews(false); }
@@ -737,9 +771,9 @@
 
         function updateLiveTicker(data) {
             const ticker = document.getElementById('news-ticker');
-            const criticals = data.filter(item => item.threat_level === 'CRITICAL').slice(0, 5);
+            const criticals = data.filter(item => item.threat_level === 'CRITICAL').slice(0, 8);
             if(criticals.length === 0) {
-                ticker.innerHTML = "[STANDBY] NO CRITICAL THREATS IN CURRENT VIEW...";
+                ticker.innerHTML = "[STANDBY] NO CRITICAL THREAT SIGNALS IN CURRENT STREAM...";
                 return;
             }
             let tickerHTML = "";
@@ -764,9 +798,9 @@
             if (currentFetchedNews.length === 0) {
                 text += "No records currently indexed under active parameters.";
             } else {
-                currentFetchedNews.slice(0, 15).forEach((item, idx) => {
+                currentFetchedNews.slice(0, 20).forEach((item, idx) => {
                     const threat = item.threat_level === "CRITICAL" ? "[🔴 CRITICAL] " : (item.threat_level === "ELEVATED" ? "[🟧 ELEVATED] " : "[🔵 INTEL] ");
-                    const src = item.feed_type === 'SOCIAL' ? item.handle : item.source;
+                    const src = (item.feed_type === 'SOCIAL' && item.handle !== 'N/A') ? item.handle : item.source;
                     text += `${idx + 1}. ${threat}${item.title}\n`;
                     text += `   Channel: ${src} | Geo: ${item.country} | Lexicon: ${item.language}\n`;
                     text += `   Timestamp: ${item.published_date} | URL: ${item.link}\n\n`;
@@ -778,7 +812,7 @@
         function closeBriefingModal() { document.getElementById('briefing-modal').classList.add('hidden'); }
         function copyBriefingToClipboard() {
             navigator.clipboard.writeText(document.getElementById('briefing-content').innerText);
-            showToast("📋 Dossier copied to clipboard!", "success");
+            showToast("📋 Full Dossier copied to clipboard!", "success");
         }
 
         function exportCSV() {
@@ -790,7 +824,6 @@
             url.searchParams.append('publisher', currentPublisher);
             url.searchParams.append('handle', currentHandle);
             url.searchParams.append('language', currentLanguage);
-            url.searchParams.append('exclude_me_red', excludeMeRed);
             window.location.href = url.toString();
         }
 
