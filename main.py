@@ -20,7 +20,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="40.0 - Maximum Yield Production Engine")
+app = FastAPI(title="Global Geopolitical Command Center", version="41.0 - Admin & Priority Alerts")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,16 +37,26 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# EXPANDED 14-LANGUAGE LEXICON
+# TIER 1 PRIORITY ALERT KEYWORDS (Triggers Audio & Push Notifications)
+# ==============================================================================
+PRIORITY_ALERT_KEYWORDS = [
+    "muslim brotherhood", 
+    "الإخوان المسلمين", 
+    "cair", 
+    "council on american-islamic relations"
+]
+
+# ==============================================================================
+# EXPANDED 14-LANGUAGE LEXICON (Standard Priorities)
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
-        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "muslim brotherhood", "cair", "council on american-islamic relations", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
+        "critical": ["war", "strike", "attack", "missile", "assassination", "conflict", "explosion", "invasion", "airstrike", "casualty", "nuclear", "bombing", "artillery", "hostage", "idf", "offensive", "drone strike", "troops", "frontline", "combat", "terror", "migration crisis", "refugee", "border security", "illegal immigration", "sudan", "somalia", "iran", "ukraine", "russia", "demonstration", "protest", "parliament", "counter-terrorism", "middle east"],
         "elevated": ["sanctions", "tension", "warning", "ban", "dispute", "standoff", "threat", "cyberattack", "unrest", "crisis", "drill", "deployment", "ceasefire", "embargo", "coup", "blockade", "riot", "evacuation", "rebel"],
         "general": ["bilateral relations", "state visit", "diplomatic ties", "diplomatic mission", "foreign envoy", "ambassador meeting", "foreign ministry", "peace talks", "trade agreement", "foreign investment", "economic partnership", "tariff", "trade deal", "mou signed", "memorandum of understanding", "security partnership", "defense pact", "military agreement", "joint military exercise", "security cooperation", "defense treaty", "treaty signed", "international summit", "global governance", "un resolution", "international convention", "multilateral agreement", "geopolitical shift", "resource diplomacy", "foreign influence", "strategic alliance", "international relations", "diplomatic shift"]
     },
     "Arabic": {
-        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران", "الإخوان المسلمين", "حماس", "حزب الله"],
+        "critical": ["حرب", "غارة", "هجوم", "صاروخ", "اغتيال", "نزاع", "انفجار", "غزو", "ضربة جوية", "قصف", "قتلى", "نووي", "شهداء", "مواجهات مسلحة", "مسيرة", "جيش", "اشتباكات", "استهداف", "طيران", "حماس", "حزب الله"],
         "elevated": ["عقوبات", "احتجاج", "توتر", "تحذير", "حظر", "خلاف", "تهديد", "هجوم سيبراني", "اضطرابات", "أزمة", "انتشار عسكري", "مظاهرات", "وقف إطلاق النار", "حشود"],
         "general": ["دبلوماسية", "قمة", "زيارة رسمية", "اتفاقية تجارية", "استثمار أجنبي", "معاهدة", "مجلس الأمن", "جامعة الدول العربية", "الاتحاد الأفريقي", "مباحثات"]
     },
@@ -284,7 +294,7 @@ def init_db():
         logger.error(f"Database init error: {e}")
 
 # ==============================================================================
-# MEDIA & THREAT PARSER
+# MEDIA & THREAT PARSER (WITH TIER 1 ALERT OVERRIDE)
 # ==============================================================================
 def extract_thumbnail(entry_obj):
     if isinstance(entry_obj, dict):
@@ -312,9 +322,15 @@ def extract_thumbnail(entry_obj):
 
 def analyze_multilingual_threat(title: str, feed_lang: str):
     t_lower = title.lower()
+    
+    # 🚨 TIER 1 PRIORITY OVERRIDE
+    is_priority_alert = any(kw in t_lower for kw in PRIORITY_ALERT_KEYWORDS)
+    if is_priority_alert:
+        return "PRIORITY_1", "⚠️ TIER 1 MATCH", feed_lang, True
+
+    # Standard Parsing
     matched_keyword = ""
     heat_score = 0
-    
     for lang, dicts in MULTILINGUAL_LEXICON.items():
         for kw in dicts["critical"]:
             if kw.lower() in t_lower:
@@ -329,18 +345,18 @@ def analyze_multilingual_threat(title: str, feed_lang: str):
                 heat_score += 1
                 if not matched_keyword: matched_keyword = kw
 
-    if heat_score >= 3.0: level = "CRITICAL"
-    elif heat_score >= 1.0: level = "ELEVATED"
-    else: level = "INFORMATIONAL"
-
-    return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), feed_lang
+    level = "CRITICAL" if heat_score >= 3.0 else ("ELEVATED" if heat_score >= 1.0 else "INFORMATIONAL")
+    return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), feed_lang, False
 
 def save_items_bulk(items):
-    if not items: return 0
+    if not items: return 0, False, None
     conn = get_db_connection()
     c = conn.cursor()
     added = 0
+    priority_found = False
+    priority_title = None
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     for item in items:
         try:
             c.execute('''
@@ -364,11 +380,15 @@ def save_items_bulk(items):
                 item['published_date'], now_iso, item.get('keyword', ''),
                 item.get('threat_level', 'INFORMATIONAL')
             ))
-            if c.rowcount > 0: added += 1
+            if c.rowcount > 0: 
+                added += 1
+                if item.get('is_priority_alert'):
+                    priority_found = True
+                    priority_title = item['title']
         except Exception:
             pass
     conn.close()
-    return added
+    return added, priority_found, priority_title
 
 # ==============================================================================
 # MAXIMUM CONCURRENCY HARVESTERS
@@ -401,13 +421,13 @@ async def fetch_publisher_feed(client, semaphore, publisher, limit=50):
                         pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     if title and link:
-                        threat, kw_badge, final_lang = analyze_multilingual_threat(title, feed_lang)
+                        threat, kw_badge, final_lang, is_priority = analyze_multilingual_threat(title, feed_lang)
                         items.append({
                             'title': title, 'link': link, 'source': name, 'handle': 'N/A', 
                             'continent': continent, 'country': country, 'category': category, 
                             'feed_type': feed_type, 'published_date': pub_date, 
                             'keyword': kw_badge, 'threat_level': threat, 
-                            'language': final_lang, 'thumbnail': thumb
+                            'language': final_lang, 'thumbnail': thumb, 'is_priority_alert': is_priority
                         })
         except Exception:
             pass
@@ -443,23 +463,19 @@ async def fetch_social_target(client, semaphore, target, limit=25):
                         pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                     if clean_title and link:
-                        threat, kw_badge, final_lang = analyze_multilingual_threat(clean_title, feed_lang)
+                        threat, kw_badge, final_lang, is_priority = analyze_multilingual_threat(clean_title, feed_lang)
                         items.append({
                             'title': clean_title, 'link': link, 'source': 'X (Twitter)', 'handle': handle, 
                             'continent': continent, 'country': country, 'category': category, 
                             'feed_type': 'SOCIAL', 'published_date': pub_date, 
                             'keyword': kw_badge or f"Account: {handle}", 
-                            'threat_level': threat, 'language': final_lang, 'thumbnail': thumb
+                            'threat_level': threat, 'language': final_lang, 'thumbnail': thumb, 'is_priority_alert': is_priority
                         })
         except Exception:
             pass
     return items
 
-# ==============================================================================
-# ON-DEMAND LIVE DEEP SEARCH SWEEPER
-# ==============================================================================
 async def perform_live_on_demand_sweep(query_term: str):
-    """Executes a real-time live Google News search, indexes everything found, and guarantees fresh intel."""
     if not query_term or len(query_term.strip()) < 2: return
     encoded_q = urllib.parse.quote(query_term.strip())
     search_url = f"https://news.google.com/rss/search?q={encoded_q}+when:7d&hl=en-US&gl=US&ceid=US:en"
@@ -484,13 +500,13 @@ async def perform_live_on_demand_sweep(query_term: str):
                         pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     if title and link:
-                        threat, kw_badge, _ = analyze_multilingual_threat(title, "English")
+                        threat, kw_badge, _, is_priority = analyze_multilingual_threat(title, "English")
                         items.append({
                             'title': title, 'link': link, 'source': source_name, 'handle': 'N/A',
                             'continent': 'Global', 'country': 'Global', 'category': 'ALL',
                             'feed_type': 'PUBLISHER', 'published_date': pub_date,
                             'keyword': f"Live Match: {query_term}", 'threat_level': threat,
-                            'language': 'English', 'thumbnail': thumb
+                            'language': 'English', 'thumbnail': thumb, 'is_priority_alert': is_priority
                         })
                 await asyncio.to_thread(save_items_bulk, items)
         except Exception as e:
@@ -540,9 +556,16 @@ async def async_sweep_controller(silent=False):
     await manager.broadcast(json.dumps({"event": event_start}))
 
     try:
-        total_added = await run_fast_sweep()
+        total_added, priority_found, priority_title = await run_fast_sweep()
         timestamp = datetime.now().strftime("%I:%M %p")
-        await manager.broadcast(json.dumps({"event": "new_intel", "count": total_added, "silent": silent, "time": timestamp}))
+        await manager.broadcast(json.dumps({
+            "event": "new_intel", 
+            "count": total_added, 
+            "silent": silent, 
+            "time": timestamp,
+            "priority_alert": priority_found,
+            "alert_title": priority_title
+        }))
     except Exception as e:
         logger.error(f"Sweep failure: {e}")
         await manager.broadcast(json.dumps({"event": "sync_error"}))
@@ -571,7 +594,40 @@ def read_root():
     raise HTTPException(status_code=404, detail="index.html not found")
 
 @app.get("/api/ping")
-def ping(): return {"status": "operational", "engine": "Telemetry Core 40.0"}
+def ping(): return {"status": "operational", "engine": "Telemetry Core 41.0"}
+
+# ------------------------------------------------------------------------------
+# 🕵️ HIDDEN ADMIN HEALTH ENDPOINT (Per Josiah's Request)
+# Access this at: https://your-link.onrender.com/admin/health
+# ------------------------------------------------------------------------------
+@app.get("/admin/health")
+def admin_health_check():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT source, MAX(published_date) as last_seen, COUNT(*) as total_articles 
+        FROM news 
+        GROUP BY source 
+        ORDER BY last_seen DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    health_data = []
+    for r in rows:
+        health_data.append({
+            "source": r["source"],
+            "last_seen_date": str(r["last_seen"]),
+            "total_articles_indexed": r["total_articles"],
+            "status": "Healthy / Ingesting" if r["last_seen"] else "Awaiting Data"
+        })
+    
+    return {
+        "engine_status": "ONLINE & SCRAPING",
+        "total_monitored_sources": len(MASTER_CATALOG) + len(SOCIAL_CATALOG),
+        "source_health_logs": health_data
+    }
+# ------------------------------------------------------------------------------
 
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
@@ -606,7 +662,6 @@ async def get_news(
     page: int = Query(1), 
     limit: int = Query(30)
 ):
-    # HYBRID ON-DEMAND SWEEP: If user enters an explicit search query, trigger live web indexer
     if q and page == 1:
         await perform_live_on_demand_sweep(q)
 
@@ -614,47 +669,62 @@ async def get_news(
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    query = "SELECT * FROM news WHERE 1=1"
+    # 🔄 SOURCE DIVERSITY SORTING (Interleaves publishers so one doesn't dominate)
+    base_query = """
+        WITH ranked_news AS (
+            SELECT *,
+                   ROW_NUMBER() OVER (PARTITION BY source ORDER BY published_date DESC) as source_rank
+            FROM news
+            WHERE 1=1
+    """
     params = []
     
-    if category.upper() != "ALL": query += " AND category = %s"; params.append(category.upper())
-    if feed_type.upper() != "ALL": query += " AND feed_type = %s"; params.append(feed_type.upper())
+    if category.upper() != "ALL": base_query += " AND category = %s"; params.append(category.upper())
+    if feed_type.upper() != "ALL": base_query += " AND feed_type = %s"; params.append(feed_type.upper())
 
     if publisher != "All" and handle != "All":
-        query += " AND (source = %s OR handle = %s)"
+        base_query += " AND (source = %s OR handle = %s)"
         params.extend([publisher, handle])
     elif publisher != "All":
-        query += " AND source = %s"
+        base_query += " AND source = %s"
         params.append(publisher)
     elif handle != "All":
-        query += " AND handle = %s"
+        base_query += " AND handle = %s"
         params.append(handle)
         
-    if continent != "All": query += " AND continent = %s"; params.append(continent)
-    if country != "All": query += " AND country = %s"; params.append(country)
-    if language != "All": query += " AND language = %s"; params.append(language)
+    if continent != "All": base_query += " AND continent = %s"; params.append(continent)
+    if country != "All": base_query += " AND country = %s"; params.append(country)
+    if language != "All": base_query += " AND language = %s"; params.append(language)
     
     if exclude_uae_red:
-        query += " AND NOT (country = 'UAE' AND category = 'RED')"
+        base_query += " AND NOT (country = 'UAE' AND category = 'RED')"
         
     if uae_bilateral:
-        query += " AND (country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%') AND category = 'GENERAL'"
+        base_query += " AND (country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%') AND category = 'GENERAL'"
 
     if start_date or end_date:
-        if start_date: query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
-        if end_date: query += " AND published_date <= %s::timestamp"; params.append(f"{end_date} 23:59:59")
+        if start_date: base_query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
+        if end_date: base_query += " AND published_date <= %s::timestamp"; params.append(f"{end_date} 23:59:59")
     else:
         time_mappings = {"1h": "1 hour", "4h": "4 hours", "8h": "8 hours", "12h": "12 hours", "1d": "1 day", "3d": "3 days", "7d": "7 days", "14d": "14 days", "30d": "30 days"}
-        if time_filter in time_mappings: query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
+        if time_filter in time_mappings: base_query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
 
     if q:
-        query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
+        base_query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
         params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
         
-    query += " ORDER BY published_date DESC, id DESC LIMIT %s OFFSET %s"
+    base_query += """
+        )
+        SELECT * FROM ranked_news 
+        ORDER BY 
+            CASE WHEN threat_level = 'PRIORITY_1' THEN 0 ELSE 1 END,
+            source_rank ASC, 
+            published_date DESC 
+        LIMIT %s OFFSET %s
+    """
     params.extend([limit, offset])
     
-    cursor.execute(query, params)
+    cursor.execute(base_query, params)
     rows = cursor.fetchall()
     conn.close()
     
@@ -662,6 +732,7 @@ async def get_news(
     for row in rows:
         r = dict(row)
         if isinstance(r.get('published_date'), datetime): r['published_date'] = r['published_date'].strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(r.get('fetched_at'), datetime): r['fetched_at'] = r['fetched_at'].strftime("%Y-%m-%d %H:%M:%S")
         results.append(r)
     return results
 
@@ -703,7 +774,7 @@ def get_stats():
     rows = cursor.fetchall()
     cursor.execute("SELECT COUNT(*) FROM news")
     total_intel = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL'")
+    cursor.execute("SELECT COUNT(*) FROM news WHERE threat_level = 'CRITICAL' OR threat_level = 'PRIORITY_1'")
     critical_threats = cursor.fetchone()[0]
     conn.close()
     
