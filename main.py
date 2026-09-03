@@ -21,7 +21,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="42.0 - Final Production Core")
+app = FastAPI(title="Global Geopolitical Command Center", version="42.5 - Dynamic Alert Routing")
 
 app.add_middleware(
     CORSMiddleware,
@@ -334,12 +334,13 @@ def analyze_multilingual_threat(title: str, feed_lang: str):
     return level, (f"Matched: '{matched_keyword}'" if matched_keyword else ""), feed_lang, False
 
 def save_items_bulk(items):
-    if not items: return 0, False, None
+    if not items: return 0, False, None, None
     conn = get_db_connection()
     c = conn.cursor()
     added = 0
     priority_found = False
     priority_title = None
+    priority_link = None
     now_iso = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     for item in items:
@@ -370,10 +371,11 @@ def save_items_bulk(items):
                 if item.get('is_priority_alert'):
                     priority_found = True
                     priority_title = item['title']
+                    priority_link = item['link']
         except Exception:
             pass
     conn.close()
-    return added, priority_found, priority_title
+    return added, priority_found, priority_title, priority_link
 
 async def fetch_publisher_feed(client, semaphore, publisher, limit=50):
     items = []
@@ -548,7 +550,7 @@ async def async_sweep_controller(silent=False):
     await manager.broadcast(json.dumps({"event": event_start}))
 
     try:
-        total_added, priority_found, priority_title = await run_fast_sweep()
+        total_added, priority_found, priority_title, priority_link = await run_fast_sweep()
         timestamp = datetime.now().strftime("%I:%M %p")
         await manager.broadcast(json.dumps({
             "event": "new_intel", 
@@ -556,7 +558,8 @@ async def async_sweep_controller(silent=False):
             "silent": silent, 
             "time": timestamp,
             "priority_alert": priority_found,
-            "alert_title": priority_title
+            "alert_title": priority_title,
+            "alert_link": priority_link
         }))
     except Exception as e:
         logger.error(f"Sweep failure: {e}")
@@ -583,7 +586,7 @@ def read_root():
     raise HTTPException(status_code=404, detail="index.html not found")
 
 @app.get("/api/ping")
-def ping(): return {"status": "operational", "engine": "Telemetry Core 42.0"}
+def ping(): return {"status": "operational", "engine": "Telemetry Core 42.5"}
 
 @app.get("/admin/health", response_class=HTMLResponse)
 def admin_health_check():
