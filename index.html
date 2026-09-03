@@ -298,14 +298,24 @@
             } catch(e) {}
         }
 
+        // ==========================================
+        // UPGRADED NOTIFICATION FIX (CLICKABLE TAB)
+        // ==========================================
         function triggerDesktopNotification(headline) {
             if ("Notification" in window && Notification.permission === "granted") {
-                new Notification("🚨 TIER 1 ALERT: Priority Match", {
+                const notification = new Notification("🚨 TIER 1 ALERT: Priority Match", {
                     body: headline,
                     icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png"
                 });
+                
+                // This forces the browser tab into focus when clicked
+                notification.onclick = function() {
+                    window.focus(); 
+                    this.close();   
+                };
             }
         }
+        // ==========================================
 
         function writeTerminal(msg, type='info') {
             const term = document.getElementById('terminal-log');
