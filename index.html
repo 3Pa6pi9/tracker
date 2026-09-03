@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intel Command Center • Global Telemetry & Intelligence Engine</title>
+    <title>Intel Command Center • Global Telemetry Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -14,9 +14,7 @@
                     colors: {
                         dark: '#030712',
                         card: '#0f172a',
-                        cardhover: '#1e293b',
-                        bordercolor: '#1e293b',
-                        terminal: '#020617'
+                        bordercolor: '#1e293b'
                     }
                 }
             }
@@ -29,7 +27,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
         .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 40s linear infinite; padding-left: 100%; }
-        .critical-glow { box-shadow: 0 0 18px rgba(239, 68, 68, 0.25); border: 1px solid rgba(239, 68, 68, 0.6) !important; }
+        .critical-glow { box-shadow: 0 0 18px rgba(239, 68, 68, 0.35); border: 1px solid rgba(239, 68, 68, 0.8) !important; }
         #terminal-log::-webkit-scrollbar { width: 4px; }
         #terminal-log::-webkit-scrollbar-thumb { background: #10b981; border-radius: 4px; }
         .cursor-blink { animation: blink 1s step-end infinite; }
@@ -37,6 +35,16 @@
     </style>
 </head>
 <body class="bg-dark text-slate-300 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-600 selection:text-white relative overflow-x-hidden">
+
+    <!-- REQUIRED FOR AUDIO/NOTIFICATIONS TO WORK (Browser Security) -->
+    <div id="interaction-overlay" class="fixed inset-0 bg-dark/80 z-[100] flex flex-col items-center justify-center backdrop-blur-sm transition-opacity duration-500">
+        <div class="bg-card p-8 rounded-2xl border border-indigo-500/30 text-center shadow-[0_0_30px_rgba(79,70,229,0.15)]">
+            <span class="text-4xl mb-4 block">📡</span>
+            <h2 class="text-white text-lg font-bold tracking-wider mb-2">INITIALIZE COMMAND CENTER</h2>
+            <p class="text-xs text-slate-400 mb-6 max-w-sm">Click below to authenticate session and enable real-time tactical audio & desktop alerts for Priority 1 Threats.</p>
+            <button onclick="initializeSystem()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/25 active:scale-95">Acknowledge & Connect</button>
+        </div>
+    </div>
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
@@ -144,8 +152,6 @@
                     <button id="tab-red" onclick="switchCategory('RED')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔴 RED (Crisis)</button>
                     <button id="tab-general" onclick="switchCategory('GENERAL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-slate-900 text-slate-400 hover:bg-slate-800">🔵 GENERAL (Diplomacy)</button>
                 </div>
-                
-                <!-- Dynamic Context Buttons for Josiah's Mandates -->
                 <div id="dynamic-subfilters" class="flex flex-wrap gap-2 hidden">
                     <button id="btn-exclude-uae" onclick="toggleExcludeUae()" class="hidden px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:text-white">🚫 Exclude UAE</button>
                     <button id="btn-uae-bilateral" onclick="toggleUaeBilateral()" class="hidden px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:text-white">🤝 UAE Bilateral</button>
@@ -253,8 +259,9 @@
     </div>
 
     <script>
-        const API_BASE = "https://intel-engine-beta.onrender.com"; 
-        const WS_URL = "wss://intel-engine-beta.onrender.com/ws/news";
+        // DYNAMIC API BASE LOGIC
+        const API_BASE = window.location.origin; 
+        const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}/ws/news` : `ws://${window.location.host}/ws/news`;
 
         let currentCategory = 'ALL';
         let currentPlatform = 'ALL';
@@ -277,6 +284,7 @@
         let currentFetchedNews = [];
 
         const threatBadges = {
+            'PRIORITY_1': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white border border-red-500 shadow-[0_0_8px_rgba(220,38,38,0.6)] animate-pulse">🚨 PRIORITY 1</span>',
             'CRITICAL': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">🔴 CRITICAL</span>',
             'ELEVATED': '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">🟧 ELEVATED</span>',
             'INFORMATIONAL': ''
@@ -291,6 +299,43 @@
                 <div class="border-t border-slate-700/50 pt-3 mt-4 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div><div class="h-3 bg-slate-700/50 rounded w-1/5"></div></div>
             </div>`;
 
+        // -------------------------------------------------------------
+        // TACTICAL ALERT SYSTEM (Native Browser Audio Synthesis)
+        // -------------------------------------------------------------
+        function initializeSystem() {
+            document.getElementById('interaction-overlay').classList.add('opacity-0', 'pointer-events-none');
+            if ("Notification" in window && Notification.permission === "default") {
+                Notification.requestPermission();
+            }
+        }
+
+        function playRadarAlertSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); // B5 Note
+                osc.frequency.exponentialRampToValueAtTime(493.88, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } catch(e) {}
+        }
+
+        function triggerDesktopNotification(headline) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification("🚨 TIER 1 ALERT: Priority Match", {
+                    body: headline,
+                    icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png"
+                });
+            }
+        }
+        // -------------------------------------------------------------
+
         function writeTerminal(msg, type='info') {
             const term = document.getElementById('terminal-log');
             const time = new Date().toLocaleTimeString('en-US', {hour12:false});
@@ -298,6 +343,7 @@
             if(type === 'error') color = 'text-red-500';
             if(type === 'warn') color = 'text-amber-500';
             if(type === 'sys') color = 'text-indigo-400';
+            if(type === 'alert') color = 'text-red-600 font-bold';
             
             const line = document.createElement('div');
             line.className = `mb-1 ${color}`;
@@ -333,6 +379,8 @@
 
         function copyForPost(title, link, source, handle, threat, country, btnElement) {
             let threatIcon = threat === 'CRITICAL' ? '🔴 [CRITICAL INTEL]' : (threat === 'ELEVATED' ? '🟧 [ELEVATED INTEL]' : '🔵 [GENERAL INTEL]');
+            if (threat === 'PRIORITY_1') threatIcon = '🚨 [TIER 1 ALERT]';
+            
             let sourceText = (handle && handle !== 'N/A') ? `${source} (${handle})` : source;
             let postText = `${threatIcon} • ${country}\n📰 Source: ${sourceText}\n\n${title}\n\n🔗 ${link}`;
             
@@ -593,8 +641,18 @@
                     resetSyncButton();
                     document.getElementById('last-sync-badge').classList.remove('hidden');
                     document.getElementById('sync-time').innerText = data.time || "Just now";
-                    writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new items across all channels.`, "sys");
-                    showToast(`✅ Sweep complete: ${data.count} new items ingested.`, "success");
+                    
+                    // --- ALERT TRIGGER LOGIC ---
+                    if (data.priority_alert) {
+                        playRadarAlertSound();
+                        triggerDesktopNotification(data.alert_title || "Priority 1 Threat Activity Detected");
+                        writeTerminal(`🚨 TIER 1 ALERT DETECTED: Engine caught top priority signals!`, "alert");
+                        showToast(`🚨 TOP PRIORITY INTEL: Activity detected in current sweep!`, "error");
+                    } else {
+                        writeTerminal(`SWEEP COMPLETE: Ingested ${data.count} new items across all channels.`, "sys");
+                        showToast(`✅ Sweep complete: ${data.count} new items ingested.`, "success");
+                    }
+                    
                     fetchNews(true);
                     loadChartData();
                 }
@@ -685,7 +743,7 @@
 
                 data.forEach(item => {
                     const threatBadge = threatBadges[item.threat_level] || '';
-                    const isCritical = item.threat_level === "CRITICAL" ? "critical-glow" : "";
+                    const isCritical = (item.threat_level === "CRITICAL" || item.threat_level === "PRIORITY_1") ? "critical-glow" : "";
                     const dateObj = new Date(item.published_date || item.fetched_at);
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
@@ -771,14 +829,15 @@
 
         function updateLiveTicker(data) {
             const ticker = document.getElementById('news-ticker');
-            const criticals = data.filter(item => item.threat_level === 'CRITICAL').slice(0, 8);
+            const criticals = data.filter(item => item.threat_level === 'CRITICAL' || item.threat_level === 'PRIORITY_1').slice(0, 8);
             if(criticals.length === 0) {
                 ticker.innerHTML = "[STANDBY] NO CRITICAL THREAT SIGNALS IN CURRENT STREAM...";
                 return;
             }
             let tickerHTML = "";
             criticals.forEach(item => {
-                tickerHTML += `<span class="mx-6">♦ ${item.title.toUpperCase()} [${item.source.toUpperCase()}]</span>`;
+                let badge = item.threat_level === 'PRIORITY_1' ? '🚨' : '♦';
+                tickerHTML += `<span class="mx-6">${badge} ${item.title.toUpperCase()} [${item.source.toUpperCase()}]</span>`;
             });
             ticker.innerHTML = tickerHTML;
         }
@@ -799,7 +858,11 @@
                 text += "No records currently indexed under active parameters.";
             } else {
                 currentFetchedNews.slice(0, 20).forEach((item, idx) => {
-                    const threat = item.threat_level === "CRITICAL" ? "[🔴 CRITICAL] " : (item.threat_level === "ELEVATED" ? "[🟧 ELEVATED] " : "[🔵 INTEL] ");
+                    let threat = "[🔵 INTEL] ";
+                    if(item.threat_level === "CRITICAL") threat = "[🔴 CRITICAL] ";
+                    if(item.threat_level === "ELEVATED") threat = "[🟧 ELEVATED] ";
+                    if(item.threat_level === "PRIORITY_1") threat = "[🚨 TIER 1 ALERT] ";
+
                     const src = (item.feed_type === 'SOCIAL' && item.handle !== 'N/A') ? item.handle : item.source;
                     text += `${idx + 1}. ${threat}${item.title}\n`;
                     text += `   Channel: ${src} | Geo: ${item.country} | Lexicon: ${item.language}\n`;
