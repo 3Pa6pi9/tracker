@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from deep_translator import GoogleTranslator
 import psycopg2
 import psycopg2.extras
@@ -21,7 +21,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="41.5 - Global Omni-Language Deep Search")
+app = FastAPI(title="Global Geopolitical Command Center", version="42.0 - Final Production Core")
 
 app.add_middleware(
     CORSMiddleware,
@@ -126,7 +126,6 @@ TRANSLATION_CODES = {
 # MASTER CATALOG
 # ==============================================================================
 MASTER_CATALOG = [
-    # --- TARGETED AFRICA ---
     {"name": "Joy Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.myjoyonline.com/feed/"},
     {"name": "GhanaWeb", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:ghanaweb.com&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Citi Newsroom", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://citinewsroom.com/feed/"},
@@ -147,7 +146,6 @@ MASTER_CATALOG = [
     {"name": "BBC Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:bbc.com/amharic&hl=am&gl=ET&ceid=ET:am"},
     {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:fanabc.com&hl=am&gl=ET&ceid=ET:am"},
 
-    # --- EUROPE EXPANSION ---
     {"name": "ANSA", "continent": "Europe", "country": "Italy", "category": "ALL", "feed_type": "PUBLISHER", "language": "Italian", "url": "https://news.google.com/rss/search?q=site:ansa.it&hl=it&gl=IT&ceid=IT:it"},
     {"name": "B92", "continent": "Europe", "country": "Serbia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Bosnian", "url": "https://news.google.com/rss/search?q=site:b92.net&hl=sr&gl=RS&ceid=RS:sr"},
     {"name": "Index.hu", "continent": "Europe", "country": "Hungary", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://index.hu/24ora/rss/"},
@@ -158,7 +156,6 @@ MASTER_CATALOG = [
     {"name": "Kathimerini", "continent": "Europe", "country": "Greece", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.kathimerini.gr/world/rss"},
     {"name": "RTK", "continent": "Europe", "country": "Kosovo", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:rtklive.com&hl=sq&gl=AL&ceid=AL:sq"},
     
-    # --- MIDDLE EAST & YEMEN ---
     {"name": "MEMRI", "continent": "Middle East", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.memri.org/rss/english"},
     {"name": "SABA News", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.saba.ye/en/rss.xml"},
     {"name": "Al Masirah", "continent": "Middle East", "country": "Yemen", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=site:almasirah.net.ye&hl=ar&gl=YE&ceid=YE:ar"},
@@ -170,14 +167,12 @@ MASTER_CATALOG = [
     {"name": "NNA Lebanon", "continent": "Middle East", "country": "Lebanon", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:nna-leb.gov.lb&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Arab News", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.arabnews.com/cat/1/rss.xml"},
 
-    # --- STANDARD GLOBALS ---
     {"name": "The New York Times", "continent": "North America", "country": "United States", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"},
     {"name": "Reuters", "continent": "Global", "country": "Global", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:reuters.com+when:24h&hl=en-US&gl=US&ceid=US:en"},
     {"name": "BBC News", "continent": "Europe", "country": "United Kingdom", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "http://feeds.bbci.co.uk/news/world/rss.xml"},
     {"name": "Le Monde", "continent": "Europe", "country": "France", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "French", "url": "https://www.lemonde.fr/international/rss_full.xml"},
     {"name": "El País", "continent": "Europe", "country": "Spain", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Spanish", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/internacional/portada"},
 
-    # --- 24/7 TARGETED GLOBAL CRISIS SCANNERS ---
     {"name": "Global Intel: Muslim Brotherhood", "continent": "Global", "country": "Global", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=%22Muslim+Brotherhood%22+when:3d&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Global Intel: الإخوان المسلمين", "continent": "Middle East", "country": "Egypt", "category": "RED", "feed_type": "PUBLISHER", "language": "Arabic", "url": "https://news.google.com/rss/search?q=%D8%A7%D9%84%D8%A5%D8%AE%D9%88%D8%A7%D9%86+%D8%A7%D9%84%D9%85%D8%B3%D9%84%D9%85%D9%8A%D9%86+when:3d&hl=ar&gl=EG&ceid=EG:ar"},
     {"name": "Global Intel: CAIR", "continent": "North America", "country": "United States", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=%22Council+on+American-Islamic+Relations%22+OR+%22CAIR%22+when:3d&hl=en-US&gl=US&ceid=US:en"},
@@ -468,7 +463,6 @@ async def perform_live_on_demand_sweep(query_term: str, requested_lang: str = "A
     search_query = query_term
     target_code = "en"
     
-    # 🌐 1. Translate the search term BEFORE hitting Google News
     if requested_lang != "All" and requested_lang in TRANSLATION_CODES:
         try:
             target_code = TRANSLATION_CODES[requested_lang]
@@ -478,8 +472,6 @@ async def perform_live_on_demand_sweep(query_term: str, requested_lang: str = "A
             logger.error(f"Translation failed in sweep: {e}")
 
     encoded_q = urllib.parse.quote(search_query.strip())
-    
-    # 🌐 2. Tell Google News to search in that specific language!
     search_url = f"https://news.google.com/rss/search?q={encoded_q}+when:7d&hl={target_code}"
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
@@ -502,7 +494,6 @@ async def perform_live_on_demand_sweep(query_term: str, requested_lang: str = "A
                         pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     if title and link:
-                        # 🌐 3. Save the article under the requested language, not "English"
                         saved_lang = requested_lang if requested_lang != "All" else "English"
                         threat, kw_badge, _, is_priority = analyze_multilingual_threat(title, saved_lang)
                         items.append({
@@ -592,9 +583,9 @@ def read_root():
     raise HTTPException(status_code=404, detail="index.html not found")
 
 @app.get("/api/ping")
-def ping(): return {"status": "operational", "engine": "Telemetry Core 41.5"}
+def ping(): return {"status": "operational", "engine": "Telemetry Core 42.0"}
 
-@app.get("/admin/health")
+@app.get("/admin/health", response_class=HTMLResponse)
 def admin_health_check():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -607,20 +598,63 @@ def admin_health_check():
     rows = cursor.fetchall()
     conn.close()
     
-    health_data = []
-    for r in rows:
-        health_data.append({
-            "source": r["source"],
-            "last_seen_date": str(r["last_seen"]),
-            "total_articles_indexed": r["total_articles"],
-            "status": "Healthy / Ingesting" if r["last_seen"] else "Awaiting Data"
-        })
+    total_sources = len(MASTER_CATALOG) + len(SOCIAL_CATALOG)
     
-    return {
-        "engine_status": "ONLINE & SCRAPING",
-        "total_monitored_sources": len(MASTER_CATALOG) + len(SOCIAL_CATALOG),
-        "source_health_logs": health_data
-    }
+    rows_html = ""
+    for r in rows:
+        status_color = "text-emerald-400" if r["last_seen"] else "text-amber-400"
+        status_text = "Healthy / Ingesting" if r["last_seen"] else "Awaiting Data"
+        rows_html += f"""
+            <tr class="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
+                <td class="p-3 font-semibold text-slate-200">{r["source"]}</td>
+                <td class="p-3 text-slate-400 font-mono text-xs">{r["last_seen"]}</td>
+                <td class="p-3 text-indigo-300 font-mono">{r["total_articles"]}</td>
+                <td class="p-3 font-bold {status_color} text-[10px] tracking-wider uppercase">{status_text}</td>
+            </tr>
+        """
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en" class="dark">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>System Health • Intel Engine</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-[#030712] text-slate-300 font-sans p-8 selection:bg-indigo-600 selection:text-white">
+        <div class="max-w-5xl mx-auto">
+            <div class="flex items-center justify-between mb-8 border-b border-slate-800 pb-4">
+                <div>
+                    <h1 class="text-2xl font-black text-white tracking-wider flex items-center gap-3">
+                        <span class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse block"></span>
+                        SYSTEM HEALTH & TELEMETRY
+                    </h1>
+                    <p class="text-slate-500 text-xs mt-1 font-mono">ENGINE STATUS: ONLINE & SCRAPING | TARGETS: {total_sources}</p>
+                </div>
+                <button onclick="window.location.href='/'" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all border border-slate-700 shadow-md">← Back to Dashboard</button>
+            </div>
+            
+            <div class="bg-[#0f172a] rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/80 border-b border-slate-800 text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                            <th class="p-4">Monitored Source</th>
+                            <th class="p-4">Last Ingestion Time</th>
+                            <th class="p-4">Total Indexed Records</th>
+                            <th class="p-4">Status Node</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html_content
 
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
@@ -703,8 +737,6 @@ async def get_news(
 
     if q:
         search_terms = [q]
-        
-        # 🌐 MAGIC AUTO-TRANSLATOR
         if language != "All" and language in TRANSLATION_CODES:
             try:
                 target_code = TRANSLATION_CODES[language]
