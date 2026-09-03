@@ -21,7 +21,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="41.0 - Admin, Alerts & Auto-Translate")
+app = FastAPI(title="Global Geopolitical Command Center", version="41.5 - Global Omni-Language Deep Search")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +38,7 @@ DATABASE_URL = os.getenv(
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
 # ==============================================================================
-# TIER 1 PRIORITY ALERT KEYWORDS (Triggers Audio & Push Notifications)
+# TIER 1 PRIORITY ALERT KEYWORDS
 # ==============================================================================
 PRIORITY_ALERT_KEYWORDS = [
     "muslim brotherhood", 
@@ -114,7 +114,7 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# LANGUAGE CODES FOR AUTO-TRANSLATION
+# LANGUAGE CODES FOR AUTO-TRANSLATION & DEEP SEARCH
 # ==============================================================================
 TRANSLATION_CODES = {
     "Arabic": "ar", "Amharic": "am", "French": "fr", "Spanish": "es",
@@ -144,6 +144,8 @@ MASTER_CATALOG = [
     {"name": "Mada Masr", "continent": "Africa", "country": "Egypt", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.madamasr.com/en/feed/"},
     {"name": "Premium Times", "continent": "Africa", "country": "Nigeria", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.premiumtimesng.com/feed"},
     {"name": "Borkena", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://borkena.com/feed/"},
+    {"name": "BBC Amharic", "continent": "Africa", "country": "Ethiopia", "category": "ALL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:bbc.com/amharic&hl=am&gl=ET&ceid=ET:am"},
+    {"name": "Fana Broadcasting", "continent": "Africa", "country": "Ethiopia", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "Amharic", "url": "https://news.google.com/rss/search?q=site:fanabc.com&hl=am&gl=ET&ceid=ET:am"},
 
     # --- EUROPE EXPANSION ---
     {"name": "ANSA", "continent": "Europe", "country": "Italy", "category": "ALL", "feed_type": "PUBLISHER", "language": "Italian", "url": "https://news.google.com/rss/search?q=site:ansa.it&hl=it&gl=IT&ceid=IT:it"},
@@ -460,10 +462,25 @@ async def fetch_social_target(client, semaphore, target, limit=25):
             pass
     return items
 
-async def perform_live_on_demand_sweep(query_term: str):
+async def perform_live_on_demand_sweep(query_term: str, requested_lang: str = "All"):
     if not query_term or len(query_term.strip()) < 2: return
-    encoded_q = urllib.parse.quote(query_term.strip())
-    search_url = f"https://news.google.com/rss/search?q={encoded_q}+when:7d&hl=en-US&gl=US&ceid=US:en"
+    
+    search_query = query_term
+    target_code = "en"
+    
+    # 🌐 1. Translate the search term BEFORE hitting Google News
+    if requested_lang != "All" and requested_lang in TRANSLATION_CODES:
+        try:
+            target_code = TRANSLATION_CODES[requested_lang]
+            translated_q = GoogleTranslator(source='auto', target=target_code).translate(query_term)
+            if translated_q: search_query = translated_q
+        except Exception as e:
+            logger.error(f"Translation failed in sweep: {e}")
+
+    encoded_q = urllib.parse.quote(search_query.strip())
+    
+    # 🌐 2. Tell Google News to search in that specific language!
+    search_url = f"https://news.google.com/rss/search?q={encoded_q}+when:7d&hl={target_code}"
     
     async with httpx.AsyncClient(headers={"User-Agent": USER_AGENT}) as client:
         try:
@@ -485,13 +502,15 @@ async def perform_live_on_demand_sweep(query_term: str):
                         pub_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     
                     if title and link:
-                        threat, kw_badge, _, is_priority = analyze_multilingual_threat(title, "English")
+                        # 🌐 3. Save the article under the requested language, not "English"
+                        saved_lang = requested_lang if requested_lang != "All" else "English"
+                        threat, kw_badge, _, is_priority = analyze_multilingual_threat(title, saved_lang)
                         items.append({
                             'title': title, 'link': link, 'source': source_name, 'handle': 'N/A',
                             'continent': 'Global', 'country': 'Global', 'category': 'ALL',
                             'feed_type': 'PUBLISHER', 'published_date': pub_date,
-                            'keyword': f"Live Match: {query_term}", 'threat_level': threat,
-                            'language': 'English', 'thumbnail': thumb, 'is_priority_alert': is_priority
+                            'keyword': f"Live Match: {search_query}", 'threat_level': threat,
+                            'language': saved_lang, 'thumbnail': thumb, 'is_priority_alert': is_priority
                         })
                 await asyncio.to_thread(save_items_bulk, items)
         except Exception as e:
@@ -573,7 +592,7 @@ def read_root():
     raise HTTPException(status_code=404, detail="index.html not found")
 
 @app.get("/api/ping")
-def ping(): return {"status": "operational", "engine": "Telemetry Core 41.0"}
+def ping(): return {"status": "operational", "engine": "Telemetry Core 41.5"}
 
 @app.get("/admin/health")
 def admin_health_check():
@@ -637,7 +656,7 @@ async def get_news(
     limit: int = Query(30)
 ):
     if q and page == 1:
-        await perform_live_on_demand_sweep(q)
+        await perform_live_on_demand_sweep(q, language)
 
     offset = (page - 1) * limit
     conn = get_db_connection()
