@@ -298,24 +298,23 @@
             } catch(e) {}
         }
 
-        // ==========================================
-        // UPGRADED NOTIFICATION FIX (CLICKABLE TAB)
-        // ==========================================
-        function triggerDesktopNotification(headline) {
+        function triggerDesktopNotification(headline, link) {
             if ("Notification" in window && Notification.permission === "granted") {
                 const notification = new Notification("🚨 TIER 1 ALERT: Priority Match", {
                     body: headline,
                     icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png"
                 });
                 
-                // This forces the browser tab into focus when clicked
                 notification.onclick = function() {
-                    window.focus(); 
+                    if (link) {
+                        window.open(link, '_blank');
+                    } else {
+                        window.focus(); 
+                    }
                     this.close();   
                 };
             }
         }
-        // ==========================================
 
         function writeTerminal(msg, type='info') {
             const term = document.getElementById('terminal-log');
@@ -625,7 +624,7 @@
                     
                     if (data.priority_alert) {
                         playRadarAlertSound();
-                        triggerDesktopNotification(data.alert_title || "Priority 1 Threat Activity Detected");
+                        triggerDesktopNotification(data.alert_title || "Priority 1 Threat Activity Detected", data.alert_link);
                         writeTerminal(`🚨 TIER 1 ALERT DETECTED: Engine caught top priority signals!`, "alert");
                         showToast(`🚨 TOP PRIORITY INTEL: Activity detected in current sweep!`, "error");
                     } else {
