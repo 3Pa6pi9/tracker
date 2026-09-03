@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
+from deep_translator import GoogleTranslator
 import psycopg2
 import psycopg2.extras
 import uvicorn
@@ -20,7 +21,7 @@ import re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Global Geopolitical Command Center", version="41.0 - Admin & Priority Alerts")
+app = FastAPI(title="Global Geopolitical Command Center", version="41.0 - Admin, Alerts & Auto-Translate")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,7 +48,7 @@ PRIORITY_ALERT_KEYWORDS = [
 ]
 
 # ==============================================================================
-# EXPANDED 14-LANGUAGE LEXICON (Standard Priorities)
+# EXPANDED 14-LANGUAGE LEXICON
 # ==============================================================================
 MULTILINGUAL_LEXICON = {
     "English": {
@@ -113,7 +114,16 @@ MULTILINGUAL_LEXICON = {
 }
 
 # ==============================================================================
-# MASTER CATALOG (COMPREHENSIVE GLOBAL & TARGETED ASSET FEEDS)
+# LANGUAGE CODES FOR AUTO-TRANSLATION
+# ==============================================================================
+TRANSLATION_CODES = {
+    "Arabic": "ar", "Amharic": "am", "French": "fr", "Spanish": "es",
+    "Russian": "ru", "Italian": "it", "Portuguese": "pt", "Hebrew": "iw",
+    "Bosnian": "bs", "Danish": "da", "Mandarin": "zh-CN"
+}
+
+# ==============================================================================
+# MASTER CATALOG
 # ==============================================================================
 MASTER_CATALOG = [
     # --- TARGETED AFRICA ---
@@ -172,18 +182,12 @@ MASTER_CATALOG = [
     {"name": "Global Intel: Sudan Conflict", "continent": "Africa", "country": "Sudan", "category": "RED", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=Sudan+(SAF+OR+RSF+OR+clashes)+when:3d&hl=en-US&gl=US&ceid=US:en"}
 ]
 
-# ==============================================================================
-# FULL DIPLOMATIC X/TWITTER REPOSITORY
-# ==============================================================================
 SOCIAL_CATALOG = [
-    # US
     {"handle": "@POTUS", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
     {"handle": "@VP", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
     {"handle": "@SecRubio", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
     {"handle": "@marcorubio", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
     {"handle": "@StateDept", "continent": "North America", "country": "United States", "category": "ALL", "language": "English"},
-    
-    # Africa
     {"handle": "@WilliamsRuto", "continent": "Africa", "country": "Kenya", "category": "GENERAL", "language": "English"},
     {"handle": "@PaulKagame", "continent": "Africa", "country": "Rwanda", "category": "GENERAL", "language": "English"},
     {"handle": "@CyrilRamaphosa", "continent": "Africa", "country": "South Africa", "category": "GENERAL", "language": "English"},
@@ -197,8 +201,6 @@ SOCIAL_CATALOG = [
     {"handle": "@NigeriaMFA", "continent": "Africa", "country": "Nigeria", "category": "GENERAL", "language": "English"},
     {"handle": "@MFAEgOfficial", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "language": "Arabic"},
     {"handle": "@MfaEgypt", "continent": "Africa", "country": "Egypt", "category": "GENERAL", "language": "Arabic"},
-
-    # Europe
     {"handle": "@EmmanuelMacron", "continent": "Europe", "country": "France", "category": "GENERAL", "language": "French"},
     {"handle": "@GiorgiaMeloni", "continent": "Europe", "country": "Italy", "category": "GENERAL", "language": "Italian"},
     {"handle": "@sanchezcastejon", "continent": "Europe", "country": "Spain", "category": "GENERAL", "language": "Spanish"},
@@ -210,8 +212,6 @@ SOCIAL_CATALOG = [
     {"handle": "@GermanyDiplo", "continent": "Europe", "country": "Germany", "category": "GENERAL", "language": "English"},
     {"handle": "@Ed_Miliband", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL", "language": "English"},
     {"handle": "@FCDOGovUK", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL", "language": "English"},
-
-    # Middle East
     {"handle": "@SabaNet", "continent": "Middle East", "country": "Yemen", "category": "RED", "language": "Arabic"},
     {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
     {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
@@ -233,9 +233,6 @@ SOCIAL_CATALOG = [
     {"handle": "@MFATurkiye", "continent": "Middle East", "country": "Turkey", "category": "RED", "language": "Turkish"}
 ]
 
-# ==============================================================================
-# DATABASE LAYER
-# ==============================================================================
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.DictCursor)
     conn.autocommit = True
@@ -265,7 +262,6 @@ def init_db():
                 threat_level TEXT DEFAULT 'INFORMATIONAL'
             )
         ''')
-        
         c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='news'")
         existing_cols = [row[0] for row in c.fetchall()]
         if "continent" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN continent TEXT DEFAULT 'Global'")
@@ -277,11 +273,8 @@ def init_db():
         if "threat_level" not in existing_cols: c.execute("ALTER TABLE news ADD COLUMN threat_level TEXT DEFAULT 'INFORMATIONAL'")
         
         c.execute('CREATE INDEX IF NOT EXISTS idx_cat_src_cont_lang ON news (category, source, feed_type, language, continent, published_date);')
-        
-        # Purge Al Jazeera per strict directive
         c.execute("DELETE FROM news WHERE source ILIKE '%Al Jazeera%' OR handle ILIKE '%AJBreaking%'")
         
-        # Retroactive Matrix Healing
         for pub in MASTER_CATALOG:
             c.execute("UPDATE news SET language = %s, continent = %s, country = %s, category = %s, feed_type = %s WHERE source = %s", 
                       (pub["language"], pub["continent"], pub["country"], pub["category"], pub["feed_type"], pub["name"]))
@@ -293,9 +286,6 @@ def init_db():
     except Exception as e:
         logger.error(f"Database init error: {e}")
 
-# ==============================================================================
-# MEDIA & THREAT PARSER (WITH TIER 1 ALERT OVERRIDE)
-# ==============================================================================
 def extract_thumbnail(entry_obj):
     if isinstance(entry_obj, dict):
         if entry_obj.get("thumbnail") and isinstance(entry_obj["thumbnail"], str): return entry_obj["thumbnail"]
@@ -323,12 +313,10 @@ def extract_thumbnail(entry_obj):
 def analyze_multilingual_threat(title: str, feed_lang: str):
     t_lower = title.lower()
     
-    # 🚨 TIER 1 PRIORITY OVERRIDE
     is_priority_alert = any(kw in t_lower for kw in PRIORITY_ALERT_KEYWORDS)
     if is_priority_alert:
         return "PRIORITY_1", "⚠️ TIER 1 MATCH", feed_lang, True
 
-    # Standard Parsing
     matched_keyword = ""
     heat_score = 0
     for lang, dicts in MULTILINGUAL_LEXICON.items():
@@ -390,9 +378,6 @@ def save_items_bulk(items):
     conn.close()
     return added, priority_found, priority_title
 
-# ==============================================================================
-# MAXIMUM CONCURRENCY HARVESTERS
-# ==============================================================================
 async def fetch_publisher_feed(client, semaphore, publisher, limit=50):
     items = []
     async with semaphore:
@@ -512,9 +497,6 @@ async def perform_live_on_demand_sweep(query_term: str):
         except Exception as e:
             logger.error(f"Live on-demand sweep error for query '{query_term}': {e}")
 
-# ==============================================================================
-# WEBSOCKET & BACKGROUND SWEEP CONTROLLER
-# ==============================================================================
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -574,7 +556,7 @@ async def async_sweep_controller(silent=False):
 
 async def background_loop():
     while True:
-        await asyncio.sleep(600)  # Continuous refresh every 10 mins
+        await asyncio.sleep(600)
         await async_sweep_controller(silent=True)
 
 @app.on_event("startup")
@@ -583,9 +565,6 @@ async def startup_event():
     asyncio.create_task(background_loop())
     asyncio.create_task(async_sweep_controller(silent=True))
 
-# ==============================================================================
-# REST API ENDPOINTS
-# ==============================================================================
 @app.get("/", response_class=FileResponse)
 def read_root():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -596,10 +575,6 @@ def read_root():
 @app.get("/api/ping")
 def ping(): return {"status": "operational", "engine": "Telemetry Core 41.0"}
 
-# ------------------------------------------------------------------------------
-# 🕵️ HIDDEN ADMIN HEALTH ENDPOINT (Per Josiah's Request)
-# Access this at: https://your-link.onrender.com/admin/health
-# ------------------------------------------------------------------------------
 @app.get("/admin/health")
 def admin_health_check():
     conn = get_db_connection()
@@ -627,7 +602,6 @@ def admin_health_check():
         "total_monitored_sources": len(MASTER_CATALOG) + len(SOCIAL_CATALOG),
         "source_health_logs": health_data
     }
-# ------------------------------------------------------------------------------
 
 @app.websocket("/ws/news")
 async def websocket_endpoint(websocket: WebSocket):
@@ -669,7 +643,6 @@ async def get_news(
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 🔄 SOURCE DIVERSITY SORTING (Interleaves publishers so one doesn't dominate)
     base_query = """
         WITH ranked_news AS (
             SELECT *,
@@ -710,8 +683,24 @@ async def get_news(
         if time_filter in time_mappings: base_query += f" AND published_date >= NOW() - INTERVAL '{time_mappings[time_filter]}'"
 
     if q:
-        base_query += " AND (title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)"
-        params.extend([f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%"])
+        search_terms = [q]
+        
+        # 🌐 MAGIC AUTO-TRANSLATOR
+        if language != "All" and language in TRANSLATION_CODES:
+            try:
+                target_code = TRANSLATION_CODES[language]
+                translated_q = GoogleTranslator(source='auto', target=target_code).translate(q)
+                if translated_q and translated_q.lower() != q.lower():
+                    search_terms.append(translated_q)
+            except Exception as e:
+                logger.error(f"Translation failed: {e}")
+        
+        search_conditions = []
+        for term in search_terms:
+            search_conditions.append("(title ILIKE %s OR source ILIKE %s OR handle ILIKE %s OR keyword ILIKE %s)")
+            params.extend([f"%{term}%", f"%{term}%", f"%{term}%", f"%{term}%"])
+            
+        base_query += " AND (" + " OR ".join(search_conditions) + ")"
         
     base_query += """
         )
