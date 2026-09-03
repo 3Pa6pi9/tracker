@@ -36,7 +36,6 @@
 </head>
 <body class="bg-dark text-slate-300 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-600 selection:text-white relative overflow-x-hidden">
 
-    <!-- REQUIRED FOR AUDIO/NOTIFICATIONS TO WORK (Browser Security) -->
     <div id="interaction-overlay" class="fixed inset-0 bg-dark/80 z-[100] flex flex-col items-center justify-center backdrop-blur-sm transition-opacity duration-500">
         <div class="bg-card p-8 rounded-2xl border border-indigo-500/30 text-center shadow-[0_0_30px_rgba(79,70,229,0.15)]">
             <span class="text-4xl mb-4 block">📡</span>
@@ -48,7 +47,6 @@
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-3 pointer-events-none max-w-sm w-full"></div>
 
-    <!-- LIVE THREAT TICKER -->
     <div class="w-full bg-red-950/80 border-b border-red-900 overflow-hidden flex items-center h-8">
         <div class="px-3 bg-red-600 text-white text-[10px] font-black h-full flex items-center uppercase tracking-widest z-10 shadow-[5px_0_15px_rgba(0,0,0,0.5)] whitespace-nowrap">
             🔴 LIVE GLOBAL INTEL STREAM
@@ -60,7 +58,6 @@
         </div>
     </div>
 
-    <!-- EXECUTIVE BRIEFING MODAL -->
     <div id="briefing-modal" class="fixed inset-0 bg-dark/90 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden fade-in">
         <div class="bg-card border border-bordercolor rounded-2xl max-w-3xl w-full p-6 shadow-2xl relative flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
@@ -77,7 +74,6 @@
         </div>
     </div>
 
-    <!-- SYNC RADAR OVERLAY -->
     <div id="sync-overlay" class="fixed inset-0 bg-dark/95 backdrop-blur-md z-40 flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
         <div class="relative w-36 h-36 mb-6 flex items-center justify-center">
             <div class="absolute inset-0 rounded-full border border-indigo-500/20"></div>
@@ -93,7 +89,6 @@
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow">
         
-        <!-- HEADER & PRESENTATION CONTROLS -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-bordercolor pb-4 mb-6 gap-4">
             <div class="flex items-center space-x-3">
                 <div class="w-3 h-3 bg-emerald-500 rounded-full animate-ping"></div>
@@ -115,10 +110,8 @@
             </div>
         </header>
 
-        <!-- LIVE SYSTEM TERMINAL -->
         <div class="w-full bg-black/95 border border-slate-800 rounded-xl p-3 h-28 overflow-y-auto font-mono text-[10px] text-green-500 shadow-inner mb-6 flex flex-col" id="terminal-log"></div>
 
-        <!-- TELEMETRY GRIDS -->
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
             <div class="lg:col-span-3 bg-card/80 border border-bordercolor rounded-2xl p-4 h-60 relative shadow-xl backdrop-blur-md">
                 <canvas id="telemetryChart"></canvas>
@@ -143,9 +136,7 @@
             </div>
         </div>
 
-        <!-- CATEGORY & SUB-FILTER CONTROL BAR -->
         <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6 border-b border-bordercolor pb-4">
-            
             <div class="flex flex-col gap-2">
                 <div class="flex flex-wrap gap-2">
                     <button id="tab-all" onclick="switchCategory('ALL')" class="px-4 py-2 rounded-xl text-xs font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-500/20">🌐 ALL THREATS</button>
@@ -158,7 +149,6 @@
                 </div>
             </div>
 
-            <!-- Platform Switcher -->
             <div class="flex flex-wrap items-center bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 gap-1.5">
                 <span class="text-[10px] font-mono text-slate-500 px-2 font-bold uppercase">Platform:</span>
                 <button id="plat-all" onclick="switchPlatform('ALL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md">🌐 All</button>
@@ -170,9 +160,7 @@
             </div>
         </div>
 
-        <!-- ADVANCED SEARCH & FILTER CONSOLE -->
         <div class="bg-card/40 p-4 rounded-2xl border border-bordercolor mb-6 space-y-4">
-            
             <div class="relative">
                 <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Deep search ANY entity, event, or keyword across languages (e.g. Muslim Brotherhood, CAIR, ጦርነት, غزة, sanctions, @netanyahu)..." class="w-full bg-card text-white border border-slate-700/80 rounded-xl pl-4 pr-10 py-3 text-xs focus:outline-none focus:border-indigo-500 shadow-inner transition-colors">
                 <div id="search-spinner" class="absolute right-3 top-3 hidden">
@@ -180,47 +168,39 @@
                 </div>
             </div>
 
-            <!-- CASCADING GEOGRAPHIC SELECTORS -->
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 border-b border-slate-800 pb-4">
-                
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">1. Continent</label>
                     <select id="continentSelect" onchange="onContinentChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Continents</option>
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">2. Country / Region</label>
                     <select id="countrySelect" onchange="onCountryChange()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Countries</option>
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">3. Channel / Publisher</label>
                     <select id="publisherSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Sources</option>
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">4. Social Handle</label>
                     <select id="handleSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">All Social Handles & Desks</option>
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">5. Language</label>
                     <select id="languageSelect" onchange="applyFilters()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-inner font-semibold">
                         <option value="All">🌍 All Languages</option>
                     </select>
                 </div>
-
             </div>
 
-            <!-- TIME, DATE & RESET -->
             <div class="flex flex-wrap justify-between items-center gap-3 text-xs pt-1">
                 <div class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800" id="dateFilters">
                     <select id="timeFilterSelect" onchange="applyFilters()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-semibold shadow-inner">
@@ -233,9 +213,7 @@
                         <option value="3d">Past 3 Days</option>
                         <option value="7d">Past 7 Days</option>
                     </select>
-
                     <span class="text-slate-600 font-bold px-1 text-[10px]">OR</span>
-                    
                     <div class="flex items-center gap-1.5">
                         <input type="date" id="startDate" onchange="applyCustomDate()" class="bg-slate-900 text-slate-300 border border-slate-700 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 transition-colors [color-scheme:dark] shadow-inner cursor-pointer">
                         <span class="text-slate-500 font-bold">-</span>
@@ -243,12 +221,10 @@
                         <button onclick="clearCustomDate()" class="px-2.5 py-1 bg-slate-800 hover:bg-red-900/80 hover:text-red-400 text-slate-400 border border-slate-700 rounded-lg text-xs font-bold transition-colors shadow-md">&times;</button>
                     </div>
                 </div>
-
                 <button onclick="resetAllFilters()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg text-xs transition-colors font-bold">✖ Reset All Filters</button>
             </div>
         </div>
 
-        <!-- CARDS GRID -->
         <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
 
         <div class="flex justify-center mb-8">
@@ -259,7 +235,6 @@
     </div>
 
     <script>
-        // DYNAMIC API BASE LOGIC
         const API_BASE = window.location.origin; 
         const WS_URL = window.location.protocol === 'https:' ? `wss://${window.location.host}/ws/news` : `ws://${window.location.host}/ws/news`;
 
@@ -299,9 +274,6 @@
                 <div class="border-t border-slate-700/50 pt-3 mt-4 flex justify-between"><div class="h-3 bg-slate-700/50 rounded w-1/4"></div><div class="h-3 bg-slate-700/50 rounded w-1/5"></div></div>
             </div>`;
 
-        // -------------------------------------------------------------
-        // TACTICAL ALERT SYSTEM (Native Browser Audio Synthesis)
-        // -------------------------------------------------------------
         function initializeSystem() {
             document.getElementById('interaction-overlay').classList.add('opacity-0', 'pointer-events-none');
             if ("Notification" in window && Notification.permission === "default") {
@@ -315,7 +287,7 @@
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.type = "sine";
-                osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); // B5 Note
+                osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(493.88, audioCtx.currentTime + 0.4);
                 gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
@@ -334,7 +306,6 @@
                 });
             }
         }
-        // -------------------------------------------------------------
 
         function writeTerminal(msg, type='info') {
             const term = document.getElementById('terminal-log');
@@ -642,7 +613,6 @@
                     document.getElementById('last-sync-badge').classList.remove('hidden');
                     document.getElementById('sync-time').innerText = data.time || "Just now";
                     
-                    // --- ALERT TRIGGER LOGIC ---
                     if (data.priority_alert) {
                         playRadarAlertSound();
                         triggerDesktopNotification(data.alert_title || "Priority 1 Threat Activity Detected");
