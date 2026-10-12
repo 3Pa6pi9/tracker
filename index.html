@@ -916,5 +916,46 @@
         loadChartData();
         fetchNews(true);
     </script>
+
+<!-- Video Extraction Tool -->
+<div style="margin-top: 20px; padding: 20px; background: #1e293b; border-radius: 8px; max-width: 500px;">
+  <h3 style="color: white; margin-top: 0;">Extract Social Video</h3>
+  
+  <div style="display: flex; gap: 10px;">
+    <input type="text" id="video-url" placeholder="Paste X or Instagram link here" style="flex: 1; padding: 10px; border-radius: 6px; border: none;">
+    <button onclick="extractVideo()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;">
+      Extract
+    </button>
+  </div>
+  
+  <div id="video-result" style="margin-top: 20px; display: none;">
+    <video id="intel-video" controls style="width: 100%; border-radius: 8px; background: #000;"></video>
+    <a id="download-link" href="#" target="_blank" style="display: inline-block; margin-top: 10px; color: #60a5fa; text-decoration: none;">
+      Download MP4
+    </a>
+  </div>
+</div>
+
+<script>
+  async function extractVideo() {
+    const urlInput = document.getElementById("video-url").value;
+    if (!urlInput) return alert("Please paste a link first.");
+    
+    const response = await fetch("/api/videos/extract?post_url=" + encodeURIComponent(urlInput), {
+      method: "POST"
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === "success") {
+      document.getElementById("video-result").style.display = "block";
+      document.getElementById("intel-video").src = data.firebase_url;
+      document.getElementById("download-link").href = data.firebase_url;
+    } else {
+      alert("Extraction failed. Check the server logs.");
+    }
+  }
+</script>
+
 </body>
 </html>
