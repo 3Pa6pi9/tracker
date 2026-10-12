@@ -156,7 +156,7 @@
                 <button id="plat-soc" onclick="switchPlatform('SOCIAL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🐦 X (Twitter)</button>
                 <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
                 <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
-                <button id="plat-yt" onclick="switchPlatform('YOUTUBE')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ YouTube</button>
+                <button id="plat-yt" onclick="switchPlatform('SOCIAL_VIDEO')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ Extracted Videos</button>
             </div>
         </div>
 
@@ -439,7 +439,7 @@
                     (p === 'soc' && plat === 'SOCIAL') || 
                     (p === 'red' && plat === 'REDDIT') ||
                     (p === 'tel' && plat === 'TELEGRAM') ||
-                    (p === 'yt' && plat === 'YOUTUBE')) {
+                    (p === 'yt' && plat === 'SOCIAL_VIDEO')) {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white transition-all shadow-md";
                 } else {
                     btn.className = "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all";
@@ -741,7 +741,7 @@
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-orange-950/60 text-orange-300 border-orange-800/40">👾 ${item.source}</span>`;
                     } else if (item.feed_type === 'TELEGRAM') {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-sky-950/60 text-sky-300 border-sky-800/40">✈️ ${item.source}</span>`;
-                    } else if (item.feed_type === 'YOUTUBE') {
+                    } else if (item.feed_type === 'SOCIAL_VIDEO') {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-rose-950/60 text-rose-300 border-rose-800/40">▶️ ${item.source}</span>`;
                     } else {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
