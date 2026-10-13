@@ -156,7 +156,7 @@
                 <button id="plat-soc" onclick="switchPlatform('SOCIAL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🐦 X (Twitter)</button>
                 <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
                 <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
-                <button id="plat-yt" onclick="switchPlatform('SOCIAL_VIDEO')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ Extracted Videos</button>
+                <button id="plat-yt" onclick="switchFeedType('SOCIAL_VIDEO')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ Extracted Videos</button>
             </div>
         </div>
 
@@ -428,6 +428,14 @@
 
                 populatePublishersDropdown();
             } catch(e) {}
+        }
+
+        
+        let currentFeedType = 'ALL';
+        function switchFeedType(ft) {
+            currentFeedType = ft;
+            // Reset platform/category states if needed, then fetch
+            fetchNews(true);
         }
 
         function switchPlatform(plat) {
