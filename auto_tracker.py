@@ -48,7 +48,7 @@ async def scrape_social_videos():
                     if not clean_title:
                         clean_title = f"Video Dispatch • {source_name}"
 
-                    thumb_match = re.search(r'tgme_widget_message_video_thumb[^>]+background-image:url\('([^']+)'\)', block)
+                    thumb_match = re.search(r"tgme_widget_message_video_thumb[^>]+background-image:url\('([^']+)'\)", block)
                     thumb_url = thumb_match.group(1) if thumb_match else ""
 
                     matched_kw = ""
@@ -98,8 +98,7 @@ async def scrape_social_videos():
                     mp4_url = None
                     if media and "reddit_video" in media:
                         mp4_url = media["reddit_video"].get("fallback_url")
-                    
-                    # Also check if post links to an X/Twitter status and resolve via FxTwitter API
+
                     ext_url = post.get("url_overridden_by_dest", "")
                     if not mp4_url and ("x.com/" in ext_url or "twitter.com/" in ext_url) and "/status/" in ext_url:
                         tw_id = ext_url.split("/status/")[1].split("?")[0].split("/")[0]
