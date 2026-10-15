@@ -156,7 +156,7 @@
                 <button id="plat-soc" onclick="switchPlatform('SOCIAL')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">🐦 X (Twitter)</button>
                 <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
                 <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
-                <button id="plat-yt" onclick="switchFeedType('SOCIAL_VIDEO')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ Extracted Videos</button>
+                <button id="plat-yt" onclick="switchPlatform('SOCIAL_VIDEO')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ Extracted Videos</button>
             </div>
         </div>
 
@@ -758,11 +758,20 @@
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
                     
-                    const thumbnailHtml = item.thumbnail ? `
+                    const dlUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}`;
+                    const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
+                        <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner" draggable="true" ondragstart="event.dataTransfer.setData('DownloadURL', 'video/mp4:intel_video.mp4:' + '${dlUrl}')">
+                            <video controls preload="metadata" poster="${item.thumbnail || ''}" src="${item.link}" class="w-full h-44 object-cover bg-black"></video>
+                            <div class="flex items-center justify-between bg-slate-900/95 px-3 py-1.5 border-t border-slate-800">
+                                <span class="text-[10px] text-slate-400 font-mono">✋ Drag to Desktop</span>
+                                <a href="${dlUrl}" download="intel_video.mp4" class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1">⬇ Download MP4</a>
+                            </div>
+                        </div>
+                    ` : (item.thumbnail ? `
                         <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
                             <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
                         </div>
-                    ` : '';
+                    ` : '');
                     
                     const safeTitle = (item.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
                     const safeSource = (item.source || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -934,44 +943,6 @@
     </script>
 
 <!-- Video Extraction Tool -->
-<div style="margin-top: 20px; padding: 20px; background: #1e293b; border-radius: 8px; max-width: 500px;">
-  <h3 style="color: white; margin-top: 0;">Extract Social Video</h3>
-  
-  <div style="display: flex; gap: 10px;">
-    <input type="text" id="video-url" placeholder="Paste X or Instagram link here" style="flex: 1; padding: 10px; border-radius: 6px; border: none;">
-    <button onclick="extractVideo()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;">
-      Extract
-    </button>
-  </div>
-  
-  <div id="video-result" style="margin-top: 20px; display: none;">
-    <video id="intel-video" controls style="width: 100%; border-radius: 8px; background: #000;"></video>
-    <a id="download-link" href="#" target="_blank" style="display: inline-block; margin-top: 10px; color: #60a5fa; text-decoration: none;">
-      Download MP4
-    </a>
-  </div>
-</div>
-
-<script>
-  async function extractVideo() {
-    const urlInput = document.getElementById("video-url").value;
-    if (!urlInput) return alert("Please paste a link first.");
-    
-    const response = await fetch("/api/videos/extract?post_url=" + encodeURIComponent(urlInput), {
-      method: "POST"
-    });
-    
-    const data = await response.json();
-    
-    if (data.status === "success") {
-      document.getElementById("video-result").style.display = "block";
-      document.getElementById("intel-video").src = data.firebase_url;
-      document.getElementById("download-link").href = data.firebase_url;
-    } else {
-      alert("Extraction failed. Check the server logs.");
-    }
-  }
-</script>
 
 </body>
 </html>

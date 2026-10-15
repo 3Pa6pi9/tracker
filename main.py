@@ -680,6 +680,8 @@ async def trigger_manual_sync(background_tasks: BackgroundTasks):
     global is_syncing
     if is_syncing: return {"status": "Sync in progress"}
     background_tasks.add_task(async_sweep_controller, False)
+    from auto_tracker import run_social_video_sweep
+    background_tasks.add_task(run_social_video_sweep, True)
     return {"status": "Sweep triggered"}
 
 @app.get("/api/news")
@@ -882,6 +884,13 @@ def export_csv(
     response = StreamingResponse(iter([output.getvalue()]), media_type="text/csv")
     response.headers["Content-Disposition"] = f"attachment; filename=geopolitical_dossier_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     return response
+
+
+@app.on_event("startup")
+async def start_video_tracker():
+    import asyncio
+    from auto_tracker import run_social_video_sweep
+    asyncio.create_task(run_social_video_sweep(False))
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

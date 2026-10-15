@@ -1,35 +1,39 @@
 import yt_dlp
-import os
-from fastapi import APIRouter, BackgroundTasks
-from firebase_admin import storage
+import requests
+from fastapi import APIRouter, Query
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
-def fetch_and_upload_video(post_url: str):
-    # 1. Download to Render's temporary storage
+def extract_direct_video_info(post_url: str):
     ydl_opts = {
-        'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
-        'outtmpl': '/tmp/%(id)s.%(ext)s',
+        'format': 'best[ext=mp4]/best',
         'quiet': True,
+        'no_warnings': True,
+        'noplaylist': True,
     }
-    
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(post_url, download=True)
-        file_path = f"/tmp/{info['id']}.mp4"
-        file_name = f"{info['id']}.mp4"
-    
-    # 2. Upload to Firebase Storage for persistence
-    bucket = storage.bucket()
-    blob = bucket.blob(f"intelligence_videos/{file_name}")
-    blob.upload_from_filename(file_path)
-    blob.make_public()
-    
-    # 3. Clean up Render's local disk
-    os.remove(file_path)
-    
-    return blob.public_url
+        info = ydl.extract_info(post_url, download=False)
+        if 'entries' in info and info['entries']:
+            info = info['entries'][0]
+        return {
+            'mp4_url': info.get('url', post_url),
+            'title': info.get('title', 'Extracted Social Video'),
+            'thumbnail': info.get('thumbnail', ''),
+            'uploader': info.get('uploader') or info.get('extractor_key', 'Social Video')
+        }
 
 @router.post("/api/videos/extract")
 async def extract_social_video(post_url: str):
-    download_url = fetch_and_upload_video(post_url)
-    return {"status": "success", "firebase_url": download_url}
+    info = extract_direct_video_info(post_url)
+    return {"status": "success", "firebase_url": info["mp4_url"], "info": info}
+
+@router.get("/api/videos/download")
+def download_video_proxy(url: str = Query(...)):
+    headers = {"User-Agent": "Mozilla/5.0"}
+    r = requests.get(url, headers=headers, stream=True, timeout=30)
+    return StreamingResponse(
+        r.iter_content(chunk_size=65536),
+        media_type="video/mp4",
+        headers={"Content-Disposition": 'attachment; filename="intel_video.mp4"'}
+    )
