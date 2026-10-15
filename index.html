@@ -672,6 +672,37 @@
             fetchNews(true);
         }
 
+        
+        function handleVideoDragStart(event, absDownloadUrl, fileName) {
+            event.stopPropagation();
+            const cleanName = (fileName || 'intel_video.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('DownloadURL', `video/mp4:${cleanName}:${absDownloadUrl}`);
+            event.dataTransfer.setData('text/uri-list', absDownloadUrl);
+            event.dataTransfer.setData('text/plain', absDownloadUrl);
+        }
+
+        async function triggerVideoDownload(event, absDownloadUrl, fileName) {
+            event.preventDefault();
+            event.stopPropagation();
+            try {
+                if (typeof showToast === 'function') showToast("⬇ Preparing MP4 download...", "info");
+                const resp = await fetch(absDownloadUrl);
+                if (!resp.ok) throw new Error("Download failed");
+                const blob = await resp.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = fileName || 'intel_video.mp4';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+            } catch (err) {
+                window.open(absDownloadUrl, '_blank');
+            }
+        }
+
         async function fetchNews(overwrite = false) {
             const grid = document.getElementById('grid');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -758,16 +789,28 @@
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
                     
-                    const dlUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}`;
-                    const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
-                        <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner" draggable="true" ondragstart="event.dataTransfer.setData('DownloadURL', 'video/mp4:intel_video.mp4:' + '${dlUrl}')">
-                            <video controls preload="metadata" poster="${item.thumbnail || ''}" src="${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&inline=true" class="w-full h-44 object-cover bg-black"></video>
-                            <div class="flex items-center justify-between bg-slate-900/95 px-3 py-1.5 border-t border-slate-800">
-                                <span class="text-[10px] text-slate-400 font-mono">✋ Drag to Desktop</span>
-                                <a href="${dlUrl}" download="intel_video.mp4" class="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1">⬇ Download MP4</a>
+                    const fileSlug = ((item.handle || item.source || 'intel').replace(/[^a-zA-Z0-9]/g, '_') + '_' + (item.id || 'vid') + '.mp4');
+                        const relDlUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&filename=${encodeURIComponent(fileSlug)}`;
+                        const absDlUrl = new URL(relDlUrl, window.location.origin).href;
+                        const streamUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&inline=true`;
+                        const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
+                            <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner cursor-grab active:cursor-grabbing"
+                                 draggable="true"
+                                 ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}')">
+                                <video controls preload="metadata" poster="${item.thumbnail || ''}" src="${streamUrl}" class="w-full h-44 object-cover bg-black"></video>
+                                <div class="flex items-center justify-between bg-slate-900/95 px-3 py-2 border-t border-slate-800"
+                                     draggable="true"
+                                     ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}')">
+                                    <span class="text-[10px] text-slate-300 font-mono select-none flex items-center gap-1 cursor-grab">✋ Drag Card or Bar to Desktop</span>
+                                    <a href="${absDlUrl}"
+                                       download="${fileSlug}"
+                                       draggable="true"
+                                       ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}')"
+                                       onclick="triggerVideoDownload(event, '${absDlUrl}', '${fileSlug}')"
+                                       class="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 flex items-center gap-1 transition-all">⬇ Download MP4</a>
+                                </div>
                             </div>
-                        </div>
-                    ` : (item.thumbnail ? `
+                        ` : (item.thumbnail ? `
                         <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
                             <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
                         </div>

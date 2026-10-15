@@ -1,3 +1,4 @@
+import html
 import asyncio
 import re
 import urllib.parse
@@ -41,7 +42,7 @@ async def scrape_social_videos():
                     v_match = re.search(r'<video[^>]+src="([^"]+\.mp4[^"]*)"', block)
                     if not v_match:
                         continue
-                    mp4_url = v_match.group(1)
+                    mp4_url = html.unescape(v_match.group(1))
                     t_match = re.search(r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>', block, re.DOTALL)
                     raw_text = re.sub(r'<[^>]+>', ' ', t_match.group(1)).strip() if t_match else f"Video intelligence from {source_name}"
                     clean_title = re.sub(r'\s+', ' ', raw_text)[:200]
