@@ -585,6 +585,8 @@ async def startup_event():
     init_db()
     asyncio.create_task(background_loop())
     asyncio.create_task(async_sweep_controller(silent=True))
+    from auto_tracker import run_social_video_sweep
+    asyncio.create_task(run_social_video_sweep(False))
 
 @app.get("/", response_class=FileResponse)
 def read_root():
@@ -886,11 +888,7 @@ def export_csv(
     return response
 
 
-@app.on_event("startup")
-async def start_video_tracker():
-    import asyncio
-    from auto_tracker import run_social_video_sweep
-    asyncio.create_task(run_social_video_sweep(False))
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
