@@ -1,19 +1,12 @@
 import re
 import html
-import urllib.parse
 import httpx
-from fastapi import APIRouter, Query, Request, HTTPException
+from fastapi import APIRouter, Query, Path, Request, HTTPException
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
-@router.get("/api/videos/download")
-async def download_video_proxy(
-    request: Request,
-    url: str = Query(...),
-    inline: bool = Query(False),
-    filename: str = Query("intel_video.mp4")
-):
+async def _stream_mp4(request: Request, url: str, inline: bool, filename: str):
     clean_url = html.unescape(url.strip())
     if not clean_url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Invalid video URL")
@@ -25,15 +18,15 @@ async def download_video_proxy(
         referer = "https://www.reddit.com/"
 
     req_headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Referer": referer,
         "Accept": "*/*",
     }
     if "range" in request.headers and inline:
         req_headers["Range"] = request.headers["range"]
 
-    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
-    if not safe_name.endswith(".mp4"):
+    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', filename or "video_intel.mp4")
+    if not safe_name.lower().endswith(".mp4"):
         safe_name += ".mp4"
 
     client = httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(60.0, connect=15.0))
@@ -45,7 +38,7 @@ async def download_video_proxy(
         await client.aclose()
         raise HTTPException(status_code=r.status_code, detail="Upstream video unavailable")
 
-    disposition = "inline" if inline else f'attachment; filename="{safe_name}"'
+    disposition = f'inline; filename="{safe_name}"' if inline else f'attachment; filename="{safe_name}"'
     resp_headers = {
         "Content-Disposition": disposition,
         "Accept-Ranges": "bytes",
@@ -56,11 +49,7 @@ async def download_video_proxy(
         if h in r.headers:
             resp_headers[h.title()] = r.headers[h]
 
-    media_type = r.headers.get("content-type", "video/mp4")
-    if "text/html" in media_type:
-        media_type = "video/mp4"
-
-    async def stream_video():
+    async def stream_chunks():
         try:
             async for chunk in r.aiter_bytes(chunk_size=65536):
                 yield chunk
@@ -69,8 +58,34 @@ async def download_video_proxy(
             await client.aclose()
 
     return StreamingResponse(
-        stream_video(),
+        stream_chunks(),
         status_code=r.status_code,
-        media_type=media_type,
+        media_type="video/mp4",
         headers=resp_headers
     )
+
+@router.get("/api/videos/download")
+async def download_video_proxy(
+    request: Request,
+    url: str = Query(...),
+    inline: bool = Query(False),
+    filename: str = Query("video_intel.mp4")
+):
+    return await _stream_mp4(request, url, inline, filename)
+
+@router.get("/api/videos/direct/{item_id}/{filename}")
+async def download_video_by_id(
+    request: Request,
+    item_id: int = Path(...),
+    filename: str = Path(...),
+    inline: bool = Query(False)
+):
+    import main
+    conn = main.get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT link FROM news WHERE id = %s", (item_id,))
+    row = c.fetchone()
+    conn.close()
+    if not row or not row[0]:
+        raise HTTPException(status_code=404, detail="Video ID not found")
+    return await _stream_mp4(request, row[0], inline, filename)

@@ -41,7 +41,7 @@
             <span class="text-4xl mb-4 block">📡</span>
             <h2 class="text-white text-lg font-bold tracking-wider mb-2">INITIALIZE COMMAND CENTER</h2>
             <p class="text-xs text-slate-400 mb-6 max-w-sm">Click below to authenticate session and enable real-time tactical audio & desktop alerts for Priority 1 Threats.</p>
-            <button onclick="initializeSystem()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/25 active:scale-95">Acknowledge & Connect</button>
+            <button onclick="this.closest('#interaction-overlay').style.display='none'; if(typeof initializeSystem==='function') initializeSystem();" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/25 active:scale-95">Acknowledge & Connect</button>
         </div>
     </div>
 
@@ -672,76 +672,367 @@
             fetchNews(true);
         }
 
-        
-        function handleVideoDragStart(event, absDownloadUrl, fileName, encodedBundle) {
-            event.stopPropagation();
-            const cleanName = (fileName || 'intel_video.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
-            const socialText = encodedBundle ? decodeURIComponent(encodedBundle) : '';
+const selectedVideoIds = new Set();
+        const videoItemMap = {};
 
-            // 1. Silently copy caption + hashtags to clipboard for instant Ctrl+V into Telegram
-            if (socialText) {
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(socialText).catch(() => {});
-                } else {
-                    const ta = document.createElement('textarea');
-                    ta.value = socialText;
-                    document.body.appendChild(ta);
-                    ta.select();
-                    try { document.execCommand('copy'); } catch(e) {}
-                    ta.remove();
-                }
-            }
+        function orVal(a, b) {
+            return a ? a : b;
+        }
 
-            // 2. Set ONLY DownloadURL (no text/plain or text/uri-list) so Telegram Desktop treats it as a real file
-            event.dataTransfer.effectAllowed = 'copy';
-            event.dataTransfer.setData('DownloadURL', `video/mp4:${cleanName}:${absDownloadUrl}`);
+        const FR_RED_TPL = [
+            "Cette sequence diffusee depuis le terrain met en lumiere l'evolution rapide de la situation securitaire concernant {country}. Les observateurs suivent avec attention les repercussions possibles sur l'equilibre regional au cours des prochaines heures.",
+            "Les images qui circulent actuellement temoignent d'une nette montee des tensions autour de {country}. Plusieurs sources regionales confirment que le contexte reste particulierement sensible sur place.",
+            "Ce nouveau developpement rapporte par {source} souligne la fragilite de la situation actuelle en {country}. Les acteurs internationaux restent attentifs aux prochaines reactions officielles."
+        ];
 
-            if (typeof showToast === 'function') {
-                showToast("📦 Dragging MP4 to Telegram | 📋 Caption Copied!", "info");
+        const FR_GEN_TPL = [
+            "Cette sequence illustre la dynamique diplomatique actuelle impliquant {country} et ses partenaires internationaux. Ces echanges confirment la volonte de consolider la cooperation strategique et economique.",
+            "Point sur l'actualite internationale concernant {country}, ou les consultations diplomatiques se poursuivent. Cette initiative traduit l'evolution des priorites politiques et commerciales dans la region.",
+            "Retour en images sur cette sequence diplomatique liee a {country} et relayee par {source}. Une etape significative qui souligne l'importance du dialogue bilateral actuel."
+        ];
+
+        const FR_COUNTRIES = {
+            "United States": "les Etats-Unis",
+            "United Kingdom": "le Royaume-Uni",
+            "UAE": "les Emirats arabes unis",
+            "Saudi Arabia": "l'Arabie saoudite",
+            "Turkey": "la Turquie",
+            "Russia": "la Russie",
+            "Iran": "l'Iran",
+            "Israel": "Israel",
+            "Lebanon": "le Liban",
+            "Syria": "la Syrie",
+            "Iraq": "l'Irak",
+            "Yemen": "le Yemen",
+            "Sudan": "le Soudan",
+            "Somalia": "la Somalie",
+            "Egypt": "l'Egypte",
+            "Ethiopia": "l'Ethiopie",
+            "France": "la France",
+            "Global": "la scene internationale",
+            "Regional": "la region"
+        };
+
+        function stripEmojis(str) {
+            return String(orVal(str, '')).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '').replace(/[\u2600-\u27BF]/g, '').replace(/\s+/g, ' ').trim();
+        }
+
+        function buildSocialKit(item) {
+            const cleanTitle = stripEmojis(orVal(item.title, 'Point de situation international'));
+            const countryRaw = orVal(item.country, 'Global');
+            const countryFr = orVal(FR_COUNTRIES[countryRaw], countryRaw);
+            const cleanSource = stripEmojis(orVal(item.source, 'la redaction').replace('(Video)', ''));
+            const idx = Math.abs(Number(orVal(item.id, cleanTitle.length))) % 3;
+            const isRed = (item.category === 'RED');
+            const tpl = isRed ? FR_RED_TPL[idx] : FR_GEN_TPL[idx];
+            const editorialParagraph = tpl.replace(/\{country\}/g, countryFr).replace(/\{source\}/g, cleanSource);
+
+            const cSlug = countryRaw.replace(/[^a-zA-Z0-9]/g, '');
+            const countryTag = (cSlug && cSlug !== 'Global') ? '#' + cSlug : '#Monde';
+            const themeTags = isRed
+                ? '#ActualiteInternationale #Geopolitique #Securite #AnalyseTerrain'
+                : '#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Geopolitique';
+            const hashtags = `${countryTag}${themeTags}`;
+
+            const followUpComment = `Source et lien direct de la sequence : ${item.link}\nQuelle est votre lecture de l'evolution de la situation concernant${countryFr} ? Partagez votre analyse en commentaire.`;
+            const captionOnly = `${cleanTitle}.\n\n${editorialParagraph}\n\n${hashtags}`;
+            const fullBundle = `${captionOnly}\n\n--- COMMENTAIRE A COUPER ET PUBLIER SOUS LE POST ---\n${followUpComment}`;
+            return { fullBundle, captionOnly, followUpComment, hashtags };
+        }
+
+        function copyTextToClipboard(text, toastMsg) {
+            const msg = orVal(toastMsg, "Texte copie dans le presse-papiers");
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    if (typeof showToast === 'function') showToast(msg, "info");
+                }).catch(() => {});
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                ta.remove();
+                if (typeof showToast === 'function') showToast(msg, "info");
             }
         }
 
-        async function triggerVideoDownload(event, absDownloadUrl, fileName) {
+        function handleVideoDragStart(event, absDownloadUrl, fileName, encodedBundle, itemId) {
+            event.stopPropagation();
+            const cleanName = orVal(fileName, 'video_intel.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
+            const socialText = encodedBundle ? decodeURIComponent(encodedBundle) : '';
+
+            if (socialText) {
+                copyTextToClipboard(socialText, "Fichier MP4 pret a deposer - Legende + Commentaire FR copies !");
+            }
+
+            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.setData('DownloadURL', `video/mp4:${cleanName}:${absDownloadUrl}`);
+
+            if (itemId && videoItemMap[itemId]) {
+                fetch(`${API_BASE}/api/french-kit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(videoItemMap[itemId])
+                }).then(r => r.json()).then(kit => {
+                    if (kit && kit.full_bundle) {
+                        copyTextToClipboard(kit.full_bundle, "Texte complet traduit en francais copie (pret pour Ctrl+V sur FB) !");
+                    }
+                }).catch(() => {});
+            }
+        }
+
+        async function triggerVideoDownload(event, absDownloadUrl, fileName, encodedBundle, itemId) {
             event.preventDefault();
             event.stopPropagation();
+            if (itemId && videoItemMap[itemId]) {
+                try {
+                    const r = await fetch(`${API_BASE}/api/french-kit`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(videoItemMap[itemId])
+                    });
+                    const kit = await r.json();
+                    if (kit && kit.full_bundle) {
+                        copyTextToClipboard(kit.full_bundle, "Legende + Commentaire FR copies ! Telechargement MP4...");
+                    }
+                } catch (e) {
+                    if (encodedBundle) copyTextToClipboard(decodeURIComponent(encodedBundle), "Kit FR copie ! Telechargement MP4...");
+                }
+            } else if (encodedBundle) {
+                copyTextToClipboard(decodeURIComponent(encodedBundle), "Kit FR copie ! Telechargement MP4...");
+            }
+
             try {
-                if (typeof showToast === 'function') showToast("⬇ Preparing MP4 download...", "info");
                 const resp = await fetch(absDownloadUrl);
-                if (!resp.ok) throw new Error("Download failed");
+                if (!resp.ok) throw new Error("Download error");
                 const blob = await resp.blob();
                 const blobUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = blobUrl;
-                a.download = fileName || 'intel_video.mp4';
+                a.download = orVal(fileName, 'video_intel.mp4');
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 8000);
             } catch (err) {
-                window.open(absDownloadUrl, '_blank');
+                window.location.href = absDownloadUrl;
             }
         }
 
-        
-        async function sendToTelegram(videoUrl, title, category, source, country, continent, keyword) {
-            if (typeof showToast === 'function') showToast("✈️ Dispatching to Telegram...", "info");
+        async function sendVideoByIdToTelegram(itemId, overrideCategory = null) {
+            const item = videoItemMap[itemId];
+            if (!item) return;
+            const payload = Object.assign({}, item);
+            if (overrideCategory) payload.category = overrideCategory;
+            if (typeof showToast === 'function') showToast("Envoi du fichier video MP4 et texte FR vers Telegram...", "info");
             try {
                 const res = await fetch(`${API_BASE}/api/telegram/dispatch`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: videoUrl, title, category, source, country, continent, keyword })
+                    body: JSON.stringify(payload)
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    if (typeof showToast === 'function') showToast("✅ Sent to Telegram!", "success");
+                    if (typeof showToast === 'function') showToast("Video MP4 et texte FR envoyes sur Telegram !", "success");
                 } else {
-                    if (typeof showToast === 'function') showToast("❌ Telegram Error: " + (data.detail || 'Failed'), "error");
+                    if (typeof showToast === 'function') showToast("Erreur Telegram : " + orVal(data.detail, "Echec"), "error");
                 }
             } catch (err) {
-                if (typeof showToast === 'function') showToast("❌ Network error dispatching to Telegram", "error");
+                if (typeof showToast === 'function') showToast("Erreur reseau lors de l'envoi Telegram", "error");
             }
         }
-    
+
+        function toggleSelectVideo(itemId, checked) {
+            if (checked) selectedVideoIds.add(Number(itemId));
+            else selectedVideoIds.delete(Number(itemId));
+            updateSelectionBar();
+        }
+
+        function updateSelectionBar() {
+            const bar = document.getElementById('tg-selection-bar');
+            const countEl = document.getElementById('tg-selected-count');
+            if (!bar) return;
+            if (!countEl) return;
+            const count = selectedVideoIds.size;
+            countEl.textContent = `${count} video(s) selectionnee(s)`;
+            if (count > 0) bar.classList.remove('hidden');
+            else bar.classList.add('hidden');
+        }
+
+        function selectAllVisibleVideos() {
+            document.querySelectorAll('.tg-video-checkbox').forEach(cb => {
+                cb.checked = true;
+                selectedVideoIds.add(Number(cb.dataset.id));
+            });
+            updateSelectionBar();
+        }
+
+        function clearVideoSelection() {
+            selectedVideoIds.clear();
+            document.querySelectorAll('.tg-video-checkbox').forEach(cb => { cb.checked = false; });
+            updateSelectionBar();
+        }
+
+        async function dispatchSelectedVideos(overrideCat = null) {
+            if (selectedVideoIds.size === 0) return;
+            const items = Array.from(selectedVideoIds).map(id => videoItemMap[id]).filter(Boolean);
+            if (typeof showToast === 'function') showToast(`Envoi de ${items.length} fichier(s) MP4 vers Telegram...`, "info");
+            try {
+                const res = await fetch(`${API_BASE}/api/telegram/dispatch-batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: items, override_category: overrideCat })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (typeof showToast === 'function') showToast(`${data.sent} video(s) MP4 envoyee(s) sur Telegram !`, "success");
+                    clearVideoSelection();
+                } else {
+                    if (typeof showToast === 'function') showToast("Erreur Telegram : " + orVal(data.detail, "Echec"), "error");
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast("Erreur reseau lors de l'envoi multiple", "error");
+            }
+        }
+
+        async function openTgCommandModal() {
+            const modal = document.getElementById('tg-command-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            await loadTgSettingsIntoModal();
+            renderTgModalQueues();
+        }
+
+        function closeTgCommandModal() {
+            const modal = document.getElementById('tg-command-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function switchTgModalTab(tab) {
+            ['settings', 'red', 'general'].forEach(t => {
+                const panel = document.getElementById(`tg-modal-tab-${t}`);
+                const btn = document.getElementById(`tg-tab-btn-${t}`);
+                if (panel) {
+                    if (t === tab) panel.classList.remove('hidden');
+                    else panel.classList.add('hidden');
+                }
+                if (btn) {
+                    btn.className = (t === tab)
+                        ? "px-4 py-2 rounded-t-xl text-xs font-bold bg-sky-600 text-white"
+                        : "px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-slate-300 hover:bg-slate-700";
+                }
+            });
+            if (tab !== 'settings') renderTgModalQueues();
+        }
+
+        async function loadTgSettingsIntoModal() {
+            try {
+                const res = await fetch(`${API_BASE}/api/telegram/settings`);
+                const s = await res.json();
+                document.getElementById('tg_enabled').checked = Boolean(s.enabled);
+                document.getElementById('tg_schedule_time').value = orVal(s.schedule_time, '09:00');
+                document.getElementById('tg_red_exclude_uae_count').value = s.red_exclude_uae_count !== undefined ? s.red_exclude_uae_count : 2;
+                document.getElementById('tg_red_include_uae_count').value = s.red_include_uae_count !== undefined ? s.red_include_uae_count : 2;
+                document.getElementById('tg_general_bilateral_count').value = s.general_bilateral_count !== undefined ? s.general_bilateral_count : 2;
+                document.getElementById('tg_general_non_bilateral_count').value = s.general_non_bilateral_count !== undefined ? s.general_non_bilateral_count : 2;
+                document.getElementById('tg_bot_token').value = orVal(s.bot_token, '');
+                document.getElementById('tg_red_chat_id').value = orVal(s.red_chat_id, '');
+                document.getElementById('tg_red_topic_id').value = orVal(s.red_topic_id, '');
+                document.getElementById('tg_general_chat_id').value = orVal(s.general_chat_id, '');
+                document.getElementById('tg_general_topic_id').value = orVal(s.general_topic_id, '');
+            } catch (e) {}
+        }
+
+        async function saveTgSettings() {
+            const payload = {
+                enabled: document.getElementById('tg_enabled').checked,
+                schedule_time: document.getElementById('tg_schedule_time').value,
+                red_exclude_uae_count: Number(orVal(document.getElementById('tg_red_exclude_uae_count').value, 0)),
+                red_include_uae_count: Number(orVal(document.getElementById('tg_red_include_uae_count').value, 0)),
+                general_bilateral_count: Number(orVal(document.getElementById('tg_general_bilateral_count').value, 0)),
+                general_non_bilateral_count: Number(orVal(document.getElementById('tg_general_non_bilateral_count').value, 0)),
+                bot_token: document.getElementById('tg_bot_token').value,
+                red_chat_id: document.getElementById('tg_red_chat_id').value,
+                red_topic_id: document.getElementById('tg_red_topic_id').value,
+                general_chat_id: document.getElementById('tg_general_chat_id').value,
+                general_topic_id: document.getElementById('tg_general_topic_id').value
+            };
+            try {
+                const res = await fetch(`${API_BASE}/api/telegram/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (typeof showToast === 'function') showToast("Parametres quotidiens Telegram enregistres !", "success");
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast("Erreur lors de la sauvegarde", "error");
+            }
+        }
+
+        async function triggerDailyBatchNow() {
+            await saveTgSettings();
+            if (typeof showToast === 'function') showToast("Execution du lot quotidien (ROUGE & GENERAL) vers Telegram...", "info");
+            try {
+                const res = await fetch(`${API_BASE}/api/telegram/run-daily-now`, { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (typeof showToast === 'function') showToast(`Lot quotidien termine : ${data.total_sent} video(s) MP4 envoyee(s) !`, "success");
+                }
+            } catch (e) {
+                if (typeof showToast === 'function') showToast("Erreur lors de l'envoi du lot quotidien", "error");
+            }
+        }
+
+        function renderTgModalQueues() {
+            const redContainer = document.getElementById('tg-red-list');
+            const genContainer = document.getElementById('tg-general-list');
+            if (!redContainer) return;
+            if (!genContainer) return;
+
+            const allVideos = Object.values(videoItemMap);
+            const redVids = allVideos.filter(v => v.category === 'RED');
+            const genVids = allVideos.filter(v => v.category !== 'RED');
+
+            const renderRow = (v, tabCat) => `
+                <div class="flex items-center justify-between gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
+                    <label class="flex items-center gap-2.5 flex-1 cursor-pointer">
+                        <input type="checkbox" class="tg-modal-cb w-4 h-4 accent-sky-500 rounded" data-id="${v.id}" data-cat="${tabCat}" checked>
+                        <div class="text-xs text-slate-200 line-clamp-1 font-medium">${v.title}</div>
+                    </label>
+                    <span class="text-[10px] font-mono text-slate-400 px-2 py-0.5 bg-slate-800 rounded">${orVal(v.country, 'Global')}</span>
+                    <button type="button" onclick="sendVideoByIdToTelegram(${v.id}, '${tabCat}')" class="px-2.5 py-1 bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white rounded-lg text-[10px] font-bold">Envoyer MP4</button>
+                </div>
+            `;
+
+            redContainer.innerHTML = redVids.length ? redVids.map(v => renderRow(v, 'RED')).join('') : '<p class="text-xs text-slate-500">Aucune video ROUGE chargee sur la grille actuelle.</p>';
+            genContainer.innerHTML = genVids.length ? genVids.map(v => renderRow(v, 'GENERAL')).join('') : '<p class="text-xs text-slate-500">Aucune video GENERAL chargee sur la grille actuelle.</p>';
+        }
+
+        async function dispatchTabVideos(tabCat) {
+            const cbs = Array.from(document.querySelectorAll(`.tg-modal-cb[data-cat="${tabCat}"]:checked`));
+            const items = cbs.map(cb => videoItemMap[Number(cb.dataset.id)]).filter(Boolean);
+            if (!items.length) return;
+            if (typeof showToast === 'function') showToast(`Envoi de ${items.length} video(s)${tabCat} vers Telegram...`, "info");
+            try {
+                const res = await fetch(`${API_BASE}/api/telegram/dispatch-batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: items, override_category: tabCat })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (typeof showToast === 'function') showToast(`${data.sent} video(s) envoyee(s) vers l'onglet${tabCat} !`, "success");
+                }
+            } catch (e) {}
+        }
+
         async function fetchNews(overwrite = false) {
             const grid = document.getElementById('grid');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -828,26 +1119,64 @@
                     const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
                     const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
                     
-                    const fileSlug = ((item.handle || item.source || 'intel').replace(/[^a-zA-Z0-9]/g, '_') + '_' + (item.id || 'vid') + '.mp4');
-                        const relDlUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&filename=${encodeURIComponent(fileSlug)}`;
-                        const absDlUrl = new URL(relDlUrl, window.location.origin).href;
+                    if (item.feed_type === 'SOCIAL_VIDEO' && item.id) {
+                            videoItemMap[item.id] = item;
+                        }
+                        const rawSlugSource = item.handle ? item.handle : (item.source ? item.source : 'video');
+                        const fileSlug = (rawSlugSource.replace(/[^a-zA-Z0-9]/g, '_') + '_' + (item.id ? item.id : 'mp4') + '.mp4');
+                        const directPath = item.id
+                            ? `${API_BASE}/api/videos/direct/${item.id}/${encodeURIComponent(fileSlug)}`
+                            : `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&filename=${encodeURIComponent(fileSlug)}`;
+                        const absDlUrl = new URL(directPath, window.location.origin).href;
                         const streamUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&inline=true`;
+                        const socialKit = buildSocialKit(item);
+                        const encodedBundle = encodeURIComponent(socialKit.fullBundle).replace(/'/g, "%27");
+                        const encodedCaption = encodeURIComponent(socialKit.captionOnly).replace(/'/g, "%27");
+                        const encodedComment = encodeURIComponent(socialKit.followUpComment).replace(/'/g, "%27");
+                        const safeBundlePreview = socialKit.fullBundle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        const isChecked = selectedVideoIds.has(Number(item.id)) ? 'checked' : '';
+                        const posterAttr = item.thumbnail ? item.thumbnail : '';
+                        const itemIdNum = item.id ? item.id : 0;
+
                         const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
-                            <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner cursor-grab active:cursor-grabbing"
+                            <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner"
                                  draggable="true"
-                                 ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}')">
-                                <video controls preload="metadata" poster="${item.thumbnail || ''}" src="${streamUrl}" class="w-full h-44 object-cover bg-black"></video>
-                                <div class="flex items-center justify-between bg-slate-900/95 px-3 py-2 border-t border-slate-800"
-                                     draggable="true"
-                                     ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}')">
-                                    <span class="text-[10px] text-slate-300 font-mono select-none flex items-center gap-1 cursor-grab">✋ Drag Card or Bar to Desktop</span>
-                                    <a href="${absDlUrl}"
-                                       download="${fileSlug}"
-                                       draggable="true"
-                                       ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}')"
-                                       onclick="triggerVideoDownload(event, '${absDlUrl}', '${fileSlug}')"
-                                       class="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 flex items-center gap-1 transition-all">⬇ Download MP4</a>
+                                 ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
+                                <div class="flex items-center justify-between bg-slate-900 px-3 py-1.5 border-b border-slate-800">
+                                    <label class="flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" class="tg-video-checkbox w-3.5 h-3.5 accent-sky-500 rounded" data-id="${itemIdNum}" ${isChecked} onchange="toggleSelectVideo(${itemIdNum}, this.checked)">
+                                        <span class="text-[10px] font-bold text-slate-300">Selectionner (Envoi Multiple TG)</span>
+                                    </label>
+                                    <span class="text-[9px] font-mono px-2 py-0.5 rounded ${item.category === 'RED' ? 'bg-rose-950 text-rose-300 border border-rose-800/50' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/50'}">ONGLET ${item.category}</span>
                                 </div>
+                                <video controls preload="metadata" poster="${posterAttr}" src="${streamUrl}" class="w-full h-44 object-cover bg-black"></video>
+                                <div class="flex flex-wrap items-center justify-between gap-1.5 bg-slate-900/95 px-2.5 py-2 border-t border-slate-800"
+                                     draggable="true"
+                                     ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
+                                    <span class="text-[10px] text-slate-300 font-mono select-none cursor-grab active:cursor-grabbing" title="Glisser vers le Bureau ou cliquer pour copier le kit FR">Glisser MP4 + Texte FR</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <button type="button"
+                                                onclick="triggerVideoDownload(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})"
+                                                class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition-all">MP4 + Kit FB (FR)</button>
+                                        <button type="button"
+                                                onclick="sendVideoByIdToTelegram(${itemIdNum})"
+                                                class="px-2.5 py-1 rounded-lg bg-sky-500/25 border border-sky-500/50 text-[10px] font-bold text-sky-200 hover:bg-sky-500/40 transition-all">Envoyer vers TG (FR)</button>
+                                    </div>
+                                </div>
+                                <details class="bg-slate-950/95 border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
+                                    <summary class="cursor-pointer font-mono text-[10px] text-amber-400 font-bold select-none flex items-center justify-between">
+                                        <span>Legende FR + Hashtags + Commentaire avec Lien (Sans Emojis)</span>
+                                        <span class="text-[9px] text-slate-500">Afficher / Copier</span>
+                                    </summary>
+                                    <div class="mt-2 space-y-2">
+                                        <textarea readonly rows="6" onclick="this.select()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 rounded-lg p-2 text-[10px] font-mono focus:outline-none">${safeBundlePreview}</textarea>
+                                        <div class="flex items-center justify-between gap-1.5">
+                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedBundle}'), 'Post FR complet + Commentaire copies !')" class="flex-1 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded text-[10px] font-bold">Tout Copier (Post + Commentaire)</button>
+                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedCaption}'), 'Legende + Hashtags FR copies !')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700">Legende Seule</button>
+                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedComment}'), 'Commentaire FR + Lien copies !')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700">Commentaire + Lien</button>
+                                        </div>
+                                    </div>
+                                </details>
                             </div>
                         ` : (item.thumbnail ? `
                         <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
@@ -1025,6 +1354,134 @@
     </script>
 
 <!-- Video Extraction Tool -->
+
+
+    <!-- FLOATING MULTI-SELECT BAR FOR TELEGRAM -->
+    <div id="tg-selection-bar" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900/95 border border-sky-500/50 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center gap-3">
+        <span id="tg-selected-count" class="text-xs font-bold text-white font-mono bg-sky-600/30 border border-sky-500/40 px-2.5 py-1 rounded-lg">0 videos selectionnees</span>
+        <button type="button" onclick="selectAllVisibleVideos()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700">Tout selectionner</button>
+        <button type="button" onclick="clearVideoSelection()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold border border-slate-700">Effacer</button>
+        <div class="h-4 w-[1px] bg-slate-700"></div>
+        <button type="button" onclick="dispatchSelectedVideos(null)" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-md">Envoyer Selection vers TG (Auto ROUGE/GENERAL)</button>
+        <button type="button" onclick="dispatchSelectedVideos('RED')" class="px-3 py-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold">Onglet ROUGE</button>
+        <button type="button" onclick="dispatchSelectedVideos('GENERAL')" class="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold">Onglet GENERAL</button>
+    </div>
+
+    <!-- TELEGRAM MULTI-TAB & DAILY SCHEDULER MODAL -->
+    <div id="tg-command-modal" class="fixed inset-0 bg-black/80 z-[90] hidden items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/70">
+                <div>
+                    <h2 class="text-base font-black text-white tracking-wide uppercase">Centre Telegram : Onglets ROUGE / GENERAL &amp; Envoi Quotidien</h2>
+                    <p class="text-[11px] text-slate-400 font-mono">Envoi direct de fichiers video MP4 avec legende, hashtags et commentaire en francais (sans emojis)</p>
+                </div>
+                <button type="button" onclick="closeTgCommandModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">Fermer</button>
+            </div>
+
+            <div class="flex border-b border-slate-800 bg-slate-900/40 px-6 pt-3 gap-2">
+                <button type="button" id="tg-tab-btn-settings" onclick="switchTgModalTab('settings')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-sky-600 text-white">1. Programmation Quotidienne &amp; Parametres</button>
+                <button type="button" id="tg-tab-btn-red" onclick="switchTgModalTab('red')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-rose-300 hover:bg-slate-700">2. Onglet Videos ROUGE (Crise)</button>
+                <button type="button" id="tg-tab-btn-general" onclick="switchTgModalTab('general')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-indigo-300 hover:bg-slate-700">3. Onglet Videos GENERAL (Bilateral / Diplo)</button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-5 flex-1">
+                <!-- TAB 1: SETTINGS & DAILY SCHEDULER -->
+                <div id="tg-modal-tab-settings" class="space-y-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                        <div class="col-span-full flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div>
+                                <h3 class="text-xs font-bold text-white uppercase">Envoi Automatique Quotidien vers Telegram</h3>
+                                <p class="text-[11px] text-slate-400">Envoie automatiquement les fichiers MP4 et textes en francais chaque jour a l'heure choisie</p>
+                            </div>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="tg_enabled" class="w-4 h-4 accent-sky-500 rounded">
+                                <span class="text-xs font-bold text-emerald-400">Activer l'envoi quotidien</span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Heure d'envoi quotidien (UTC - HH:MM)</label>
+                            <input type="time" id="tg_schedule_time" value="09:00" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" onclick="triggerDailyBatchNow()" class="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md transition-all">Lancer l'envoi quotidien maintenant (Test immediat)</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl">
+                            <label class="block text-[10px] font-mono text-rose-300 uppercase font-bold mb-1">ROUGE (Hors EAU / Excluded UAE)</label>
+                            <input type="number" id="tg_red_exclude_uae_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                        </div>
+                        <div class="bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl">
+                            <label class="block text-[10px] font-mono text-rose-300 uppercase font-bold mb-1">ROUGE (Non-Excluded / EAU Inclus)</label>
+                            <input type="number" id="tg_red_include_uae_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                        </div>
+                        <div class="bg-indigo-950/20 border border-indigo-800/40 p-3.5 rounded-xl">
+                            <label class="block text-[10px] font-mono text-indigo-300 uppercase font-bold mb-1">GENERAL (Bilateral EAU)</label>
+                            <input type="number" id="tg_general_bilateral_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                        </div>
+                        <div class="bg-indigo-950/20 border border-indigo-800/40 p-3.5 rounded-xl">
+                            <label class="block text-[10px] font-mono text-indigo-300 uppercase font-bold mb-1">GENERAL (Non-Bilateral)</label>
+                            <input type="number" id="tg_general_non_bilateral_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <h3 class="text-xs font-bold text-white uppercase">Configuration des Canaux / Onglets Telegram (ROUGE vs GENERAL)</h3>
+                        <p class="text-[11px] text-slate-400">Vous pouvez envoyer ROUGE et GENERAL vers deux canaux differents, ou vers deux Topics (onglets) d'un meme groupe Telegram.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="col-span-full">
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Bot Token Telegram (@BotFather)</label>
+                                <input type="password" id="tg_bot_token" placeholder="Laisser vide pour utiliser TELEGRAM_BOT_TOKEN de Render" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-rose-300 uppercase mb-1">Canal / Chat ID pour ONGLET ROUGE</label>
+                                <input type="text" id="tg_red_chat_id" placeholder="ex: -1001234567890 ou @mon_canal_rouge" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-rose-300 uppercase mb-1">Topic / Thread ID ROUGE (Optionnel)</label>
+                                <input type="text" id="tg_red_topic_id" placeholder="ex: 2 (si groupe avec Topics)" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-indigo-300 uppercase mb-1">Canal / Chat ID pour ONGLET GENERAL</label>
+                                <input type="text" id="tg_general_chat_id" placeholder="ex: -1009876543210 ou meme canal" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-mono text-indigo-300 uppercase mb-1">Topic / Thread ID GENERAL (Optionnel)</label>
+                                <input type="text" id="tg_general_topic_id" placeholder="ex: 4 (si groupe avec Topics)" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                            </div>
+                        </div>
+                        <div class="pt-2 flex justify-end">
+                            <button type="button" onclick="saveTgSettings()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-lg">Enregistrer la Configuration Quotidienne</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: RED VIDEO QUEUE -->
+                <div id="tg-modal-tab-red" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-rose-300">File Videos ROUGE (Crise &amp; Securite)</span>
+                        <button type="button" onclick="dispatchTabVideos('RED')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">Envoyer la selection ROUGE vers TG</button>
+                    </div>
+                    <div id="tg-red-list" class="space-y-2 max-h-[55vh] overflow-y-auto"></div>
+                </div>
+
+                <!-- TAB 3: GENERAL VIDEO QUEUE -->
+                <div id="tg-modal-tab-general" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-indigo-300">File Videos GENERAL (Diplomatie &amp; Bilateral)</span>
+                        <button type="button" onclick="dispatchTabVideos('GENERAL')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold">Envoyer la selection GENERAL vers TG</button>
+                    </div>
+                    <div id="tg-general-list" class="space-y-2 max-h-[55vh] overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

@@ -587,6 +587,8 @@ async def startup_event():
     asyncio.create_task(background_loop())
     asyncio.create_task(async_sweep_controller(silent=True))
     from auto_tracker import run_social_video_sweep
+    from telegram_service import daily_tg_scheduler_loop
+    asyncio.create_task(daily_tg_scheduler_loop())
     asyncio.create_task(run_social_video_sweep(False))
 
 @app.get("/", response_class=FileResponse)
@@ -684,6 +686,8 @@ async def trigger_manual_sync(background_tasks: BackgroundTasks):
     if is_syncing: return {"status": "Sync in progress"}
     background_tasks.add_task(async_sweep_controller, False)
     from auto_tracker import run_social_video_sweep
+    from telegram_service import daily_tg_scheduler_loop
+    asyncio.create_task(daily_tg_scheduler_loop())
     background_tasks.add_task(run_social_video_sweep, True)
     return {"status": "Sweep triggered"}
 
@@ -892,44 +896,9 @@ def export_csv(
 
 
 
+
+
 from social_video_router import router as social_video_router
+from telegram_service import router as telegram_service_router
 app.include_router(social_video_router)
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-
-class TelegramPayload(BaseModel):
-    url: str
-    title: str
-    category: str = "GENERAL"
-    source: str = "Intel Feed"
-    country: str = "Global"
-    continent: str = "Global"
-    keyword: str = ""
-
-@app.post("/api/telegram/dispatch")
-async def dispatch_to_telegram(payload: TelegramPayload):
-    import os, httpx
-    token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-    if not token or not chat_id:
-        return {"status": "error", "detail": "Telegram token or chat ID not set in environment variables."}
-    
-    emoji = "🔴" if payload.category.upper() == "RED" else "🔵"
-    folder = "CRITICAL (RED)" if payload.category.upper() == "RED" else "GENERAL (DIPLOMACY)"
-    clean_kw = payload.keyword.replace("Matched:", "").replace("Live Match:", "").replace("Account:", "").strip()
-    kw_tag = f"#{clean_kw.replace(' ', '')}" if clean_kw and len(clean_kw) > 2 else "#IntelTracker"
-    country_tag = f"#{payload.country.replace(' ', '')}" if payload.country and payload.country != "Global" else "#Geopolitics"
-    
-    caption = f"{emoji} <b>FOLDER: {folder}</b>\n\n🚨 <b>{payload.title}</b>\n\n🌍 Region: {payload.country}, {payload.continent}\n📰 Source: {payload.source}\n\n{country_tag} {kw_tag} #OSINT #{payload.category.capitalize()}Intel"
-    
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        res = await client.post(f"https://api.telegram.org/bot{token}/sendVideo", json={"chat_id": chat_id, "video": payload.url, "caption": caption, "parse_mode": "HTML"})
-        data = res.json()
-        if not data.get("ok"):
-            res = await client.post(f"https://api.telegram.org/bot{token}/sendDocument", json={"chat_id": chat_id, "video": payload.url, "caption": caption, "parse_mode": "HTML"})
-            data = res.json()
-        if data.get("ok"):
-            return {"status": "success", "message": "Dispatched to Telegram successfully!"}
-        return {"status": "error", "detail": data.get("description", "Telegram API error")}
+app.include_router(telegram_service_router)
