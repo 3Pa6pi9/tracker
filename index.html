@@ -703,6 +703,26 @@
             }
         }
 
+        
+        async function sendToTelegram(videoUrl, title, category, source, country, continent, keyword) {
+            if (typeof showToast === 'function') showToast("✈️ Dispatching to Telegram...", "info");
+            try {
+                const res = await fetch(`${API_BASE}/api/telegram/dispatch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: videoUrl, title, category, source, country, continent, keyword })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    if (typeof showToast === 'function') showToast("✅ Sent to Telegram!", "success");
+                } else {
+                    if (typeof showToast === 'function') showToast("❌ Telegram Error: " + (data.detail || 'Failed'), "error");
+                }
+            } catch (err) {
+                if (typeof showToast === 'function') showToast("❌ Network error dispatching to Telegram", "error");
+            }
+        }
+    
         async function fetchNews(overwrite = false) {
             const grid = document.getElementById('grid');
             const loadMoreBtn = document.getElementById('loadMoreBtn');
