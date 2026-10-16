@@ -673,13 +673,32 @@
         }
 
         
-        function handleVideoDragStart(event, absDownloadUrl, fileName) {
+        function handleVideoDragStart(event, absDownloadUrl, fileName, encodedBundle) {
             event.stopPropagation();
             const cleanName = (fileName || 'intel_video.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
+            const socialText = encodedBundle ? decodeURIComponent(encodedBundle) : '';
+
+            // 1. Silently copy caption + hashtags to clipboard for instant Ctrl+V into Telegram
+            if (socialText) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(socialText).catch(() => {});
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = socialText;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); } catch(e) {}
+                    ta.remove();
+                }
+            }
+
+            // 2. Set ONLY DownloadURL (no text/plain or text/uri-list) so Telegram Desktop treats it as a real file
             event.dataTransfer.effectAllowed = 'copy';
             event.dataTransfer.setData('DownloadURL', `video/mp4:${cleanName}:${absDownloadUrl}`);
-            event.dataTransfer.setData('text/uri-list', absDownloadUrl);
-            event.dataTransfer.setData('text/plain', absDownloadUrl);
+
+            if (typeof showToast === 'function') {
+                showToast("📦 Dragging MP4 to Telegram | 📋 Caption Copied!", "info");
+            }
         }
 
         async function triggerVideoDownload(event, absDownloadUrl, fileName) {
