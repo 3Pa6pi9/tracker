@@ -157,6 +157,8 @@
                 <button id="plat-red" onclick="switchPlatform('REDDIT')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">👾 Reddit</button>
                 <button id="plat-tel" onclick="switchPlatform('TELEGRAM')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
                 <button id="plat-yt" onclick="switchPlatform('SOCIAL_VIDEO')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all">▶️ Extracted Videos</button>
+                    <button id="btn-tg-scheduler" onclick="openTgCommandModal()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-md">⚙️ TG Scheduler &amp; Multi-Send</button>
+                    <button id="btn-hide-posted" onclick="toggleHidePosted()" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all border border-slate-700">👁️ Hide Posted</button>
             </div>
         </div>
 
@@ -674,43 +676,115 @@
 
 const selectedVideoIds = new Set();
         const videoItemMap = {};
+        const videoFileCache = {};
+        const postedLinksMap = JSON.parse(localStorage.getItem('posted_intel_links') ? localStorage.getItem('posted_intel_links') : '{}');
+        let hidePostedItems = false;
 
         function orVal(a, b) {
             return a ? a : b;
         }
 
+        async function syncPostedFromServer() {
+            try {
+                const res = await fetch(`${API_BASE}/api/posted`);
+                const data = await res.json();
+                if (data && data.posted) {
+                    Object.assign(postedLinksMap, data.posted);
+                    localStorage.setItem('posted_intel_links', JSON.stringify(postedLinksMap));
+                }
+            } catch (e) {}
+        }
+        syncPostedFromServer();
+
+        function isItemPosted(link) {
+            return Boolean(link && postedLinksMap[link]);
+        }
+
+        async function markItemPosted(link, label = 'POSTED', unmark = false) {
+            if (!link) return;
+            if (unmark) {
+                delete postedLinksMap[link];
+            } else {
+                postedLinksMap[link] = label;
+            }
+            localStorage.setItem('posted_intel_links', JSON.stringify(postedLinksMap));
+            updateCardPostedUI(link);
+            try {
+                await fetch(`${API_BASE}/api/posted/mark`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ link: link, bucket: label, unmark: unmark })
+                });
+            } catch (e) {}
+        }
+
+        function toggleItemPostedById(itemId) {
+            const item = videoItemMap[itemId];
+            if (!item) return;
+            const currentlyPosted = isItemPosted(item.link);
+            markItemPosted(item.link, 'MANUAL', currentlyPosted);
+            if (typeof showToast === 'function') {
+                showToast(currentlyPosted ? "Unmarked as Posted" : "✓ Marked as Posted", "info");
+            }
+        }
+
+        function updateCardPostedUI(link) {
+            document.querySelectorAll('[data-item-link]').forEach(cardEl => {
+                if (cardEl.dataset.itemLink === link) {
+                    const posted = isItemPosted(link);
+                    const badge = cardEl.querySelector('.posted-status-badge');
+                    const btn = cardEl.querySelector('.posted-toggle-btn');
+                    if (posted) {
+                        cardEl.classList.add('opacity-60', 'border-emerald-500/60');
+                        if (badge) {
+                            badge.textContent = '✓ POSTED (' + postedLinksMap[link] + ')';
+                            badge.classList.remove('hidden');
+                        }
+                        if (btn) btn.textContent = '✓ Posted (Undo)';
+                        if (hidePostedItems) cardEl.classList.add('hidden');
+                    } else {
+                        cardEl.classList.remove('opacity-60', 'border-emerald-500/60', 'hidden');
+                        if (badge) badge.classList.add('hidden');
+                        if (btn) btn.textContent = 'Mark Posted';
+                    }
+                }
+            });
+        }
+
+        function toggleHidePosted() {
+            hidePostedItems = !hidePostedItems;
+            const btn = document.getElementById('btn-hide-posted');
+            if (btn) {
+                btn.className = hidePostedItems
+                    ? "px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white transition-all shadow-md"
+                    : "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-slate-400 hover:text-white transition-all border border-slate-700";
+                btn.textContent = hidePostedItems ? "👁️ Showing Unposted Only" : "👁️ Hide Posted";
+            }
+            document.querySelectorAll('[data-item-link]').forEach(cardEl => {
+                const link = cardEl.dataset.itemLink;
+                if (hidePostedItems && isItemPosted(link)) cardEl.classList.add('hidden');
+                else cardEl.classList.remove('hidden');
+            });
+        }
+
         const FR_RED_TPL = [
-            "Cette sequence diffusee depuis le terrain met en lumiere l'evolution rapide de la situation securitaire concernant {country}. Les observateurs suivent avec attention les repercussions possibles sur l'equilibre regional au cours des prochaines heures.",
+            "Cette sequence diffusee depuis le terrain met en lumiere l'evolution rapide de la situation securitaire concernant {country}. Les observateurs suivent avec attention les repercussions possibles sur l'equilibre regional.",
             "Les images qui circulent actuellement temoignent d'une nette montee des tensions autour de {country}. Plusieurs sources regionales confirment que le contexte reste particulierement sensible sur place.",
             "Ce nouveau developpement rapporte par {source} souligne la fragilite de la situation actuelle en {country}. Les acteurs internationaux restent attentifs aux prochaines reactions officielles."
         ];
 
         const FR_GEN_TPL = [
             "Cette sequence illustre la dynamique diplomatique actuelle impliquant {country} et ses partenaires internationaux. Ces echanges confirment la volonte de consolider la cooperation strategique et economique.",
-            "Point sur l'actualite internationale concernant {country}, ou les consultations diplomatiques se poursuivent. Cette initiative traduit l'evolution des priorites politiques et commerciales dans la region.",
+            "Point sur l'actualite internationale concernant {country}, ou les consultations bilaterales se poursuivent. Cette initiative traduit l'evolution des priorites politiques et commerciales dans la region.",
             "Retour en images sur cette sequence diplomatique liee a {country} et relayee par {source}. Une etape significative qui souligne l'importance du dialogue bilateral actuel."
         ];
 
         const FR_COUNTRIES = {
-            "United States": "les Etats-Unis",
-            "United Kingdom": "le Royaume-Uni",
-            "UAE": "les Emirats arabes unis",
-            "Saudi Arabia": "l'Arabie saoudite",
-            "Turkey": "la Turquie",
-            "Russia": "la Russie",
-            "Iran": "l'Iran",
-            "Israel": "Israel",
-            "Lebanon": "le Liban",
-            "Syria": "la Syrie",
-            "Iraq": "l'Irak",
-            "Yemen": "le Yemen",
-            "Sudan": "le Soudan",
-            "Somalia": "la Somalie",
-            "Egypt": "l'Egypte",
-            "Ethiopia": "l'Ethiopie",
-            "France": "la France",
-            "Global": "la scene internationale",
-            "Regional": "la region"
+            "United States": "les Etats-Unis", "United Kingdom": "le Royaume-Uni", "UAE": "les Emirats arabes unis",
+            "Saudi Arabia": "l'Arabie saoudite", "Turkey": "la Turquie", "Russia": "la Russie", "Iran": "l'Iran",
+            "Israel": "Israel", "Lebanon": "le Liban", "Syria": "la Syrie", "Iraq": "l'Irak", "Yemen": "le Yemen",
+            "Sudan": "le Soudan", "Somalia": "la Somalie", "Egypt": "l'Egypte", "Ethiopia": "l'Ethiopie",
+            "France": "la France", "Global": "la scene internationale", "Regional": "la region"
         };
 
         function stripEmojis(str) {
@@ -730,18 +804,19 @@ const selectedVideoIds = new Set();
             const cSlug = countryRaw.replace(/[^a-zA-Z0-9]/g, '');
             const countryTag = (cSlug && cSlug !== 'Global') ? '#' + cSlug : '#Monde';
             const themeTags = isRed
-                ? '#ActualiteInternationale #Geopolitique #Securite #AnalyseTerrain'
-                : '#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Geopolitique';
-            const hashtags = `${countryTag}${themeTags}`;
+                ? '#ActualiteInternationale #Geopolitique #Securite #Analyse'
+                : '#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Cooperation';
+            const hashtags = `${countryTag} ${themeTags}`;
 
-            const followUpComment = `Source et lien direct de la sequence : ${item.link}\nQuelle est votre lecture de l'evolution de la situation concernant${countryFr} ? Partagez votre analyse en commentaire.`;
+            const followUpComment = `Que pensez-vous de cette evolution concernant ${countryFr} ? Partagez votre avis en commentaire.\nLien de la video : ${item.link}`;
             const captionOnly = `${cleanTitle}.\n\n${editorialParagraph}\n\n${hashtags}`;
-            const fullBundle = `${captionOnly}\n\n--- COMMENTAIRE A COUPER ET PUBLIER SOUS LE POST ---\n${followUpComment}`;
+            const fullBundle = `${captionOnly}\n\n--- CUT COMMENT BELOW ---\n${followUpComment}`;
             return { fullBundle, captionOnly, followUpComment, hashtags };
         }
 
-        function copyTextToClipboard(text, toastMsg) {
-            const msg = orVal(toastMsg, "Texte copie dans le presse-papiers");
+        function copyTextToClipboard(text, toastMsg, itemLink = null) {
+            const msg = orVal(toastMsg, "Copied to clipboard!");
+            if (itemLink) markItemPosted(itemLink, 'COPIED');
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(text).then(() => {
                     if (typeof showToast === 'function') showToast(msg, "info");
@@ -757,26 +832,55 @@ const selectedVideoIds = new Set();
             }
         }
 
+        async function warmupVideoFile(itemId, absDownloadUrl, fileName) {
+            if (!itemId) return;
+            if (videoFileCache[itemId]) return;
+            videoFileCache[itemId] = "LOADING";
+            try {
+                const r = await fetch(absDownloadUrl);
+                if (!r.ok) throw new Error("Fetch failed");
+                const blob = await r.blob();
+                const cleanName = orVal(fileName, 'video_intel.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
+                videoFileCache[itemId] = new File([blob], cleanName, { type: 'video/mp4' });
+                const statusEl = document.getElementById(`drag-ready-${itemId}`);
+                if (statusEl) {
+                    statusEl.textContent = "✋ Drag MP4 + FR Kit (Ready)";
+                    statusEl.classList.add("text-emerald-400");
+                }
+            } catch (e) {
+                delete videoFileCache[itemId];
+            }
+        }
+
         function handleVideoDragStart(event, absDownloadUrl, fileName, encodedBundle, itemId) {
             event.stopPropagation();
             const cleanName = orVal(fileName, 'video_intel.mp4').replace(/[^a-zA-Z0-9._-]/g, '_');
             const socialText = encodedBundle ? decodeURIComponent(encodedBundle) : '';
+            const item = videoItemMap[itemId];
 
             if (socialText) {
-                copyTextToClipboard(socialText, "Fichier MP4 pret a deposer - Legende + Commentaire FR copies !");
+                copyTextToClipboard(socialText, "📦 Dragging MP4 + Copied French Caption/Comment!", item ? item.link : null);
             }
 
-            event.dataTransfer.effectAllowed = 'copy';
+            event.dataTransfer.effectAllowed = 'copyMove';
+            if (videoFileCache[itemId] && videoFileCache[itemId] instanceof File) {
+                try {
+                    event.dataTransfer.items.add(videoFileCache[itemId]);
+                } catch (e) {}
+            }
             event.dataTransfer.setData('DownloadURL', `video/mp4:${cleanName}:${absDownloadUrl}`);
+            if (socialText) {
+                event.dataTransfer.setData('text/plain', socialText);
+            }
 
-            if (itemId && videoItemMap[itemId]) {
+            if (item) {
                 fetch(`${API_BASE}/api/french-kit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(videoItemMap[itemId])
+                    body: JSON.stringify(item)
                 }).then(r => r.json()).then(kit => {
                     if (kit && kit.full_bundle) {
-                        copyTextToClipboard(kit.full_bundle, "Texte complet traduit en francais copie (pret pour Ctrl+V sur FB) !");
+                        copyTextToClipboard(kit.full_bundle, "✅ Translated French Caption + Comment Copied & Marked Posted!", item.link);
                     }
                 }).catch(() => {});
             }
@@ -785,28 +889,33 @@ const selectedVideoIds = new Set();
         async function triggerVideoDownload(event, absDownloadUrl, fileName, encodedBundle, itemId) {
             event.preventDefault();
             event.stopPropagation();
-            if (itemId && videoItemMap[itemId]) {
+            const item = videoItemMap[itemId];
+            if (item) {
+                markItemPosted(item.link, 'DOWNLOADED');
                 try {
                     const r = await fetch(`${API_BASE}/api/french-kit`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(videoItemMap[itemId])
+                        body: JSON.stringify(item)
                     });
                     const kit = await r.json();
                     if (kit && kit.full_bundle) {
-                        copyTextToClipboard(kit.full_bundle, "Legende + Commentaire FR copies ! Telechargement MP4...");
+                        copyTextToClipboard(kit.full_bundle, "📋 French Caption + Comment Copied! Downloading MP4...", item.link);
                     }
                 } catch (e) {
-                    if (encodedBundle) copyTextToClipboard(decodeURIComponent(encodedBundle), "Kit FR copie ! Telechargement MP4...");
+                    if (encodedBundle) copyTextToClipboard(decodeURIComponent(encodedBundle), "📋 French Kit Copied! Downloading MP4...", item.link);
                 }
-            } else if (encodedBundle) {
-                copyTextToClipboard(decodeURIComponent(encodedBundle), "Kit FR copie ! Telechargement MP4...");
             }
 
             try {
-                const resp = await fetch(absDownloadUrl);
-                if (!resp.ok) throw new Error("Download error");
-                const blob = await resp.blob();
+                let blob;
+                if (videoFileCache[itemId] && videoFileCache[itemId] instanceof File) {
+                    blob = videoFileCache[itemId];
+                } else {
+                    const resp = await fetch(absDownloadUrl);
+                    if (!resp.ok) throw new Error("Download error");
+                    blob = await resp.blob();
+                }
                 const blobUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = blobUrl;
@@ -825,7 +934,7 @@ const selectedVideoIds = new Set();
             if (!item) return;
             const payload = Object.assign({}, item);
             if (overrideCategory) payload.category = overrideCategory;
-            if (typeof showToast === 'function') showToast("Envoi du fichier video MP4 et texte FR vers Telegram...", "info");
+            if (typeof showToast === 'function') showToast("✈️ Uploading MP4 video file & French caption to Telegram...", "info");
             try {
                 const res = await fetch(`${API_BASE}/api/telegram/dispatch`, {
                     method: 'POST',
@@ -834,12 +943,13 @@ const selectedVideoIds = new Set();
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    if (typeof showToast === 'function') showToast("Video MP4 et texte FR envoyes sur Telegram !", "success");
+                    markItemPosted(item.link, 'SENT_TG');
+                    if (typeof showToast === 'function') showToast("✅ MP4 Video & French Caption sent to Telegram!", "success");
                 } else {
-                    if (typeof showToast === 'function') showToast("Erreur Telegram : " + orVal(data.detail, "Echec"), "error");
+                    if (typeof showToast === 'function') showToast("❌ Telegram Error: " + orVal(data.detail, "Failed"), "error");
                 }
             } catch (err) {
-                if (typeof showToast === 'function') showToast("Erreur reseau lors de l'envoi Telegram", "error");
+                if (typeof showToast === 'function') showToast("❌ Network error sending to Telegram", "error");
             }
         }
 
@@ -855,7 +965,7 @@ const selectedVideoIds = new Set();
             if (!bar) return;
             if (!countEl) return;
             const count = selectedVideoIds.size;
-            countEl.textContent = `${count} video(s) selectionnee(s)`;
+            countEl.textContent = `${count} Video(s) Selected`;
             if (count > 0) bar.classList.remove('hidden');
             else bar.classList.add('hidden');
         }
@@ -877,7 +987,7 @@ const selectedVideoIds = new Set();
         async function dispatchSelectedVideos(overrideCat = null) {
             if (selectedVideoIds.size === 0) return;
             const items = Array.from(selectedVideoIds).map(id => videoItemMap[id]).filter(Boolean);
-            if (typeof showToast === 'function') showToast(`Envoi de ${items.length} fichier(s) MP4 vers Telegram...`, "info");
+            if (typeof showToast === 'function') showToast(`✈️ Uploading ${items.length} MP4 video(s) to Telegram...`, "info");
             try {
                 const res = await fetch(`${API_BASE}/api/telegram/dispatch-batch`, {
                     method: 'POST',
@@ -886,13 +996,14 @@ const selectedVideoIds = new Set();
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    if (typeof showToast === 'function') showToast(`${data.sent} video(s) MP4 envoyee(s) sur Telegram !`, "success");
+                    if (data.sent_links) data.sent_links.forEach(l => markItemPosted(l, 'SENT_TG'));
+                    if (typeof showToast === 'function') showToast(`✅ Sent ${data.sent} MP4 video(s) to Telegram!`, "success");
                     clearVideoSelection();
                 } else {
-                    if (typeof showToast === 'function') showToast("Erreur Telegram : " + orVal(data.detail, "Echec"), "error");
+                    if (typeof showToast === 'function') showToast("❌ Telegram Error: " + orVal(data.detail, "Failed"), "error");
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast("Erreur reseau lors de l'envoi multiple", "error");
+                if (typeof showToast === 'function') showToast("❌ Network error during batch send", "error");
             }
         }
 
@@ -969,24 +1080,25 @@ const selectedVideoIds = new Set();
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    if (typeof showToast === 'function') showToast("Parametres quotidiens Telegram enregistres !", "success");
+                    if (typeof showToast === 'function') showToast("✅ Telegram Daily Schedule & Settings Saved!", "success");
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast("Erreur lors de la sauvegarde", "error");
+                if (typeof showToast === 'function') showToast("❌ Failed to save settings", "error");
             }
         }
 
         async function triggerDailyBatchNow() {
             await saveTgSettings();
-            if (typeof showToast === 'function') showToast("Execution du lot quotidien (ROUGE & GENERAL) vers Telegram...", "info");
+            if (typeof showToast === 'function') showToast("⚡ Running Daily Telegram Video Batch (RED & GENERAL)...", "info");
             try {
                 const res = await fetch(`${API_BASE}/api/telegram/run-daily-now`, { method: 'POST' });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    if (typeof showToast === 'function') showToast(`Lot quotidien termine : ${data.total_sent} video(s) MP4 envoyee(s) !`, "success");
+                    if (data.sent_links) data.sent_links.forEach(l => markItemPosted(l, 'DAILY_TG'));
+                    if (typeof showToast === 'function') showToast(`✅ Daily Batch Complete: ${data.total_sent} MP4 video(s) sent to Telegram!`, "success");
                 }
             } catch (e) {
-                if (typeof showToast === 'function') showToast("Erreur lors de l'envoi du lot quotidien", "error");
+                if (typeof showToast === 'function') showToast("❌ Error running daily batch", "error");
             }
         }
 
@@ -1000,26 +1112,30 @@ const selectedVideoIds = new Set();
             const redVids = allVideos.filter(v => v.category === 'RED');
             const genVids = allVideos.filter(v => v.category !== 'RED');
 
-            const renderRow = (v, tabCat) => `
+            const renderRow = (v, tabCat) => {
+                const posted = isItemPosted(v.link);
+                const statusBadge = posted ? '<span class="text-[9px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-700 px-1.5 py-0.5 rounded">✓ POSTED</span>' : '';
+                return `
                 <div class="flex items-center justify-between gap-3 bg-slate-900 p-3 rounded-xl border border-slate-800">
                     <label class="flex items-center gap-2.5 flex-1 cursor-pointer">
-                        <input type="checkbox" class="tg-modal-cb w-4 h-4 accent-sky-500 rounded" data-id="${v.id}" data-cat="${tabCat}" checked>
+                        <input type="checkbox" class="tg-modal-cb w-4 h-4 accent-sky-500 rounded" data-id="${v.id}" data-cat="${tabCat}" ${posted ? '' : 'checked'}>
                         <div class="text-xs text-slate-200 line-clamp-1 font-medium">${v.title}</div>
                     </label>
+                    ${statusBadge}
                     <span class="text-[10px] font-mono text-slate-400 px-2 py-0.5 bg-slate-800 rounded">${orVal(v.country, 'Global')}</span>
-                    <button type="button" onclick="sendVideoByIdToTelegram(${v.id}, '${tabCat}')" class="px-2.5 py-1 bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white rounded-lg text-[10px] font-bold">Envoyer MP4</button>
-                </div>
-            `;
+                    <button type="button" onclick="sendVideoByIdToTelegram(${v.id}, '${tabCat}')" class="px-2.5 py-1 bg-sky-600/30 hover:bg-sky-600 text-sky-200 hover:text-white rounded-lg text-[10px] font-bold">✈️ Send MP4</button>
+                </div>`;
+            };
 
-            redContainer.innerHTML = redVids.length ? redVids.map(v => renderRow(v, 'RED')).join('') : '<p class="text-xs text-slate-500">Aucune video ROUGE chargee sur la grille actuelle.</p>';
-            genContainer.innerHTML = genVids.length ? genVids.map(v => renderRow(v, 'GENERAL')).join('') : '<p class="text-xs text-slate-500">Aucune video GENERAL chargee sur la grille actuelle.</p>';
+            redContainer.innerHTML = redVids.length ? redVids.map(v => renderRow(v, 'RED')).join('') : '<p class="text-xs text-slate-500">No RED videos loaded in current view. Switch platform to Extracted Videos to load more.</p>';
+            genContainer.innerHTML = genVids.length ? genVids.map(v => renderRow(v, 'GENERAL')).join('') : '<p class="text-xs text-slate-500">No GENERAL videos loaded in current view. Switch to GENERAL + Extracted Videos to load more.</p>';
         }
 
         async function dispatchTabVideos(tabCat) {
             const cbs = Array.from(document.querySelectorAll(`.tg-modal-cb[data-cat="${tabCat}"]:checked`));
             const items = cbs.map(cb => videoItemMap[Number(cb.dataset.id)]).filter(Boolean);
             if (!items.length) return;
-            if (typeof showToast === 'function') showToast(`Envoi de ${items.length} video(s)${tabCat} vers Telegram...`, "info");
+            if (typeof showToast === 'function') showToast(`✈️ Uploading ${items.length} ${tabCat} MP4 video(s) to Telegram...`, "info");
             try {
                 const res = await fetch(`${API_BASE}/api/telegram/dispatch-batch`, {
                     method: 'POST',
@@ -1028,7 +1144,9 @@ const selectedVideoIds = new Set();
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    if (typeof showToast === 'function') showToast(`${data.sent} video(s) envoyee(s) vers l'onglet${tabCat} !`, "success");
+                    if (data.sent_links) data.sent_links.forEach(l => markItemPosted(l, 'SENT_TG'));
+                    renderTgModalQueues();
+                    if (typeof showToast === 'function') showToast(`✅ Sent ${data.sent} video(s) to ${tabCat} tab!`, "success");
                 }
             } catch (e) {}
         }
@@ -1110,16 +1228,7 @@ const selectedVideoIds = new Set();
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-orange-950/60 text-orange-300 border-orange-800/40">👾 ${item.source}</span>`;
                     } else if (item.feed_type === 'TELEGRAM') {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-sky-950/60 text-sky-300 border-sky-800/40">✈️ ${item.source}</span>`;
-                    } else if (item.feed_type === 'SOCIAL_VIDEO') {
-                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-rose-950/60 text-rose-300 border-rose-800/40">▶️ ${item.source}</span>`;
-                    } else {
-                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
-                    }
-
-                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
-                    const langBadge = item.language && item.language !== 'English' ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
-                    
-                    if (item.feed_type === 'SOCIAL_VIDEO' && item.id) {
+                    } else if (item.id) {
                             videoItemMap[item.id] = item;
                         }
                         const rawSlugSource = item.handle ? item.handle : (item.source ? item.source : 'video');
@@ -1137,59 +1246,69 @@ const selectedVideoIds = new Set();
                         const isChecked = selectedVideoIds.has(Number(item.id)) ? 'checked' : '';
                         const posterAttr = item.thumbnail ? item.thumbnail : '';
                         const itemIdNum = item.id ? item.id : 0;
+                        const itemPosted = isItemPosted(item.link);
+                        const postedLabel = itemPosted ? postedLinksMap[item.link] : '';
+                        const cardPostedClasses = itemPosted ? 'opacity-60 border-emerald-500/60' : '';
+                        const hideCardClass = (hidePostedItems && itemPosted) ? 'hidden' : '';
 
                         const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
                             <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner"
                                  draggable="true"
+                                 onmouseenter="warmupVideoFile(${itemIdNum}, '${absDlUrl}', '${fileSlug}')"
+                                 onmousedown="warmupVideoFile(${itemIdNum}, '${absDlUrl}', '${fileSlug}')"
                                  ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
                                 <div class="flex items-center justify-between bg-slate-900 px-3 py-1.5 border-b border-slate-800">
                                     <label class="flex items-center gap-2 cursor-pointer select-none">
                                         <input type="checkbox" class="tg-video-checkbox w-3.5 h-3.5 accent-sky-500 rounded" data-id="${itemIdNum}" ${isChecked} onchange="toggleSelectVideo(${itemIdNum}, this.checked)">
-                                        <span class="text-[10px] font-bold text-slate-300">Selectionner (Envoi Multiple TG)</span>
+                                        <span class="text-[10px] font-bold text-slate-300">Select for TG</span>
                                     </label>
-                                    <span class="text-[9px] font-mono px-2 py-0.5 rounded ${item.category === 'RED' ? 'bg-rose-950 text-rose-300 border border-rose-800/50' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/50'}">ONGLET ${item.category}</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="posted-status-badge ${itemPosted ? '' : 'hidden'} text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700">✓ POSTED (${postedLabel})</span>
+                                        <button type="button" onclick="toggleItemPostedById(${itemIdNum})" class="posted-toggle-btn text-[9px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">${itemPosted ? '✓ Posted (Undo)' : 'Mark Posted'}</button>
+                                        <span class="text-[9px] font-mono px-2 py-0.5 rounded ${item.category === 'RED' ? 'bg-rose-950 text-rose-300 border border-rose-800/50' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/50'}">${item.category} TAB</span>
+                                    </div>
                                 </div>
                                 <video controls preload="metadata" poster="${posterAttr}" src="${streamUrl}" class="w-full h-44 object-cover bg-black"></video>
                                 <div class="flex flex-wrap items-center justify-between gap-1.5 bg-slate-900/95 px-2.5 py-2 border-t border-slate-800"
                                      draggable="true"
                                      ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
-                                    <span class="text-[10px] text-slate-300 font-mono select-none cursor-grab active:cursor-grabbing" title="Glisser vers le Bureau ou cliquer pour copier le kit FR">Glisser MP4 + Texte FR</span>
+                                    <span id="drag-ready-${itemIdNum}" class="text-[10px] text-slate-300 font-mono select-none cursor-grab active:cursor-grabbing" title="Hover to buffer MP4, then drag to FB/Desktop (auto-copies French caption & comment)">✋ Drag MP4 + FR Kit</span>
                                     <div class="flex items-center gap-1.5">
                                         <button type="button"
                                                 onclick="triggerVideoDownload(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})"
-                                                class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition-all">MP4 + Kit FB (FR)</button>
+                                                class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition-all">⬇ MP4 + Copy FR Kit</button>
                                         <button type="button"
                                                 onclick="sendVideoByIdToTelegram(${itemIdNum})"
-                                                class="px-2.5 py-1 rounded-lg bg-sky-500/25 border border-sky-500/50 text-[10px] font-bold text-sky-200 hover:bg-sky-500/40 transition-all">Envoyer vers TG (FR)</button>
+                                                class="px-2.5 py-1 rounded-lg bg-sky-500/25 border border-sky-500/50 text-[10px] font-bold text-sky-200 hover:bg-sky-500/40 transition-all">✈️ Send to TG</button>
                                     </div>
                                 </div>
                                 <details class="bg-slate-950/95 border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
                                     <summary class="cursor-pointer font-mono text-[10px] text-amber-400 font-bold select-none flex items-center justify-between">
-                                        <span>Legende FR + Hashtags + Commentaire avec Lien (Sans Emojis)</span>
-                                        <span class="text-[9px] text-slate-500">Afficher / Copier</span>
+                                        <span>📝 French Caption + Hashtags + Cut-Comment (No Emojis)</span>
+                                        <span class="text-[9px] text-slate-500">View / Copy</span>
                                     </summary>
                                     <div class="mt-2 space-y-2">
                                         <textarea readonly rows="6" onclick="this.select()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 rounded-lg p-2 text-[10px] font-mono focus:outline-none">${safeBundlePreview}</textarea>
                                         <div class="flex items-center justify-between gap-1.5">
-                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedBundle}'), 'Post FR complet + Commentaire copies !')" class="flex-1 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded text-[10px] font-bold">Tout Copier (Post + Commentaire)</button>
-                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedCaption}'), 'Legende + Hashtags FR copies !')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700">Legende Seule</button>
-                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedComment}'), 'Commentaire FR + Lien copies !')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700">Commentaire + Lien</button>
+                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedBundle}'), '✅ Full French Post + Comment Copied!', '${item.link}')" class="flex-1 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded text-[10px] font-bold">Copy All (Post + Comment)</button>
+                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedCaption}'), '✅ French Caption + Hashtags Copied!', '${item.link}')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700">Caption Only</button>
+                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedComment}'), '✅ French Comment + Link Copied!', '${item.link}')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700">Comment + Link</button>
                                         </div>
                                     </div>
                                 </details>
                             </div>
                         ` : (item.thumbnail ? `
-                        <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
-                            <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
-                        </div>
-                    ` : '');
-                    
-                    const safeTitle = (item.title || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    const safeSource = (item.source || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                    const safeHandle = (item.handle || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                            <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
+                                <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
+                            </div>
+                        ` : '');
 
-                    const card = `
-                        <div class="bg-card rounded-2xl p-5 border border-bordercolor hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
+                        const safeTitle = (item.title ? item.title : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+                        const safeSource = (item.source ? item.source : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+                        const safeHandle = (item.handle ? item.handle : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+
+                        const card = `
+                            <div data-item-link="${item.link}" class="bg-card rounded-2xl p-5 border border-bordercolor ${cardPostedClasses}${hideCardClass} hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
                             <div>
                                 ${thumbnailHtml}
                                 <div class="flex items-center justify-between mb-3">
@@ -1356,126 +1475,123 @@ const selectedVideoIds = new Set();
 <!-- Video Extraction Tool -->
 
 
+    
     <!-- FLOATING MULTI-SELECT BAR FOR TELEGRAM -->
     <div id="tg-selection-bar" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-900/95 border border-sky-500/50 rounded-2xl px-5 py-3 shadow-2xl backdrop-blur-md flex flex-wrap items-center gap-3">
-        <span id="tg-selected-count" class="text-xs font-bold text-white font-mono bg-sky-600/30 border border-sky-500/40 px-2.5 py-1 rounded-lg">0 videos selectionnees</span>
-        <button type="button" onclick="selectAllVisibleVideos()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700">Tout selectionner</button>
-        <button type="button" onclick="clearVideoSelection()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold border border-slate-700">Effacer</button>
-        <div class="h-4 w-[1px] bg-slate-700"></div>
-        <button type="button" onclick="dispatchSelectedVideos(null)" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-md">Envoyer Selection vers TG (Auto ROUGE/GENERAL)</button>
-        <button type="button" onclick="dispatchSelectedVideos('RED')" class="px-3 py-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold">Onglet ROUGE</button>
-        <button type="button" onclick="dispatchSelectedVideos('GENERAL')" class="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold">Onglet GENERAL</button>
+        <span id="tg-selected-count" class="text-xs font-bold text-white font-mono bg-sky-600/30 border border-sky-500/40 px-2.5 py-1 rounded-lg">0 Videos Selected</span>
+        <button type="button" onclick="selectAllVisibleVideos()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700">Select All Visible</button>
+        <button type="button" onclick="clearVideoSelection()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold border border-slate-700">Clear</button>
+        <button type="button" onclick="dispatchSelectedVideos(null)" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-md">✈️ Send Selected to TG (Auto RED/GENERAL)</button>
+        <button type="button" onclick="dispatchSelectedVideos('RED')" class="px-3 py-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold">Send to RED Tab</button>
+        <button type="button" onclick="dispatchSelectedVideos('GENERAL')" class="px-3 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold">Send to GENERAL Tab</button>
     </div>
 
-    <!-- TELEGRAM MULTI-TAB & DAILY SCHEDULER MODAL -->
+    <!-- ENGLISH TELEGRAM SCHEDULER & MULTI-TAB MODAL -->
     <div id="tg-command-modal" class="fixed inset-0 bg-black/80 z-[90] hidden items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/70">
                 <div>
-                    <h2 class="text-base font-black text-white tracking-wide uppercase">Centre Telegram : Onglets ROUGE / GENERAL &amp; Envoi Quotidien</h2>
-                    <p class="text-[11px] text-slate-400 font-mono">Envoi direct de fichiers video MP4 avec legende, hashtags et commentaire en francais (sans emojis)</p>
+                    <h2 class="text-base font-black text-white tracking-wide uppercase">⚙️ Telegram Daily Scheduler &amp; Multi-Tab Dispatcher</h2>
+                    <p class="text-[11px] text-slate-400 font-mono">Sends real MP4 video files with clean French captions, hashtags, comments &amp; links (no emojis)</p>
                 </div>
-                <button type="button" onclick="closeTgCommandModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">Fermer</button>
+                <button type="button" onclick="closeTgCommandModal()" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold">✕ Close</button>
             </div>
 
             <div class="flex border-b border-slate-800 bg-slate-900/40 px-6 pt-3 gap-2">
-                <button type="button" id="tg-tab-btn-settings" onclick="switchTgModalTab('settings')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-sky-600 text-white">1. Programmation Quotidienne &amp; Parametres</button>
-                <button type="button" id="tg-tab-btn-red" onclick="switchTgModalTab('red')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-rose-300 hover:bg-slate-700">2. Onglet Videos ROUGE (Crise)</button>
-                <button type="button" id="tg-tab-btn-general" onclick="switchTgModalTab('general')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-indigo-300 hover:bg-slate-700">3. Onglet Videos GENERAL (Bilateral / Diplo)</button>
+                <button type="button" id="tg-tab-btn-settings" onclick="switchTgModalTab('settings')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-sky-600 text-white">1. Daily Scheduler &amp; Settings</button>
+                <button type="button" id="tg-tab-btn-red" onclick="switchTgModalTab('red')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-rose-300 hover:bg-slate-700">2. RED Videos Queue (Crisis)</button>
+                <button type="button" id="tg-tab-btn-general" onclick="switchTgModalTab('general')" class="px-4 py-2 rounded-t-xl text-xs font-bold bg-slate-800 text-indigo-300 hover:bg-slate-700">3. GENERAL Videos Queue (Bilateral / Diplo)</button>
             </div>
 
             <div class="p-6 overflow-y-auto space-y-5 flex-1">
-                <!-- TAB 1: SETTINGS & DAILY SCHEDULER -->
                 <div id="tg-modal-tab-settings" class="space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/70 p-4 rounded-xl border border-slate-800">
                         <div class="col-span-full flex items-center justify-between border-b border-slate-800 pb-3">
                             <div>
-                                <h3 class="text-xs font-bold text-white uppercase">Envoi Automatique Quotidien vers Telegram</h3>
-                                <p class="text-[11px] text-slate-400">Envoie automatiquement les fichiers MP4 et textes en francais chaque jour a l'heure choisie</p>
+                                <h3 class="text-xs font-bold text-white uppercase">Daily Automated Telegram Video Dispatch</h3>
+                                <p class="text-[11px] text-slate-400">Automatically sends MP4 video files + French captions/comments to your Telegram channel every day</p>
                             </div>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" id="tg_enabled" class="w-4 h-4 accent-sky-500 rounded">
-                                <span class="text-xs font-bold text-emerald-400">Activer l'envoi quotidien</span>
+                                <span class="text-xs font-bold text-emerald-400">Enable Daily Auto-Send</span>
                             </label>
                         </div>
 
                         <div>
-                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Heure d'envoi quotidien (UTC - HH:MM)</label>
+                            <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Daily Send Time (UTC - HH:MM)</label>
                             <input type="time" id="tg_schedule_time" value="09:00" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
                         </div>
                         <div class="flex items-end">
-                            <button type="button" onclick="triggerDailyBatchNow()" class="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md transition-all">Lancer l'envoi quotidien maintenant (Test immediat)</button>
+                            <button type="button" onclick="triggerDailyBatchNow()" class="w-full py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs shadow-md transition-all">⚡ Run Daily Batch Now (Instant Test)</button>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div class="bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl">
-                            <label class="block text-[10px] font-mono text-rose-300 uppercase font-bold mb-1">ROUGE (Hors EAU / Excluded UAE)</label>
+                            <label class="block text-[10px] font-mono text-rose-300 uppercase font-bold mb-1">RED (Excluded UAE)</label>
                             <input type="number" id="tg_red_exclude_uae_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
-                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / day</span>
                         </div>
                         <div class="bg-rose-950/20 border border-rose-800/40 p-3.5 rounded-xl">
-                            <label class="block text-[10px] font-mono text-rose-300 uppercase font-bold mb-1">ROUGE (Non-Excluded / EAU Inclus)</label>
+                            <label class="block text-[10px] font-mono text-rose-300 uppercase font-bold mb-1">RED (Non-Excluded UAE)</label>
                             <input type="number" id="tg_red_include_uae_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
-                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / day</span>
                         </div>
                         <div class="bg-indigo-950/20 border border-indigo-800/40 p-3.5 rounded-xl">
-                            <label class="block text-[10px] font-mono text-indigo-300 uppercase font-bold mb-1">GENERAL (Bilateral EAU)</label>
+                            <label class="block text-[10px] font-mono text-indigo-300 uppercase font-bold mb-1">GENERAL (UAE Bilateral)</label>
                             <input type="number" id="tg_general_bilateral_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
-                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / day</span>
                         </div>
                         <div class="bg-indigo-950/20 border border-indigo-800/40 p-3.5 rounded-xl">
                             <label class="block text-[10px] font-mono text-indigo-300 uppercase font-bold mb-1">GENERAL (Non-Bilateral)</label>
                             <input type="number" id="tg_general_non_bilateral_count" min="0" max="25" value="2" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-bold font-mono">
-                            <span class="text-[10px] text-slate-400 mt-1 block">videos / jour</span>
+                            <span class="text-[10px] text-slate-400 mt-1 block">videos / day</span>
                         </div>
                     </div>
 
                     <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 space-y-3">
-                        <h3 class="text-xs font-bold text-white uppercase">Configuration des Canaux / Onglets Telegram (ROUGE vs GENERAL)</h3>
-                        <p class="text-[11px] text-slate-400">Vous pouvez envoyer ROUGE et GENERAL vers deux canaux differents, ou vers deux Topics (onglets) d'un meme groupe Telegram.</p>
+                        <h3 class="text-xs font-bold text-white uppercase">Telegram Destination Channels / Tabs (RED vs GENERAL)</h3>
+                        <p class="text-[11px] text-slate-400">Route RED and GENERAL videos to separate Telegram channels, or separate Topic IDs inside a Telegram group.</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div class="col-span-full">
-                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Bot Token Telegram (@BotFather)</label>
-                                <input type="password" id="tg_bot_token" placeholder="Laisser vide pour utiliser TELEGRAM_BOT_TOKEN de Render" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                                <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Telegram Bot Token (@BotFather)</label>
+                                <input type="password" id="tg_bot_token" placeholder="Leave blank to use Render TELEGRAM_BOT_TOKEN env var" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-mono text-rose-300 uppercase mb-1">Canal / Chat ID pour ONGLET ROUGE</label>
-                                <input type="text" id="tg_red_chat_id" placeholder="ex: -1001234567890 ou @mon_canal_rouge" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                                <label class="block text-[10px] font-mono text-rose-300 uppercase mb-1">RED Channel / Chat ID</label>
+                                <input type="text" id="tg_red_chat_id" placeholder="e.g. -1001234567890 or @my_red_channel" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-mono text-rose-300 uppercase mb-1">Topic / Thread ID ROUGE (Optionnel)</label>
-                                <input type="text" id="tg_red_topic_id" placeholder="ex: 2 (si groupe avec Topics)" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                                <label class="block text-[10px] font-mono text-rose-300 uppercase mb-1">RED Topic / Thread ID (Optional)</label>
+                                <input type="text" id="tg_red_topic_id" placeholder="e.g. 2 (if using group topics)" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-mono text-indigo-300 uppercase mb-1">Canal / Chat ID pour ONGLET GENERAL</label>
-                                <input type="text" id="tg_general_chat_id" placeholder="ex: -1009876543210 ou meme canal" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                                <label class="block text-[10px] font-mono text-indigo-300 uppercase mb-1">GENERAL Channel / Chat ID</label>
+                                <input type="text" id="tg_general_chat_id" placeholder="e.g. -1009876543210 or same channel" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-mono text-indigo-300 uppercase mb-1">Topic / Thread ID GENERAL (Optionnel)</label>
-                                <input type="text" id="tg_general_topic_id" placeholder="ex: 4 (si groupe avec Topics)" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
+                                <label class="block text-[10px] font-mono text-indigo-300 uppercase mb-1">GENERAL Topic / Thread ID (Optional)</label>
+                                <input type="text" id="tg_general_topic_id" placeholder="e.g. 4 (if using group topics)" class="w-full bg-slate-950 text-white border border-slate-700 rounded-lg px-3 py-2 text-xs font-mono">
                             </div>
                         </div>
                         <div class="pt-2 flex justify-end">
-                            <button type="button" onclick="saveTgSettings()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-lg">Enregistrer la Configuration Quotidienne</button>
+                            <button type="button" onclick="saveTgSettings()" class="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl text-xs shadow-lg">💾 Save Daily Schedule &amp; Settings</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- TAB 2: RED VIDEO QUEUE -->
                 <div id="tg-modal-tab-red" class="hidden space-y-3">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-rose-300">File Videos ROUGE (Crise &amp; Securite)</span>
-                        <button type="button" onclick="dispatchTabVideos('RED')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">Envoyer la selection ROUGE vers TG</button>
+                        <span class="text-xs font-bold text-rose-300">RED Videos Queue (Crisis &amp; Security)</span>
+                        <button type="button" onclick="dispatchTabVideos('RED')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold">✈️ Send Checked RED Videos to TG</button>
                     </div>
                     <div id="tg-red-list" class="space-y-2 max-h-[55vh] overflow-y-auto"></div>
                 </div>
 
-                <!-- TAB 3: GENERAL VIDEO QUEUE -->
                 <div id="tg-modal-tab-general" class="hidden space-y-3">
                     <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-indigo-300">File Videos GENERAL (Diplomatie &amp; Bilateral)</span>
-                        <button type="button" onclick="dispatchTabVideos('GENERAL')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold">Envoyer la selection GENERAL vers TG</button>
+                        <span class="text-xs font-bold text-indigo-300">GENERAL Videos Queue (Bilateral &amp; Diplomacy)</span>
+                        <button type="button" onclick="dispatchTabVideos('GENERAL')" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold">✈️ Send Checked GENERAL Videos to TG</button>
                     </div>
                     <div id="tg-general-list" class="space-y-2 max-h-[55vh] overflow-y-auto"></div>
                 </div>

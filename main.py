@@ -132,6 +132,8 @@ TRANSLATION_CODES = {
 # MASTER CATALOG
 # ==============================================================================
 MASTER_CATALOG = [
+    {"name": "WAM Emirates News Agency", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:wam.ae+OR+%22United+Arab+Emirates%22+OR+%22Abu+Dhabi%22+when:7d&hl=en-US&gl=US&ceid=US:en"},
+    {"name": "UAE Bilateral & Diplomacy", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=(%22UAE%22+OR+%22Emirates%22)+(bilateral+OR+cooperation+OR+agreement+OR+summit+OR+trade+OR+diplomatic)+when:7d&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Joy Online", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://www.myjoyonline.com/feed/"},
     {"name": "GhanaWeb", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://news.google.com/rss/search?q=site:ghanaweb.com&hl=en-US&gl=US&ceid=US:en"},
     {"name": "Citi Newsroom", "continent": "Africa", "country": "Ghana", "category": "ALL", "feed_type": "PUBLISHER", "language": "English", "url": "https://citinewsroom.com/feed/"},
@@ -217,17 +219,17 @@ SOCIAL_CATALOG = [
     {"handle": "@FCDOGovUK", "continent": "Europe", "country": "United Kingdom", "category": "GENERAL", "language": "English"},
     {"handle": "@SabaNet", "continent": "Middle East", "country": "Yemen", "category": "RED", "language": "Arabic"},
     {"handle": "@KingSalman", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
-    {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
-    {"handle": "@HHShkMohd", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
+    {"handle": "@MohamedBinZayed", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "language": "Arabic"},
+    {"handle": "@HHShkMohd", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "language": "Arabic"},
     {"handle": "@TamimBinHamad", "continent": "Middle East", "country": "Qatar", "category": "RED", "language": "Arabic"},
     {"handle": "@RTErdogan", "continent": "Middle East", "country": "Turkey", "category": "RED", "language": "Turkish"},
     {"handle": "@netanyahu", "continent": "Middle East", "country": "Israel", "category": "RED", "language": "English"},
     {"handle": "@FaisalbinFarhan", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
     {"handle": "@KSAMOFA", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "Arabic"},
     {"handle": "@KSAmofaEN", "continent": "Middle East", "country": "Saudi Arabia", "category": "RED", "language": "English"},
-    {"handle": "@ABZayed", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
-    {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "Arabic"},
-    {"handle": "@OFMUAE", "continent": "Middle East", "country": "UAE", "category": "RED", "language": "English"},
+    {"handle": "@ABZayed", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "language": "Arabic"},
+    {"handle": "@mofauae", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "language": "Arabic"},
+    {"handle": "@OFMUAE", "continent": "Middle East", "country": "UAE", "category": "GENERAL", "language": "English"},
     {"handle": "@MBA_AlThani_", "continent": "Middle East", "country": "Qatar", "category": "RED", "language": "Arabic"},
     {"handle": "@MofaQatar_EN", "continent": "Middle East", "country": "Qatar", "category": "RED", "language": "English"},
     {"handle": "@IsraelMFA", "continent": "Middle East", "country": "Israel", "category": "RED", "language": "English"},
@@ -725,7 +727,14 @@ async def get_news(
     """
     params = []
     
-    if category.upper() != "ALL": base_query += " AND category = %s"; params.append(category.upper())
+    if category.upper() != "ALL":
+        if uae_bilateral and category.upper() == "GENERAL":
+            base_query += " AND (category IN ('GENERAL', 'ALL') OR country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%' OR title ILIKE '%%Abu Dhabi%%' OR title ILIKE '%%Dubai%%')"
+        elif category.upper() == "GENERAL":
+            base_query += " AND (category = 'GENERAL' OR (category = 'ALL' AND threat_level = 'INFORMATIONAL'))"
+        else:
+            base_query += " AND category = %s"
+            params.append(category.upper())
     if feed_type.upper() != "ALL": base_query += " AND feed_type = %s"; params.append(feed_type.upper())
 
     if publisher != "All" and handle != "All":
@@ -746,7 +755,7 @@ async def get_news(
         base_query += " AND NOT (country = 'UAE' AND category = 'RED')"
         
     if uae_bilateral:
-        base_query += " AND (country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%') AND category = 'GENERAL'"
+        base_query += " AND (country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%' OR title ILIKE '%%Abu Dhabi%%' OR title ILIKE '%%Dubai%%' OR title ILIKE '%%الإمارات%%' OR handle IN ('@MohamedBinZayed', '@HHShkMohd', '@ABZayed', '@mofauae', '@OFMUAE'))"
 
     if start_date or end_date:
         if start_date: base_query += " AND published_date >= %s::timestamp"; params.append(f"{start_date} 00:00:00")
