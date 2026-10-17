@@ -847,7 +847,7 @@ const selectedVideoIds = new Set();
             const hashtags = `${countryTag} ${themeTags}`;
 
             const followUpComment = `Que pensez-vous de cette evolution concernant ${countryFr} ? Partagez votre analyse dans les commentaires.\nLien de la video : ${item.link}`;
-            const captionOnly = `${editorialParagraph}\n\n${hashtags}`;
+            const captionOnly = `${hashtags}`;
             const fullBundle = `${captionOnly}\n\n--- COMMENTAIRE A COUPER ET COLLER SOUS LE POST ---\n${followUpComment}`;
             return { fullBundle, captionOnly, followUpComment, hashtags };
         }

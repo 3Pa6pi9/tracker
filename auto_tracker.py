@@ -6,7 +6,7 @@ logger = logging.getLogger("uvicorn")
 
 TELEGRAM_VIDEO_CHANNELS = [
     ("Middle_East_Spectator", "Middle East Spectator", "Middle East", "Regional", "RED"),
-    ("clashreport", "Clash Report", "Middle East", "Turkey", "RED"),
+    ("clashreport", "Clash Report", "Global", "Global", "RED"),
     ("intelslava", "Intel Slava", "Europe", "Global", "RED"),
     ("warmonitors", "War Monitor", "Middle East", "Regional", "RED"),
     ("ddgeopolitics", "DD Geopolitics", "Global", "Global", "GENERAL"),

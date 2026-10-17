@@ -81,14 +81,32 @@ def strip_emojis_and_noise(text: str) -> str:
     s = re.sub(r'\s+', ' ', s).strip()
     return s
 
+def detect_country_fr_from_text(title: str, fallback_country: str) -> str:
+    t = str(title or "").lower()
+    keyword_map = [
+        ("uae", "les Emirats arabes unis"), ("emirates", "les Emirats arabes unis"),
+        ("abu dhabi", "les Emirats arabes unis"), ("dubai", "les Emirats arabes unis"),
+        ("israel", "Israel"), ("gaza", "Gaza"), ("palestin", "la Palestine"),
+        ("lebanon", "le Liban"), ("liban", "le Liban"), ("beirut", "le Liban"),
+        ("iran", "l'Iran"), ("tehran", "l'Iran"), ("syria", "la Syrie"),
+        ("iraq", "l'Irak"), ("yemen", "le Yemen"), ("red sea", "la mer Rouge"),
+        ("sudan", "le Soudan"), ("somalia", "la Somalie"), ("ethiopia", "l'Ethiopie"),
+        ("egypt", "l'Egypte"), ("russia", "la Russie"), ("ukrain", "l'Ukraine"),
+        ("german", "l'Allemagne"), ("france", "la France"), ("saudi", "l'Arabie saoudite"),
+        ("qatar", "le Qatar"), ("united states", "les Etats-Unis"), ("pentagon", "les Etats-Unis")
+    ]
+    for kw, fr_name in keyword_map:
+        if kw in t:
+            return fr_name
+    if fallback_country in ("Turkey", "Global", "Regional", ""):
+        return "la scene internationale"
+    return COUNTRIES_FR.get(fallback_country, fallback_country)
+
 async def translate_to_french_reliable(text: str, country_fr: str, is_red: bool) -> str:
     clean = strip_emojis_and_noise(text)
     if not clean or clean.lower().startswith("video intelligence") or clean.lower().startswith("dispatch from"):
-        if is_red:
-            return f"Nouvelle sequence montrant l'evolution de la situation concernant {country_fr}."
-        return f"Point en images sur l'actualite diplomatique concernant {country_fr}."
+        return f"Point de situation en images sur l'actualite concernant {country_fr}."
 
-    # Engine 1: Direct Google Translate GTX JSON endpoint (fast & reliable on Render)
     try:
         url = "https://translate.googleapis.com/translate_a/single"
         params = {"client": "gtx", "sl": "auto", "tl": "fr", "dt": "t", "q": clean}
@@ -99,57 +117,49 @@ async def translate_to_french_reliable(text: str, country_fr: str, is_red: bool)
                 if data and isinstance(data[0], list):
                     translated = "".join(seg[0] for seg in data[0] if seg and seg[0])
                     translated = strip_emojis_and_noise(translated)
-                    if translated and translated.lower() != clean.lower():
+                    if translated:
                         return translated
     except Exception:
         pass
 
-    # Engine 2: deep_translator fallback
     try:
         res = await asyncio.to_thread(lambda: GoogleTranslator(source='auto', target='fr').translate(clean))
         if res:
-            res_clean = strip_emojis_and_noise(res)
-            if res_clean and res_clean.lower() != clean.lower():
-                return res_clean
+            return strip_emojis_and_noise(res)
     except Exception:
         pass
 
-    # Engine 3: Pure French fallback so English is NEVER left in the caption
-    if is_red:
-        return f"Nouveau developpement rapporte sur le terrain concernant {country_fr}."
-    return f"Nouvelle sequence diplomatique concernant {country_fr}."
+    return f"Point de situation en images sur l'actualite concernant {country_fr}."
 
 async def build_french_editorial_kit_async(item: dict) -> dict:
-    country = str(item.get("country") or "Global")
-    country_fr = COUNTRIES_FR.get(country, country)
+    nl = chr(10)
+    raw_title = str(item.get("title") or "")
+    fallback_country = str(item.get("country") or "Global")
+    country_fr = detect_country_fr_from_text(raw_title, fallback_country)
     cat = str(item.get("category") or "GENERAL").upper()
     is_red = (cat == "RED")
-    raw_title = str(item.get("title") or "")
 
     fr_lead = await translate_to_french_reliable(raw_title, country_fr, is_red)
     if not fr_lead.endswith((".", "!", "?")):
         fr_lead += "."
 
-    idx = int(item.get("id") or len(raw_title) or 1) % 3
     if is_red:
-        body_fr = RED_TPL[idx].format(country=country_fr)
         tags = "#ActualiteInternationale #Geopolitique #Securite #Analyse"
     else:
-        body_fr = GEN_TPL[idx].format(country=country_fr)
         tags = "#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Cooperation"
 
     c_slug = re.sub(r'[^a-zA-Z0-9]', '', country_fr.replace("les ", "").replace("le ", "").replace("la ", "").replace("l'", ""))
-    c_tag = f"#{c_slug}" if (c_slug and len(c_slug) > 2) else "#International"
+    c_tag = f"#{c_slug}" if (c_slug and len(c_slug) > 2 and "sceneinternationale" not in c_slug.lower()) else "#International"
     hashtags = f"{c_tag} {tags}"
 
     link = str(item.get("link") or "")
-    caption = f"{fr_lead}\n\n{body_fr}\n\n{hashtags}"
+    caption = fr_lead + nl + nl + hashtags
     comment = (
-        f"Que pensez-vous de cette evolution concernant {country_fr} ? "
-        f"Partagez votre analyse dans les commentaires.\n"
-        f"Lien de la video : {link}"
+        "Que pensez-vous de cette evolution ? "
+        "Partagez votre analyse dans les commentaires." + nl +
+        "Lien de la video : " + link
     )
-    full_bundle = f"{caption}\n\n--- COMMENTAIRE A COUPER ET COLLER SOUS LE POST ---\n{comment}"
+    full_bundle = caption + nl + nl + "--- COMMENTAIRE A COUPER ET COLLER SOUS LE POST ---" + nl + comment
     return {
         "caption": caption,
         "comment": comment,
