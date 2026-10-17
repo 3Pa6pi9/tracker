@@ -1,5 +1,9 @@
-import os, re, html, asyncio, logging
-from datetime import datetime
+import os
+import re
+import html
+import asyncio
+import logging
+from datetime import datetime, timedelta
 import httpx
 from fastapi import APIRouter, Body
 from deep_translator import GoogleTranslator
@@ -8,67 +12,150 @@ logger = logging.getLogger("uvicorn")
 router = APIRouter()
 
 RED_TPL = [
-    "Cette sequence diffusee depuis le terrain met en lumiere l'evolution rapide de la situation securitaire concernant {country}. Les observateurs suivent avec attention les repercussions possibles sur l'equilibre regional.",
-    "Les images qui circulent actuellement temoignent d'une nette montee des tensions autour de {country}. Plusieurs sources regionales confirment que le contexte reste particulierement sensible sur place.",
-    "Ce nouveau developpement rapporte par {source} souligne la fragilite de la situation actuelle concernant {country}. Les acteurs internationaux restent attentifs aux prochaines reactions officielles."
+    (
+        "Sur le terrain, l'evolution rapide de la situation securitaire "
+        "concernant {country} retient toute l'attention. Les derniers elements "
+        "rapportes montrent une vigilance accrue autour des zones sensibles "
+        "et laissent entrevoir des repercussions importantes pour l'equilibre regional."
+    ),
+    (
+        "La tension reste vive autour de {country} alors que de nouveaux "
+        "developpements viennent d'etre documentes sur place. Plusieurs observateurs "
+        "soulignent le caractere delicat de cette sequence et suivent de pres "
+        "les reactions des acteurs impliques."
+    ),
+    (
+        "Cette sequence illustre la complexite du contexte securitaire actuel "
+        "touchant {country}. Les informations qui remontent du terrain confirment "
+        "que les prochaines heures seront determinantes pour la suite des evenements."
+    ),
 ]
 
 GEN_TPL = [
-    "Cette sequence illustre la dynamique diplomatique actuelle impliquant {country} et ses partenaires internationaux. Ces echanges confirment la volonte de consolider la cooperation strategique et economique.",
-    "Point sur l'actualite internationale concernant {country}, ou les consultations bilaterales se poursuivent. Cette initiative traduit l'evolution des priorites politiques et commerciales dans la region.",
-    "Retour en images sur cette sequence diplomatique liee a {country} et relayee par {source}. Une etape significative qui souligne l'importance du dialogue bilateral actuel."
+    (
+        "Les echanges diplomatiques se poursuivent autour de {country} afin de "
+        "renforcer la cooperation bilaterale et les partenariats strategiques. "
+        "Cette dynamique temoigne d'une volonte commune d'approfondir le dialogue "
+        "politique et economique."
+    ),
+    (
+        "Retour sur cette sequence diplomatique impliquant {country} et ses "
+        "partenaires internationaux. Les discussions engagées mettent en avant "
+        "de nouvelles perspectives de collaboration regionale et commerciale."
+    ),
+    (
+        "Cette rencontre marque une nouvelle etape dans les relations bilaterales "
+        "concernant {country}. Les priorites abordees confirment l'importance "
+        "accordee a la stabilite et au developpement des echanges."
+    ),
 ]
 
 COUNTRIES_FR = {
-    "United States": "les Etats-Unis", "United Kingdom": "le Royaume-Uni", "UAE": "les Emirats arabes unis",
-    "Saudi Arabia": "l'Arabie saoudite", "Turkey": "la Turquie", "Russia": "la Russie", "Iran": "l'Iran",
-    "Israel": "Israel", "Lebanon": "le Liban", "Syria": "la Syrie", "Iraq": "l'Irak", "Yemen": "le Yemen",
-    "Sudan": "le Soudan", "Somalia": "la Somalie", "Egypt": "l'Egypte", "Ethiopia": "l'Ethiopie",
-    "France": "la France", "Qatar": "le Qatar", "Global": "la scene internationale", "Regional": "la region"
+    "United States": "les Etats-Unis",
+    "United Kingdom": "le Royaume-Uni",
+    "UAE": "les Emirats arabes unis",
+    "Saudi Arabia": "l'Arabie saoudite",
+    "Turkey": "la Turquie",
+    "Russia": "la Russie",
+    "Iran": "l'Iran",
+    "Israel": "Israel",
+    "Lebanon": "le Liban",
+    "Syria": "la Syrie",
+    "Iraq": "l'Irak",
+    "Yemen": "le Yemen",
+    "Sudan": "le Soudan",
+    "Somalia": "la Somalie",
+    "Egypt": "l'Egypte",
+    "Ethiopia": "l'Ethiopie",
+    "France": "la France",
+    "Qatar": "le Qatar",
+    "Global": "la scene internationale",
+    "Regional": "le Moyen-Orient",
 }
 
-def strip_emojis(text: str) -> str:
-    return re.sub(r'[\U00010000-\U0010ffff\u2600-\u27bf]', '', str(text or '')).strip()
+def strip_emojis_and_noise(text: str) -> str:
+    s = str(text or "")
+    s = re.sub(r'[\U00010000-\U0010ffff\u2600-\u27bf]', '', s)
+    s = re.sub(r'https?://\S+', '', s)
+    s = re.sub(r'@[A-Za-z0-9_]+', '', s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
 
-def translate_fr(text: str) -> str:
-    clean = strip_emojis(text)
-    if not clean:
-        return "Point de situation international"
+async def translate_to_french_reliable(text: str, country_fr: str, is_red: bool) -> str:
+    clean = strip_emojis_and_noise(text)
+    if not clean or clean.lower().startswith("video intelligence") or clean.lower().startswith("dispatch from"):
+        if is_red:
+            return f"Nouvelle sequence montrant l'evolution de la situation concernant {country_fr}."
+        return f"Point en images sur l'actualite diplomatique concernant {country_fr}."
+
+    # Engine 1: Direct Google Translate GTX JSON endpoint (fast & reliable on Render)
     try:
-        res = GoogleTranslator(source='auto', target='fr').translate(clean)
-        if res:
-            return strip_emojis(res)
+        url = "https://translate.googleapis.com/translate_a/single"
+        params = {"client": "gtx", "sl": "auto", "tl": "fr", "dt": "t", "q": clean}
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(url, params=params)
+            if r.status_code == 200:
+                data = r.json()
+                if data and isinstance(data[0], list):
+                    translated = "".join(seg[0] for seg in data[0] if seg and seg[0])
+                    translated = strip_emojis_and_noise(translated)
+                    if translated and translated.lower() != clean.lower():
+                        return translated
     except Exception:
         pass
-    return clean
 
-def build_french_editorial_kit(item: dict) -> dict:
-    raw_title = strip_emojis(item.get("title") or "Point de situation international")
-    fr_title = translate_fr(raw_title)
-    if not fr_title.endswith((".", "!", "?")):
-        fr_title += "."
+    # Engine 2: deep_translator fallback
+    try:
+        res = await asyncio.to_thread(lambda: GoogleTranslator(source='auto', target='fr').translate(clean))
+        if res:
+            res_clean = strip_emojis_and_noise(res)
+            if res_clean and res_clean.lower() != clean.lower():
+                return res_clean
+    except Exception:
+        pass
+
+    # Engine 3: Pure French fallback so English is NEVER left in the caption
+    if is_red:
+        return f"Nouveau developpement rapporte sur le terrain concernant {country_fr}."
+    return f"Nouvelle sequence diplomatique concernant {country_fr}."
+
+async def build_french_editorial_kit_async(item: dict) -> dict:
     country = str(item.get("country") or "Global")
     country_fr = COUNTRIES_FR.get(country, country)
-    source = strip_emojis(str(item.get("source") or "la redaction").replace("(Video)", ""))
     cat = str(item.get("category") or "GENERAL").upper()
-    link = str(item.get("link") or "")
-    idx = int(item.get("id") or len(raw_title)) % 3
+    is_red = (cat == "RED")
+    raw_title = str(item.get("title") or "")
 
-    if cat == "RED":
-        body_fr = RED_TPL[idx].format(country=country_fr, source=source)
+    fr_lead = await translate_to_french_reliable(raw_title, country_fr, is_red)
+    if not fr_lead.endswith((".", "!", "?")):
+        fr_lead += "."
+
+    idx = int(item.get("id") or len(raw_title) or 1) % 3
+    if is_red:
+        body_fr = RED_TPL[idx].format(country=country_fr)
         tags = "#ActualiteInternationale #Geopolitique #Securite #Analyse"
     else:
-        body_fr = GEN_TPL[idx].format(country=country_fr, source=source)
+        body_fr = GEN_TPL[idx].format(country=country_fr)
         tags = "#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Cooperation"
 
-    c_slug = re.sub(r'[^a-zA-Z0-9]', '', country)
-    c_tag = f"#{c_slug}" if (c_slug and c_slug != "Global") else "#Monde"
+    c_slug = re.sub(r'[^a-zA-Z0-9]', '', country_fr.replace("les ", "").replace("le ", "").replace("la ", "").replace("l'", ""))
+    c_tag = f"#{c_slug}" if (c_slug and len(c_slug) > 2) else "#International"
     hashtags = f"{c_tag} {tags}"
 
-    caption = f"{fr_title}\n\n{body_fr}\n\n{hashtags}"
-    comment = f"Que pensez-vous de cette evolution concernant {country_fr} ? Partagez votre avis en commentaire.\nLien de la video : {link}"
-    full_bundle = f"{caption}\n\n--- CUT COMMENT BELOW ---\n{comment}"
-    return {"caption": caption, "comment": comment, "hashtags": hashtags, "full_bundle": full_bundle}
+    link = str(item.get("link") or "")
+    caption = f"{fr_lead}\n\n{body_fr}\n\n{hashtags}"
+    comment = (
+        f"Que pensez-vous de cette evolution concernant {country_fr} ? "
+        f"Partagez votre analyse dans les commentaires.\n"
+        f"Lien de la video : {link}"
+    )
+    full_bundle = f"{caption}\n\n--- COMMENTAIRE A COUPER ET COLLER SOUS LE POST ---\n{comment}"
+    return {
+        "caption": caption,
+        "comment": comment,
+        "hashtags": hashtags,
+        "full_bundle": full_bundle,
+    }
 
 def init_tg_tables():
     import main
@@ -80,6 +167,9 @@ def init_tg_tables():
                 id INT PRIMARY KEY DEFAULT 1,
                 enabled BOOLEAN DEFAULT FALSE,
                 schedule_time TEXT DEFAULT '09:00',
+                general_schedule_time TEXT DEFAULT '09:00',
+                tz_offset_minutes INT DEFAULT 180,
+                tz_name TEXT DEFAULT 'Local Time',
                 red_exclude_uae_count INT DEFAULT 2,
                 red_include_uae_count INT DEFAULT 2,
                 general_bilateral_count INT DEFAULT 2,
@@ -89,10 +179,22 @@ def init_tg_tables():
                 red_topic_id TEXT DEFAULT '',
                 general_chat_id TEXT DEFAULT '',
                 general_topic_id TEXT DEFAULT '',
-                last_run_date TEXT DEFAULT ''
+                last_run_date TEXT DEFAULT '',
+                last_general_run_date TEXT DEFAULT ''
             )
         """)
         c.execute("INSERT INTO tg_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING")
+        c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='tg_settings'")
+        cols = [r[0] for r in c.fetchall()]
+        if "general_schedule_time" not in cols:
+            c.execute("ALTER TABLE tg_settings ADD COLUMN general_schedule_time TEXT DEFAULT '09:00'")
+        if "tz_offset_minutes" not in cols:
+            c.execute("ALTER TABLE tg_settings ADD COLUMN tz_offset_minutes INT DEFAULT 180")
+        if "tz_name" not in cols:
+            c.execute("ALTER TABLE tg_settings ADD COLUMN tz_name TEXT DEFAULT 'Local Time'")
+        if "last_general_run_date" not in cols:
+            c.execute("ALTER TABLE tg_settings ADD COLUMN last_general_run_date TEXT DEFAULT ''")
+
         c.execute("""
             CREATE TABLE IF NOT EXISTS tg_sent_log (
                 id SERIAL PRIMARY KEY,
@@ -115,13 +217,14 @@ def get_tg_settings_dict() -> dict:
     conn.close()
     d = dict(row) if row else {}
     env_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    env_chat = os.getenv("TELEGRAM_CHAT_ID", "")
+    env_red_chat = os.getenv("TELEGRAM_RED_CHAT_ID", "") or os.getenv("TELEGRAM_CHAT_ID", "")
+    env_gen_chat = os.getenv("TELEGRAM_GENERAL_CHAT_ID", "") or os.getenv("TELEGRAM_CHAT_ID", "")
     if not d.get("bot_token") and env_token:
         d["bot_token"] = env_token
-    if not d.get("red_chat_id") and env_chat:
-        d["red_chat_id"] = env_chat
-    if not d.get("general_chat_id"):
-        d["general_chat_id"] = d.get("red_chat_id", env_chat)
+    if not d.get("red_chat_id") and env_red_chat:
+        d["red_chat_id"] = env_red_chat
+    if not d.get("general_chat_id") and env_gen_chat:
+        d["general_chat_id"] = env_gen_chat
     return d
 
 def mark_link_posted(link: str, bucket: str = "POSTED"):
@@ -131,7 +234,11 @@ def mark_link_posted(link: str, bucket: str = "POSTED"):
     try:
         conn = main.get_db_connection()
         c = conn.cursor()
-        c.execute("INSERT INTO tg_sent_log (video_link, bucket) VALUES (%s, %s) ON CONFLICT (video_link) DO UPDATE SET bucket = EXCLUDED.bucket", (link, bucket))
+        c.execute(
+            "INSERT INTO tg_sent_log (video_link, bucket) VALUES (%s, %s) "
+            "ON CONFLICT (video_link) DO UPDATE SET bucket = EXCLUDED.bucket",
+            (link, bucket)
+        )
         conn.close()
     except Exception:
         pass
@@ -143,7 +250,11 @@ async def fetch_video_bytes(video_url: str) -> bytes:
         referer = "https://x.com/"
     elif "redd.it" in clean_url or "reddit.com" in clean_url:
         referer = "https://www.reddit.com/"
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer": referer, "Accept": "*/*"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": referer,
+        "Accept": "*/*",
+    }
     async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
         resp = await client.get(clean_url, headers=headers)
         resp.raise_for_status()
@@ -151,22 +262,23 @@ async def fetch_video_bytes(video_url: str) -> bytes:
 
 async def send_single_video_to_tg(item: dict, settings: dict = None, bucket_label: str = "") -> dict:
     if settings is None:
-        settings = get_tg_settings_dict()
+        settings = await asyncio.to_thread(get_tg_settings_dict)
+
     bot_token = (settings.get("bot_token") or os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
     cat = str(item.get("category") or "GENERAL").upper()
 
     if cat == "RED":
-        chat_id = (settings.get("red_chat_id") or os.getenv("TELEGRAM_CHAT_ID") or "").strip()
+        chat_id = (settings.get("red_chat_id") or os.getenv("TELEGRAM_RED_CHAT_ID") or os.getenv("TELEGRAM_CHAT_ID") or "").strip()
         topic_id = (settings.get("red_topic_id") or "").strip()
     else:
-        chat_id = (settings.get("general_chat_id") or settings.get("red_chat_id") or os.getenv("TELEGRAM_CHAT_ID") or "").strip()
+        chat_id = (settings.get("general_chat_id") or os.getenv("TELEGRAM_GENERAL_CHAT_ID") or settings.get("red_chat_id") or os.getenv("TELEGRAM_CHAT_ID") or "").strip()
         topic_id = (settings.get("general_topic_id") or "").strip()
 
     if not bot_token or not chat_id:
-        return {"status": "error", "detail": "Missing Telegram Bot Token or Chat ID in TG Settings."}
+        return {"status": "error", "detail": f"Missing Bot Token or {cat} Channel Chat ID in TG Settings."}
 
-    kit = await asyncio.to_thread(build_french_editorial_kit, item)
-    # Clean French caption + hashtags + comment + link ONLY (no extra wrappers)
+    kit = await build_french_editorial_kit_async(item)
+    # Strictly French caption + hashtags + French comment + video link (no headers, no emojis, no English)
     clean_tg_caption = f"{kit['caption']}\n\n{kit['comment']}"
     if len(clean_tg_caption) > 1020:
         clean_tg_caption = clean_tg_caption[:1017] + "..."
@@ -175,10 +287,14 @@ async def send_single_video_to_tg(item: dict, settings: dict = None, bucket_labe
     try:
         video_bytes = await fetch_video_bytes(video_url)
     except Exception as e:
-        return {"status": "error", "detail": f"Failed to fetch MP4 binary: {e}"}
+        return {"status": "error", "detail": f"Failed to download MP4 binary: {e}"}
 
     tg_api_url = f"https://api.telegram.org/bot{bot_token}/sendVideo"
-    form_data = {"chat_id": chat_id, "caption": clean_tg_caption, "supports_streaming": "true"}
+    form_data = {
+        "chat_id": chat_id,
+        "caption": clean_tg_caption,
+        "supports_streaming": "true",
+    }
     if topic_id and topic_id.isdigit():
         form_data["message_thread_id"] = int(topic_id)
     files = {"video": ("video.mp4", video_bytes, "video/mp4")}
@@ -189,7 +305,12 @@ async def send_single_video_to_tg(item: dict, settings: dict = None, bucket_labe
         if not res_json.get("ok"):
             return {"status": "error", "detail": res_json.get("description", "Telegram API error")}
         await asyncio.to_thread(mark_link_posted, video_url, bucket_label or f"TG_{cat}")
-        return {"status": "success", "message": "Sent MP4 video to Telegram", "link": video_url, "kit": kit}
+        return {
+            "status": "success",
+            "message": f"Sent MP4 to {cat} Channel ({chat_id})",
+            "link": video_url,
+            "kit": kit,
+        }
 
 def query_unsent_videos(bucket: str, limit: int) -> list:
     import main
@@ -197,7 +318,10 @@ def query_unsent_videos(bucket: str, limit: int) -> list:
         return []
     conn = main.get_db_connection()
     c = conn.cursor()
-    uae_cond = "(country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%' OR title ILIKE '%%Abu Dhabi%%' OR title ILIKE '%%Dubai%%' OR title ILIKE '%%الإمارات%%')"
+    uae_cond = (
+        "(country = 'UAE' OR title ILIKE '%%UAE%%' OR title ILIKE '%%Emirates%%' "
+        "OR title ILIKE '%%Abu Dhabi%%' OR title ILIKE '%%Dubai%%' OR title ILIKE '%%الإمارات%%')"
+    )
     sql = "SELECT * FROM news WHERE feed_type = 'SOCIAL_VIDEO' AND link NOT IN (SELECT video_link FROM tg_sent_log)"
     if bucket == "red_exclude_uae":
         sql += f" AND category = 'RED' AND NOT {uae_cond}"
@@ -213,17 +337,25 @@ def query_unsent_videos(bucket: str, limit: int) -> list:
     conn.close()
     return rows
 
-async def run_daily_batch_dispatch() -> dict:
+async def run_daily_batch_dispatch(target_group: str = "ALL") -> dict:
     import main
-    settings = get_tg_settings_dict()
-    buckets = [
+    settings = await asyncio.to_thread(get_tg_settings_dict)
+    all_buckets = [
         ("red_exclude_uae", int(settings.get("red_exclude_uae_count") or 0), "RED"),
         ("red_include_uae", int(settings.get("red_include_uae_count") or 0), "RED"),
         ("general_bilateral", int(settings.get("general_bilateral_count") or 0), "GENERAL"),
         ("general_non_bilateral", int(settings.get("general_non_bilateral_count") or 0), "GENERAL"),
     ]
+    if target_group == "RED":
+        buckets = [b for b in all_buckets if b[2] == "RED"]
+    elif target_group == "GENERAL":
+        buckets = [b for b in all_buckets if b[2] == "GENERAL"]
+    else:
+        buckets = all_buckets
+
     total_sent = 0
     sent_links = []
+    errors = []
     for b_key, count, forced_cat in buckets:
         if count <= 0:
             continue
@@ -234,16 +366,24 @@ async def run_daily_batch_dispatch() -> dict:
             if res.get("status") == "success":
                 total_sent += 1
                 sent_links.append(v.get("link"))
+            else:
+                errors.append(res.get("detail", "Error"))
             await asyncio.sleep(1.5)
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+
+    offset_mins = int(settings.get("tz_offset_minutes") or 180)
+    local_now = datetime.utcnow() + timedelta(minutes=offset_mins)
+    today_str = local_now.strftime("%Y-%m-%d")
     try:
         conn = main.get_db_connection()
         c = conn.cursor()
-        c.execute("UPDATE tg_settings SET last_run_date = %s WHERE id = 1", (today_str,))
+        if target_group in ("ALL", "RED"):
+            c.execute("UPDATE tg_settings SET last_run_date = %s WHERE id = 1", (today_str,))
+        if target_group in ("ALL", "GENERAL"):
+            c.execute("UPDATE tg_settings SET last_general_run_date = %s WHERE id = 1", (today_str,))
         conn.close()
     except Exception:
         pass
-    return {"status": "success", "total_sent": total_sent, "sent_links": sent_links}
+    return {"status": "success", "total_sent": total_sent, "sent_links": sent_links, "errors": errors[:3]}
 
 async def daily_tg_scheduler_loop():
     await asyncio.sleep(5)
@@ -252,19 +392,28 @@ async def daily_tg_scheduler_loop():
         try:
             settings = await asyncio.to_thread(get_tg_settings_dict)
             if settings.get("enabled"):
-                now_utc = datetime.utcnow()
-                today_str = now_utc.strftime("%Y-%m-%d")
-                curr_hm = now_utc.strftime("%H:%M")
-                sched_hm = str(settings.get("schedule_time") or "09:00").strip()
-                if settings.get("last_run_date") != today_str and curr_hm == sched_hm:
-                    await run_daily_batch_dispatch()
+                offset_mins = int(settings.get("tz_offset_minutes") or 180)
+                local_now = datetime.utcnow() + timedelta(minutes=offset_mins)
+                today_str = local_now.strftime("%Y-%m-%d")
+                curr_hm = local_now.strftime("%H:%M")
+
+                red_hm = str(settings.get("schedule_time") or "09:00").strip()
+                gen_hm = str(settings.get("general_schedule_time") or red_hm).strip()
+
+                if settings.get("last_run_date") != today_str and curr_hm == red_hm:
+                    logger.info(f"Running scheduled RED daily TG dispatch at {curr_hm} local time")
+                    await run_daily_batch_dispatch(target_group="RED")
+
+                if settings.get("last_general_run_date") != today_str and curr_hm == gen_hm:
+                    logger.info(f"Running scheduled GENERAL daily TG dispatch at {curr_hm} local time")
+                    await run_daily_batch_dispatch(target_group="GENERAL")
         except Exception as e:
             logger.error(f"Scheduler error: {e}")
-        await asyncio.sleep(30)
+        await asyncio.sleep(25)
 
 @router.post("/api/french-kit")
 async def api_french_kit(payload: dict = Body(...)):
-    return await asyncio.to_thread(build_french_editorial_kit, payload)
+    return await build_french_editorial_kit_async(payload)
 
 @router.post("/api/telegram/dispatch")
 async def api_dispatch_single(payload: dict = Body(...)):
@@ -304,26 +453,44 @@ async def api_save_settings(payload: dict = Body(...)):
     c = conn.cursor()
     c.execute("""
         UPDATE tg_settings SET
-            enabled = %s, schedule_time = %s,
-            red_exclude_uae_count = %s, red_include_uae_count = %s,
-            general_bilateral_count = %s, general_non_bilateral_count = %s,
-            bot_token = %s, red_chat_id = %s, red_topic_id = %s,
-            general_chat_id = %s, general_topic_id = %s
+            enabled = %s,
+            schedule_time = %s,
+            general_schedule_time = %s,
+            tz_offset_minutes = %s,
+            tz_name = %s,
+            red_exclude_uae_count = %s,
+            red_include_uae_count = %s,
+            general_bilateral_count = %s,
+            general_non_bilateral_count = %s,
+            bot_token = %s,
+            red_chat_id = %s,
+            red_topic_id = %s,
+            general_chat_id = %s,
+            general_topic_id = %s
         WHERE id = 1
     """, (
-        bool(payload.get("enabled", False)), str(payload.get("schedule_time", "09:00")).strip(),
-        int(payload.get("red_exclude_uae_count", 2)), int(payload.get("red_include_uae_count", 2)),
-        int(payload.get("general_bilateral_count", 2)), int(payload.get("general_non_bilateral_count", 2)),
-        str(payload.get("bot_token", "")).strip(), str(payload.get("red_chat_id", "")).strip(),
-        str(payload.get("red_topic_id", "")).strip(), str(payload.get("general_chat_id", "")).strip(),
-        str(payload.get("general_topic_id", "")).strip()
+        bool(payload.get("enabled", False)),
+        str(payload.get("schedule_time", "09:00")).strip(),
+        str(payload.get("general_schedule_time", payload.get("schedule_time", "09:00"))).strip(),
+        int(payload.get("tz_offset_minutes", 180)),
+        str(payload.get("tz_name", "Local Time")).strip(),
+        int(payload.get("red_exclude_uae_count", 2)),
+        int(payload.get("red_include_uae_count", 2)),
+        int(payload.get("general_bilateral_count", 2)),
+        int(payload.get("general_non_bilateral_count", 2)),
+        str(payload.get("bot_token", "")).strip(),
+        str(payload.get("red_chat_id", "")).strip(),
+        str(payload.get("red_topic_id", "")).strip(),
+        str(payload.get("general_chat_id", "")).strip(),
+        str(payload.get("general_topic_id", "")).strip(),
     ))
     conn.close()
     return {"status": "success", "settings": await asyncio.to_thread(get_tg_settings_dict)}
 
 @router.post("/api/telegram/run-daily-now")
-async def api_run_daily():
-    return await run_daily_batch_dispatch()
+async def api_run_daily(payload: dict = Body(default={})):
+    target_group = str(payload.get("target_group") or "ALL").upper()
+    return await run_daily_batch_dispatch(target_group=target_group)
 
 @router.get("/api/posted")
 async def api_get_posted():
@@ -350,6 +517,10 @@ async def api_mark_posted(payload: dict = Body(...)):
     if unmark:
         c.execute("DELETE FROM tg_sent_log WHERE video_link = %s", (link,))
     else:
-        c.execute("INSERT INTO tg_sent_log (video_link, bucket) VALUES (%s, %s) ON CONFLICT (video_link) DO UPDATE SET bucket = EXCLUDED.bucket", (link, bucket))
+        c.execute(
+            "INSERT INTO tg_sent_log (video_link, bucket) VALUES (%s, %s) "
+            "ON CONFLICT (video_link) DO UPDATE SET bucket = EXCLUDED.bucket",
+            (link, bucket)
+        )
     conn.close()
     return {"status": "success", "link": link, "posted": not unmark}
