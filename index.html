@@ -1216,9 +1216,10 @@ const selectedVideoIds = new Set();
                 }
 
                 data.forEach(item => {
-                    const threatBadge = threatBadges[item.threat_level] || '';
-                    const isCritical = (item.threat_level === "CRITICAL" || item.threat_level === "PRIORITY_1") ? "critical-glow" : "";
-                    const dateObj = new Date(item.published_date || item.fetched_at);
+                    const threatBadge = threatBadges[item.threat_level] ? threatBadges[item.threat_level] : '';
+                    const isCritical = (item.threat_level === "CRITICAL" ? true : (item.threat_level === "PRIORITY_1")) ? "critical-glow" : "";
+                    const rawDate = item.published_date ? item.published_date : item.fetched_at;
+                    const dateObj = new Date(rawDate);
                     const dateString = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
 
                     let feedTypeBadge = '';
@@ -1228,87 +1229,96 @@ const selectedVideoIds = new Set();
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-orange-950/60 text-orange-300 border-orange-800/40">👾 ${item.source}</span>`;
                     } else if (item.feed_type === 'TELEGRAM') {
                         feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-sky-950/60 text-sky-300 border-sky-800/40">✈️ ${item.source}</span>`;
-                    } else if (item.id) {
-                            videoItemMap[item.id] = item;
-                        }
-                        const rawSlugSource = item.handle ? item.handle : (item.source ? item.source : 'video');
-                        const fileSlug = (rawSlugSource.replace(/[^a-zA-Z0-9]/g, '_') + '_' + (item.id ? item.id : 'mp4') + '.mp4');
-                        const directPath = item.id
-                            ? `${API_BASE}/api/videos/direct/${item.id}/${encodeURIComponent(fileSlug)}`
-                            : `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&filename=${encodeURIComponent(fileSlug)}`;
-                        const absDlUrl = new URL(directPath, window.location.origin).href;
-                        const streamUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&inline=true`;
-                        const socialKit = buildSocialKit(item);
-                        const encodedBundle = encodeURIComponent(socialKit.fullBundle).replace(/'/g, "%27");
-                        const encodedCaption = encodeURIComponent(socialKit.captionOnly).replace(/'/g, "%27");
-                        const encodedComment = encodeURIComponent(socialKit.followUpComment).replace(/'/g, "%27");
-                        const safeBundlePreview = socialKit.fullBundle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                        const isChecked = selectedVideoIds.has(Number(item.id)) ? 'checked' : '';
-                        const posterAttr = item.thumbnail ? item.thumbnail : '';
-                        const itemIdNum = item.id ? item.id : 0;
-                        const itemPosted = isItemPosted(item.link);
-                        const postedLabel = itemPosted ? postedLinksMap[item.link] : '';
-                        const cardPostedClasses = itemPosted ? 'opacity-60 border-emerald-500/60' : '';
-                        const hideCardClass = (hidePostedItems && itemPosted) ? 'hidden' : '';
+                    } else if (item.feed_type === 'SOCIAL_VIDEO') {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-rose-950/60 text-rose-300 border-rose-800/40">▶️ ${item.source}</span>`;
+                    } else {
+                        feedTypeBadge = `<span class="text-[10px] font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700">📰 ${item.source}</span>`;
+                    }
 
-                        const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
-                            <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner"
+                    const keywordBadge = item.keyword ? `<span class="text-[10px] text-slate-300 font-mono bg-slate-800/90 px-1.5 py-0.5 rounded border border-slate-700">${item.keyword}</span>` : '';
+                    const langBadge = (item.language && item.language !== 'English') ? `<span class="text-[9px] text-indigo-300 font-mono bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">${item.language}</span>` : '';
+
+                    if (item.id) {
+                        videoItemMap[item.id] = item;
+                    }
+                    const rawSlugSource = item.handle ? item.handle : (item.source ? item.source : 'video');
+                    const fileSlug = (rawSlugSource.replace(/[^a-zA-Z0-9]/g, '_') + '_' + (item.id ? item.id : 'mp4') + '.mp4');
+                    const directPath = item.id
+                        ? `${API_BASE}/api/videos/direct/${item.id}/${encodeURIComponent(fileSlug)}`
+                        : `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&filename=${encodeURIComponent(fileSlug)}`;
+                    const absDlUrl = new URL(directPath, window.location.origin).href;
+                    const streamUrl = `${API_BASE}/api/videos/download?url=${encodeURIComponent(item.link)}&inline=true`;
+                    const socialKit = buildSocialKit(item);
+                    const encodedBundle = encodeURIComponent(socialKit.fullBundle).replace(/'/g, "%27");
+                    const encodedCaption = encodeURIComponent(socialKit.captionOnly).replace(/'/g, "%27");
+                    const encodedComment = encodeURIComponent(socialKit.followUpComment).replace(/'/g, "%27");
+                    const safeBundlePreview = socialKit.fullBundle.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const isChecked = selectedVideoIds.has(Number(item.id)) ? 'checked' : '';
+                    const posterAttr = item.thumbnail ? item.thumbnail : '';
+                    const itemIdNum = item.id ? item.id : 0;
+                    const itemPosted = isItemPosted(item.link);
+                    const postedLabel = itemPosted ? postedLinksMap[item.link] : '';
+                    const cardPostedClasses = itemPosted ? 'opacity-60 border-emerald-500/60' : '';
+                    const hideCardClass = (hidePostedItems && itemPosted) ? 'hidden' : '';
+
+                    const thumbnailHtml = item.feed_type === 'SOCIAL_VIDEO' ? `
+                        <div class="w-full rounded-xl overflow-hidden mb-3 bg-slate-950 border border-rose-500/40 relative shadow-inner"
+                             draggable="true"
+                             onmouseenter="warmupVideoFile(${itemIdNum}, '${absDlUrl}', '${fileSlug}')"
+                             onmousedown="warmupVideoFile(${itemIdNum}, '${absDlUrl}', '${fileSlug}')"
+                             ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
+                            <div class="flex items-center justify-between bg-slate-900 px-3 py-1.5 border-b border-slate-800">
+                                <label class="flex items-center gap-2 cursor-pointer select-none">
+                                    <input type="checkbox" class="tg-video-checkbox w-3.5 h-3.5 accent-sky-500 rounded" data-id="${itemIdNum}" ${isChecked} onchange="toggleSelectVideo(${itemIdNum}, this.checked)">
+                                    <span class="text-[10px] font-bold text-slate-300">Select for TG</span>
+                                </label>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="posted-status-badge ${itemPosted ? '' : 'hidden'} text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700">✓ POSTED (${postedLabel})</span>
+                                    <button type="button" onclick="toggleItemPostedById(${itemIdNum})" class="posted-toggle-btn text-[9px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">${itemPosted ? '✓ Posted (Undo)' : 'Mark Posted'}</button>
+                                    <span class="text-[9px] font-mono px-2 py-0.5 rounded ${item.category === 'RED' ? 'bg-rose-950 text-rose-300 border border-rose-800/50' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/50'}">${item.category} TAB</span>
+                                </div>
+                            </div>
+                            <video controls preload="metadata" poster="${posterAttr}" src="${streamUrl}" class="w-full h-44 object-cover bg-black"></video>
+                            <div class="flex flex-wrap items-center justify-between gap-1.5 bg-slate-900/95 px-2.5 py-2 border-t border-slate-800"
                                  draggable="true"
-                                 onmouseenter="warmupVideoFile(${itemIdNum}, '${absDlUrl}', '${fileSlug}')"
-                                 onmousedown="warmupVideoFile(${itemIdNum}, '${absDlUrl}', '${fileSlug}')"
                                  ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
-                                <div class="flex items-center justify-between bg-slate-900 px-3 py-1.5 border-b border-slate-800">
-                                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                                        <input type="checkbox" class="tg-video-checkbox w-3.5 h-3.5 accent-sky-500 rounded" data-id="${itemIdNum}" ${isChecked} onchange="toggleSelectVideo(${itemIdNum}, this.checked)">
-                                        <span class="text-[10px] font-bold text-slate-300">Select for TG</span>
-                                    </label>
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="posted-status-badge ${itemPosted ? '' : 'hidden'} text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700">✓ POSTED (${postedLabel})</span>
-                                        <button type="button" onclick="toggleItemPostedById(${itemIdNum})" class="posted-toggle-btn text-[9px] font-mono px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">${itemPosted ? '✓ Posted (Undo)' : 'Mark Posted'}</button>
-                                        <span class="text-[9px] font-mono px-2 py-0.5 rounded ${item.category === 'RED' ? 'bg-rose-950 text-rose-300 border border-rose-800/50' : 'bg-indigo-950 text-indigo-300 border border-indigo-800/50'}">${item.category} TAB</span>
+                                <span id="drag-ready-${itemIdNum}" class="text-[10px] text-slate-300 font-mono select-none cursor-grab active:cursor-grabbing" title="Hover to buffer MP4, then drag to FB/Desktop (auto-copies French caption & comment)">✋ Drag MP4 + FR Kit</span>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button"
+                                            onclick="triggerVideoDownload(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})"
+                                            class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition-all">⬇ MP4 + Copy FR Kit</button>
+                                    <button type="button"
+                                            onclick="sendVideoByIdToTelegram(${itemIdNum})"
+                                            class="px-2.5 py-1 rounded-lg bg-sky-500/25 border border-sky-500/50 text-[10px] font-bold text-sky-200 hover:bg-sky-500/40 transition-all">✈️ Send to TG</button>
+                                </div>
+                            </div>
+                            <details class="bg-slate-950/95 border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
+                                <summary class="cursor-pointer font-mono text-[10px] text-amber-400 font-bold select-none flex items-center justify-between">
+                                    <span>📝 French Caption + Hashtags + Cut-Comment (No Emojis)</span>
+                                    <span class="text-[9px] text-slate-500">View / Copy</span>
+                                </summary>
+                                <div class="mt-2 space-y-2">
+                                    <textarea readonly rows="6" onclick="this.select()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 rounded-lg p-2 text-[10px] font-mono focus:outline-none">${safeBundlePreview}</textarea>
+                                    <div class="flex items-center justify-between gap-1.5">
+                                        <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedBundle}'), '✅ Full French Post + Comment Copied!', '${item.link}')" class="flex-1 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded text-[10px] font-bold">Copy All (Post + Comment)</button>
+                                        <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedCaption}'), '✅ French Caption + Hashtags Copied!', '${item.link}')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700">Caption Only</button>
+                                        <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedComment}'), '✅ French Comment + Link Copied!', '${item.link}')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700">Comment + Link</button>
                                     </div>
                                 </div>
-                                <video controls preload="metadata" poster="${posterAttr}" src="${streamUrl}" class="w-full h-44 object-cover bg-black"></video>
-                                <div class="flex flex-wrap items-center justify-between gap-1.5 bg-slate-900/95 px-2.5 py-2 border-t border-slate-800"
-                                     draggable="true"
-                                     ondragstart="handleVideoDragStart(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})">
-                                    <span id="drag-ready-${itemIdNum}" class="text-[10px] text-slate-300 font-mono select-none cursor-grab active:cursor-grabbing" title="Hover to buffer MP4, then drag to FB/Desktop (auto-copies French caption & comment)">✋ Drag MP4 + FR Kit</span>
-                                    <div class="flex items-center gap-1.5">
-                                        <button type="button"
-                                                onclick="triggerVideoDownload(event, '${absDlUrl}', '${fileSlug}', '${encodedBundle}',${itemIdNum})"
-                                                class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition-all">⬇ MP4 + Copy FR Kit</button>
-                                        <button type="button"
-                                                onclick="sendVideoByIdToTelegram(${itemIdNum})"
-                                                class="px-2.5 py-1 rounded-lg bg-sky-500/25 border border-sky-500/50 text-[10px] font-bold text-sky-200 hover:bg-sky-500/40 transition-all">✈️ Send to TG</button>
-                                    </div>
-                                </div>
-                                <details class="bg-slate-950/95 border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
-                                    <summary class="cursor-pointer font-mono text-[10px] text-amber-400 font-bold select-none flex items-center justify-between">
-                                        <span>📝 French Caption + Hashtags + Cut-Comment (No Emojis)</span>
-                                        <span class="text-[9px] text-slate-500">View / Copy</span>
-                                    </summary>
-                                    <div class="mt-2 space-y-2">
-                                        <textarea readonly rows="6" onclick="this.select()" class="w-full bg-slate-900 text-slate-200 border border-slate-700 rounded-lg p-2 text-[10px] font-mono focus:outline-none">${safeBundlePreview}</textarea>
-                                        <div class="flex items-center justify-between gap-1.5">
-                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedBundle}'), '✅ Full French Post + Comment Copied!', '${item.link}')" class="flex-1 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded text-[10px] font-bold">Copy All (Post + Comment)</button>
-                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedCaption}'), '✅ French Caption + Hashtags Copied!', '${item.link}')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-semibold border border-slate-700">Caption Only</button>
-                                            <button type="button" onclick="copyTextToClipboard(decodeURIComponent('${encodedComment}'), '✅ French Comment + Link Copied!', '${item.link}')" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700">Comment + Link</button>
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
-                        ` : (item.thumbnail ? `
-                            <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
-                                <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
-                            </div>
-                        ` : '');
+                            </details>
+                        </div>
+                    ` : (item.thumbnail ? `
+                        <div class="w-full h-32 rounded-xl overflow-hidden mb-3 bg-slate-900 border border-slate-800 relative shadow-inner">
+                            <img src="${item.thumbnail}" alt="Intel Preview" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.style.display='none'">
+                        </div>
+                    ` : '');
 
-                        const safeTitle = (item.title ? item.title : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
-                        const safeSource = (item.source ? item.source : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
-                        const safeHandle = (item.handle ? item.handle : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+                    const safeTitle = (item.title ? item.title : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+                    const safeSource = (item.source ? item.source : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
+                    const safeHandle = (item.handle ? item.handle : '').replace(/'/g, "\'").replace(/"/g, '&quot;');
 
-                        const card = `
-                            <div data-item-link="${item.link}" class="bg-card rounded-2xl p-5 border border-bordercolor ${cardPostedClasses}${hideCardClass} hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden ${isCritical}">
+                    const card = `
+                        <div data-item-link="${item.link}" class="bg-card rounded-2xl p-5 border border-bordercolor ${cardPostedClasses} ${hideCardClass} hover:border-indigo-500/40 transition-all duration-300 shadow-lg h-full flex flex-col justify-between relative overflow-hidden${isCritical}">
                             <div>
                                 ${thumbnailHtml}
                                 <div class="flex items-center justify-between mb-3">
