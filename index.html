@@ -828,27 +828,20 @@ const selectedVideoIds = new Set();
         };
 
         // Pure 100% French fallback generator (NEVER includes English item.title)
-                function buildSocialKit(item) {
+                        function buildSocialKit(item) {
             if (item.id && frenchKitCache[item.id]) {
                 return frenchKitCache[item.id];
             }
-            const openers = [
-                "Point de situation en images sur les derniers developpements internationaux.",
-                "Sequence diffusee recemment illustrant l'evolution de l'actualite internationale.",
-                "Apercu direct de la situation actuelle a travers cette nouvelle sequence.",
-                "Nouvelle sequence relayee aujourd'hui au coeur de l'actualite geopolitique."
-            ];
-            const redTags = ["#ActualiteInternationale", "#Geopolitique", "#Securite", "#Analyse", "#EnImages", "#Monde"];
-            const genTags = ["#Diplomatie", "#RelationsBilaterales", "#PolitiqueEtrangere", "#Cooperation", "#International", "#Monde"];
-            const seed = Math.abs(Number(orVal(item.id, 1)));
-            const isRed = (item.category === 'RED');
-            const lead = openers[seed % openers.length];
-            const pool = isRed ? redTags : genTags;
-            const hashtags = pool.slice(0, 4).join(' ');
-            const linkLine = `Source : ${item.link}`;
-            const captionOnly = `${lead}\n\n${hashtags}`;
-            const fullBundle = `${lead}\n\n${hashtags}\n\n${linkLine}`;
-            return { fullBundle, captionOnly, followUpComment: linkLine, hashtags };
+            const bareLink = orVal(item.link, '');
+            if (item.id) {
+                setTimeout(() => ensureTranslatedFrenchKit(item.id), 50);
+            }
+            return {
+                fullBundle: bareLink,
+                captionOnly: '',
+                followUpComment: bareLink,
+                hashtags: ''
+            };
         }
 
         async function ensureTranslatedFrenchKit(itemId) {

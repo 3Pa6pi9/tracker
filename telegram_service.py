@@ -2,6 +2,7 @@ import os
 import re
 import html
 import random
+import hashlib
 import asyncio
 import logging
 from datetime import datetime, timedelta
@@ -12,60 +13,13 @@ from deep_translator import GoogleTranslator
 logger = logging.getLogger("uvicorn")
 router = APIRouter()
 
-FR_CLOSING_VARIATIONS = [
-    "",
-    "Une sequence qui illustre l'evolution rapide de la situation.",
-    "Des images marquantes qui témoignent de la realite du terrain.",
-    "Un point visuel revelateur des dynamiques actuelles.",
-    "Cette sequence retient particulierement l'attention des observateurs aujourd'hui.",
-    "Un apercu direct des derniers developpements en cours.",
-    "Une sequence qui eclaire les enjeux du moment.",
-]
-
-LINK_LABELS_FR = [
-    "Source",
-    "Lien",
-    "Lien de la video",
-    "Reference",
-    "Source directe",
-]
-
-RED_TAGS_POOL = [
-    "#ActualiteInternationale", "#Geopolitique", "#Securite",
-    "#Analyse", "#EnImages", "#Actualite", "#Monde",
-    "#PointDeSituation", "#VeilleStrategique", "#Terrain",
-]
-
-GEN_TAGS_POOL = [
-    "#Diplomatie", "#RelationsBilaterales", "#PolitiqueEtrangere",
-    "#Cooperation", "#International", "#Actualite", "#Geopolitique",
-    "#Echanges", "#Sommet", "#Monde",
-]
-
-COUNTRY_HASHTAGS_FR = {
-    "uae": "#EmiratsArabesUnis",
-    "emirates": "#EmiratsArabesUnis",
-    "abu dhabi": "#AbuDhabi",
-    "dubai": "#Dubai",
-    "israel": "#ProcheOrient",
-    "gaza": "#Gaza",
-    "palestin": "#ProcheOrient",
-    "lebanon": "#Liban",
-    "beirut": "#Liban",
-    "iran": "#Iran",
-    "syria": "#Syrie",
-    "iraq": "#Irak",
-    "yemen": "#Yemen",
-    "sudan": "#Soudan",
-    "somalia": "#Somalie",
-    "ethiopia": "#Ethiopie",
-    "egypt": "#Egypte",
-    "russia": "#Russie",
-    "ukrain": "#Ukraine",
-    "france": "#France",
-    "german": "#Allemagne",
-    "saudi": "#ArabieSaoudite",
-    "qatar": "#Qatar",
+FR_STOPWORDS = {
+    "dans", "avec", "pour", "plus", "sont", "cette", "comme", "mais", "elle",
+    "leur", "tout", "tous", "aux", "des", "les", "une", "sur", "par", "pas",
+    "que", "qui", "est", "ont", "ete", "fait", "etre", "avoir", "apres",
+    "avant", "depuis", "alors", "entre", "selon", "contre", "vers", "chez",
+    "sous", "sans", "dont", "tres", "meme", "autre", "autres", "deux", "trois",
+    "lors", "pres", "suite", "cours", "afin", "autour", "ainsi", "encore"
 }
 
 def strip_emojis_and_noise(text: str) -> str:
@@ -76,11 +30,10 @@ def strip_emojis_and_noise(text: str) -> str:
     s = re.sub(r'\s+', ' ', s).strip()
     return s
 
-async def translate_to_french_reliable(text: str) -> str:
+async def translate_raw_to_french(text: str) -> str:
     clean = strip_emojis_and_noise(text)
-    if not clean or clean.lower().startswith("video intelligence") or clean.lower().startswith("dispatch from"):
-        return "Point de situation en images sur l'actualite internationale du jour."
-
+    if not clean:
+        return ""
     try:
         url = "https://translate.googleapis.com/translate_a/single"
         params = {"client": "gtx", "sl": "auto", "tl": "fr", "dt": "t", "q": clean}
@@ -102,54 +55,163 @@ async def translate_to_french_reliable(text: str) -> str:
             return strip_emojis_and_noise(res)
     except Exception:
         pass
+    return clean
 
-    return "Point de situation en images sur l'actualite internationale du jour."
+def humanize_french_syntax(fr_text: str, seed_int: int) -> str:
+    text = strip_emojis_and_noise(fr_text)
+    if not text:
+        return ""
+
+    # Clean stiff wire-service prefixes
+    text = re.sub(r'^(BREAKING|URGENT|ALERTE|FLASH|UPDATE|WATCH|VIDEO)\s*[:\-]?\s*', '', text, flags=re.IGNORECASE).strip()
+
+    # Split into sentences and apply subtle, natural human phrasing transforms
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if s.strip()]
+    if not sentences:
+        sentences = [text]
+
+    first = sentences[0].rstrip(".!?")
+    rest = " ".join(sentences[1:]).strip()
+
+    # Vary sentence structure naturally without adding robotic boilerplate
+    style = seed_int % 6
+    if style == 0:
+        out = f"{first}."
+        if rest:
+            out += f" {rest}"
+    elif style == 1 and "," in first:
+        parts = [p.strip() for p in first.split(",", 1)]
+        if len(parts) == 2 and len(parts[0]) > 12 and len(parts[1]) > 15:
+            p1 = parts[1][0].upper() + parts[1][1:]
+            p0 = parts[0][0].lower() + parts[0][1:] if not parts[0][:2].isupper() else parts[0]
+            out = f"{p1}, {p0}."
+        else:
+            out = f"{first}."
+        if rest:
+            out += f" {rest}"
+    elif style == 2:
+        lower_first = first[0].lower() + first[1:] if (len(first) > 1 and not first[:2].isupper()) else first
+        if lower_first.startswith(("un ", "une ", "des ", "le ", "la ", "les ", "plusieurs ")):
+            out = f"On apprend qu'{lower_first}." if lower_first[0] in "aeiouy" else f"On voit ici que {lower_first}."
+        else:
+            out = f"{first}."
+        if rest:
+            out += f" {rest}"
+    elif style == 3:
+        out = f"{first}."
+        if rest:
+            out += f"\n{rest}"
+    elif style == 4:
+        out = f"{first}"
+        if not out.endswith((".", "!", "?")):
+            out += "."
+        if rest:
+            out += f" {rest}"
+    else:
+        out = f"{first}."
+        if rest:
+            out += f" {rest}"
+
+    return out.strip()
+
+async def rewrite_human_french_ai(raw_title: str, translated_fr: str, seed_int: int) -> str:
+    # Try natural AI human paraphrase first so every single post is written from scratch
+    prompt = (
+        "Reecris cette information en francais comme un vrai humain qui partage "
+        "une video sur son compte personnel. Change completement la tournure des phrases "
+        "pour que ce soit fluide, naturel et authentique. "
+        "Regles strictes : zero emoji, zero guillemets, zero formule robotique, "
+        "pas de mot Source ou Lien, maximum 2 phrases. Donne uniquement le texte :\n"
+        f"{translated_fr}"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=6.5) as client:
+            r = await client.post(
+                "https://text.pollinations.ai/",
+                json={
+                    "messages": [
+                        {"role": "system", "content": "Tu es un redacteur francophone humain et naturel. Tu ecris sans emojis et sans formules toutes faites."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "seed": seed_int % 99999,
+                    "model": "openai"
+                }
+            )
+            if r.status_code == 200 and r.text:
+                cand = strip_emojis_and_noise(r.text.strip().strip('"').strip("'"))
+                if 25 < len(cand) < 550 and "pollinations" not in cand.lower():
+                    return cand
+    except Exception:
+        pass
+
+    return humanize_french_syntax(translated_fr, seed_int)
+
+def extract_dynamic_hashtags(fr_text: str, country: str, seed_int: int) -> str:
+    # Extract real keywords from the French text itself so hashtags are unique per video
+    words = re.findall(r"[A-Za-zÀ-ÿ]{4,}", fr_text)
+    dynamic_tags = []
+    seen = set()
+
+    # Prioritize capitalized proper nouns / places / actors in the story
+    for w in words:
+        clean_w = w.capitalize()
+        low_w = w.lower()
+        if low_w not in FR_STOPWORDS and low_w not in seen and len(clean_w) >= 5:
+            if w[0].isupper():
+                seen.add(low_w)
+                dynamic_tags.append(f"#{clean_w}")
+
+    # Then add distinctive content words from the caption
+    for w in words:
+        clean_w = w.capitalize()
+        low_w = w.lower()
+        if low_w not in FR_STOPWORDS and low_w not in seen and len(clean_w) >= 6:
+            seen.add(low_w)
+            dynamic_tags.append(f"#{clean_w}")
+
+    if country and country not in ("Global", "Regional", "Turkey"):
+        c_clean = re.sub(r"[^A-Za-zÀ-ÿ0-9]", "", country)
+        if c_clean and c_clean.lower() not in seen:
+            dynamic_tags.insert(0, f"#{c_clean}")
+
+    rng = random.Random(seed_int)
+    if len(dynamic_tags) > 4:
+        picked = dynamic_tags[:2] + rng.sample(dynamic_tags[2:], k=min(2, len(dynamic_tags) - 2))
+    else:
+        picked = dynamic_tags[:4]
+
+    return " ".join(picked)
 
 async def build_french_editorial_kit_async(item: dict) -> dict:
     nl = chr(10)
-    raw_title = str(item.get("title") or "")
-    cat = str(item.get("category") or "GENERAL").upper()
-    is_red = (cat == "RED")
+    raw_title = str(item.get("title") or "").strip()
     link = str(item.get("link") or "").strip()
+    country = str(item.get("country") or "")
 
-    fr_lead = await translate_to_french_reliable(raw_title)
-    if not fr_lead.endswith((".", "!", "?")):
-        fr_lead += "."
+    seed_str = f"{item.get('id', '')}_{raw_title}_{link}"
+    seed_int = int(hashlib.md5(seed_str.encode("utf-8")).hexdigest()[:8], 16)
 
-    closing_line = random.choice(FR_CLOSING_VARIATIONS)
-    if closing_line and len(fr_lead) < 180:
-        body_text = fr_lead + " " + closing_line
-    else:
-        body_text = fr_lead
+    translated_fr = await translate_raw_to_french(raw_title)
+    unique_caption = await rewrite_human_french_ai(raw_title, translated_fr, seed_int)
 
-    pool = RED_TAGS_POOL if is_red else GEN_TAGS_POOL
-    picked_tags = random.sample(pool, k=min(4, len(pool)))
+    if not unique_caption.endswith((".", "!", "?")):
+        unique_caption += "."
 
-    lower_t = raw_title.lower()
-    detected_tag = ""
-    for kw, tag in COUNTRY_HASHTAGS_FR.items():
-        if kw in lower_t:
-            detected_tag = tag
-            break
-    if detected_tag and detected_tag not in picked_tags:
-        picked_tags.insert(0, detected_tag)
+    hashtags = extract_dynamic_hashtags(unique_caption, country, seed_int)
 
-    hashtags = " ".join(picked_tags)
-    link_label = random.choice(LINK_LABELS_FR)
-    link_line = f"{link_label} : {link}" if link else ""
+    # Pure copy-pasteable output: NO "Source :" and NO "Lien :" prefix at all
+    parts = [unique_caption]
+    if link:
+        parts.append(link)
+    if hashtags:
+        parts.append(hashtags)
 
-    # Randomized layout order (Caption -> Link -> Hashtags OR Caption -> Hashtags -> Link)
-    if random.choice([True, False]) and link_line:
-        full_post = body_text + nl + nl + link_line + nl + nl + hashtags
-    elif link_line:
-        full_post = body_text + nl + nl + hashtags + nl + nl + link_line
-    else:
-        full_post = body_text + nl + nl + hashtags
+    full_post = (nl + nl).join(parts)
+    caption_with_tags = unique_caption + (nl + nl + hashtags if hashtags else "")
 
-    caption_only = body_text + nl + nl + hashtags
     return {
-        "caption": caption_only,
-        "comment": link_line,
+        "caption": caption_with_tags,
+        "comment": link,
         "hashtags": hashtags,
         "full_bundle": full_post,
     }
