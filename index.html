@@ -828,13 +828,16 @@ const selectedVideoIds = new Set();
         };
 
         // Pure 100% French fallback generator (NEVER includes English item.title)
-                        function buildSocialKit(item) {
+                                let frQueueCounter = 0;
+        function buildSocialKit(item) {
             if (item.id && frenchKitCache[item.id]) {
                 return frenchKitCache[item.id];
             }
             const bareLink = orVal(item.link, '');
-            if (item.id) {
-                setTimeout(() => ensureTranslatedFrenchKit(item.id), 50);
+            if (item.id && item.feed_type === 'SOCIAL_VIDEO') {
+                const delayMs = (frQueueCounter % 12) * 350 + 100;
+                frQueueCounter += 1;
+                setTimeout(() => ensureTranslatedFrenchKit(item.id), delayMs);
             }
             return {
                 fullBundle: bareLink,
@@ -865,6 +868,10 @@ const selectedVideoIds = new Set();
                     frenchKitCache[itemId] = kit;
                     const ta = document.getElementById(`fr-textarea-${itemId}`);
                     if (ta) ta.value = kit.fullBundle;
+                    const cardTitleEl = document.getElementById(`card-title-${itemId}`);
+                    if (cardTitleEl && kit.captionOnly) {
+                        cardTitleEl.textContent = kit.captionOnly.split('\n')[0];
+                    }
                     return kit;
                 }
             } catch (e) {}
