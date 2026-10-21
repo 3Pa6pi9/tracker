@@ -828,28 +828,27 @@ const selectedVideoIds = new Set();
         };
 
         // Pure 100% French fallback generator (NEVER includes English item.title)
-        function buildSocialKit(item) {
+                function buildSocialKit(item) {
             if (item.id && frenchKitCache[item.id]) {
                 return frenchKitCache[item.id];
             }
-            const countryRaw = orVal(item.country, 'Global');
-            const countryFr = orVal(FR_COUNTRIES[countryRaw], countryRaw);
-            const idx = Math.abs(Number(orVal(item.id, 1))) % 3;
+            const openers = [
+                "Point de situation en images sur les derniers developpements internationaux.",
+                "Sequence diffusee recemment illustrant l'evolution de l'actualite internationale.",
+                "Apercu direct de la situation actuelle a travers cette nouvelle sequence.",
+                "Nouvelle sequence relayee aujourd'hui au coeur de l'actualite geopolitique."
+            ];
+            const redTags = ["#ActualiteInternationale", "#Geopolitique", "#Securite", "#Analyse", "#EnImages", "#Monde"];
+            const genTags = ["#Diplomatie", "#RelationsBilaterales", "#PolitiqueEtrangere", "#Cooperation", "#International", "#Monde"];
+            const seed = Math.abs(Number(orVal(item.id, 1)));
             const isRed = (item.category === 'RED');
-            const tpl = isRed ? FR_RED_TPL[idx] : FR_GEN_TPL[idx];
-            const editorialParagraph = tpl.replace(/\{country\}/g, countryFr);
-
-            const cSlug = countryRaw.replace(/[^a-zA-Z0-9]/g, '');
-            const countryTag = (cSlug && cSlug !== 'Global') ? '#' + cSlug : '#International';
-            const themeTags = isRed
-                ? '#ActualiteInternationale #Geopolitique #Securite #Analyse'
-                : '#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Cooperation';
-            const hashtags = `${countryTag} ${themeTags}`;
-
-            const followUpComment = `Que pensez-vous de cette evolution concernant ${countryFr} ? Partagez votre analyse dans les commentaires.\nLien de la video : ${item.link}`;
-            const captionOnly = `${hashtags}`;
-            const fullBundle = `${captionOnly}\n\n--- COMMENTAIRE A COUPER ET COLLER SOUS LE POST ---\n${followUpComment}`;
-            return { fullBundle, captionOnly, followUpComment, hashtags };
+            const lead = openers[seed % openers.length];
+            const pool = isRed ? redTags : genTags;
+            const hashtags = pool.slice(0, 4).join(' ');
+            const linkLine = `Source : ${item.link}`;
+            const captionOnly = `${lead}\n\n${hashtags}`;
+            const fullBundle = `${lead}\n\n${hashtags}\n\n${linkLine}`;
+            return { fullBundle, captionOnly, followUpComment: linkLine, hashtags };
         }
 
         async function ensureTranslatedFrenchKit(itemId) {
@@ -1401,7 +1400,7 @@ const selectedVideoIds = new Set();
                             </div>
                             <details ontoggle="if(this.open) ensureTranslatedFrenchKit(${itemIdNum})" class="bg-slate-950/95 border-t border-slate-800/80 px-3 py-2 text-[11px] text-slate-300">
                                 <summary class="cursor-pointer font-mono text-[10px] text-amber-400 font-bold select-none flex items-center justify-between">
-                                    <span>📝 100% French Caption + Hashtags + Cut-Comment</span>
+                                    <span>📝 French Caption + Hashtags + Source Link</span>
                                     <span class="text-[9px] text-slate-500">View / Copy</span>
                                 </summary>
                                 <div class="mt-2 space-y-2">
@@ -1409,7 +1408,7 @@ const selectedVideoIds = new Set();
                                     <div class="flex items-center justify-between gap-1.5">
                                         <button type="button" onclick="copyFrenchPart(${itemIdNum}, 'all', this)" class="flex-1 py-1 bg-indigo-600/80 hover:bg-indigo-600 active:scale-95 text-white rounded text-[10px] font-bold transition-all">Copy All (FR)</button>
                                         <button type="button" onclick="copyFrenchPart(${itemIdNum}, 'caption', this)" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded text-[10px] font-semibold border border-slate-700 transition-all">Caption Only (FR)</button>
-                                        <button type="button" onclick="copyFrenchPart(${itemIdNum}, 'comment', this)" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700 transition-all">Comment + Link (FR)</button>
+                                        <button type="button" onclick="copyFrenchPart(${itemIdNum}, 'comment', this)" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 rounded text-[10px] font-semibold border border-slate-700 transition-all">Source Link Only</button>
                                     </div>
                                 </div>
                             </details>

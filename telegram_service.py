@@ -1,6 +1,7 @@
 import os
 import re
 import html
+import random
 import asyncio
 import logging
 from datetime import datetime, timedelta
@@ -11,66 +12,60 @@ from deep_translator import GoogleTranslator
 logger = logging.getLogger("uvicorn")
 router = APIRouter()
 
-RED_TPL = [
-    (
-        "Sur le terrain, l'evolution rapide de la situation securitaire "
-        "concernant {country} retient toute l'attention. Les derniers elements "
-        "rapportes montrent une vigilance accrue autour des zones sensibles "
-        "et laissent entrevoir des repercussions importantes pour l'equilibre regional."
-    ),
-    (
-        "La tension reste vive autour de {country} alors que de nouveaux "
-        "developpements viennent d'etre documentes sur place. Plusieurs observateurs "
-        "soulignent le caractere delicat de cette sequence et suivent de pres "
-        "les reactions des acteurs impliques."
-    ),
-    (
-        "Cette sequence illustre la complexite du contexte securitaire actuel "
-        "touchant {country}. Les informations qui remontent du terrain confirment "
-        "que les prochaines heures seront determinantes pour la suite des evenements."
-    ),
+FR_CLOSING_VARIATIONS = [
+    "",
+    "Une sequence qui illustre l'evolution rapide de la situation.",
+    "Des images marquantes qui témoignent de la realite du terrain.",
+    "Un point visuel revelateur des dynamiques actuelles.",
+    "Cette sequence retient particulierement l'attention des observateurs aujourd'hui.",
+    "Un apercu direct des derniers developpements en cours.",
+    "Une sequence qui eclaire les enjeux du moment.",
 ]
 
-GEN_TPL = [
-    (
-        "Les echanges diplomatiques se poursuivent autour de {country} afin de "
-        "renforcer la cooperation bilaterale et les partenariats strategiques. "
-        "Cette dynamique temoigne d'une volonte commune d'approfondir le dialogue "
-        "politique et economique."
-    ),
-    (
-        "Retour sur cette sequence diplomatique impliquant {country} et ses "
-        "partenaires internationaux. Les discussions engagées mettent en avant "
-        "de nouvelles perspectives de collaboration regionale et commerciale."
-    ),
-    (
-        "Cette rencontre marque une nouvelle etape dans les relations bilaterales "
-        "concernant {country}. Les priorites abordees confirment l'importance "
-        "accordee a la stabilite et au developpement des echanges."
-    ),
+LINK_LABELS_FR = [
+    "Source",
+    "Lien",
+    "Lien de la video",
+    "Reference",
+    "Source directe",
 ]
 
-COUNTRIES_FR = {
-    "United States": "les Etats-Unis",
-    "United Kingdom": "le Royaume-Uni",
-    "UAE": "les Emirats arabes unis",
-    "Saudi Arabia": "l'Arabie saoudite",
-    "Turkey": "la Turquie",
-    "Russia": "la Russie",
-    "Iran": "l'Iran",
-    "Israel": "Israel",
-    "Lebanon": "le Liban",
-    "Syria": "la Syrie",
-    "Iraq": "l'Irak",
-    "Yemen": "le Yemen",
-    "Sudan": "le Soudan",
-    "Somalia": "la Somalie",
-    "Egypt": "l'Egypte",
-    "Ethiopia": "l'Ethiopie",
-    "France": "la France",
-    "Qatar": "le Qatar",
-    "Global": "la scene internationale",
-    "Regional": "le Moyen-Orient",
+RED_TAGS_POOL = [
+    "#ActualiteInternationale", "#Geopolitique", "#Securite",
+    "#Analyse", "#EnImages", "#Actualite", "#Monde",
+    "#PointDeSituation", "#VeilleStrategique", "#Terrain",
+]
+
+GEN_TAGS_POOL = [
+    "#Diplomatie", "#RelationsBilaterales", "#PolitiqueEtrangere",
+    "#Cooperation", "#International", "#Actualite", "#Geopolitique",
+    "#Echanges", "#Sommet", "#Monde",
+]
+
+COUNTRY_HASHTAGS_FR = {
+    "uae": "#EmiratsArabesUnis",
+    "emirates": "#EmiratsArabesUnis",
+    "abu dhabi": "#AbuDhabi",
+    "dubai": "#Dubai",
+    "israel": "#ProcheOrient",
+    "gaza": "#Gaza",
+    "palestin": "#ProcheOrient",
+    "lebanon": "#Liban",
+    "beirut": "#Liban",
+    "iran": "#Iran",
+    "syria": "#Syrie",
+    "iraq": "#Irak",
+    "yemen": "#Yemen",
+    "sudan": "#Soudan",
+    "somalia": "#Somalie",
+    "ethiopia": "#Ethiopie",
+    "egypt": "#Egypte",
+    "russia": "#Russie",
+    "ukrain": "#Ukraine",
+    "france": "#France",
+    "german": "#Allemagne",
+    "saudi": "#ArabieSaoudite",
+    "qatar": "#Qatar",
 }
 
 def strip_emojis_and_noise(text: str) -> str:
@@ -81,31 +76,10 @@ def strip_emojis_and_noise(text: str) -> str:
     s = re.sub(r'\s+', ' ', s).strip()
     return s
 
-def detect_country_fr_from_text(title: str, fallback_country: str) -> str:
-    t = str(title or "").lower()
-    keyword_map = [
-        ("uae", "les Emirats arabes unis"), ("emirates", "les Emirats arabes unis"),
-        ("abu dhabi", "les Emirats arabes unis"), ("dubai", "les Emirats arabes unis"),
-        ("israel", "Israel"), ("gaza", "Gaza"), ("palestin", "la Palestine"),
-        ("lebanon", "le Liban"), ("liban", "le Liban"), ("beirut", "le Liban"),
-        ("iran", "l'Iran"), ("tehran", "l'Iran"), ("syria", "la Syrie"),
-        ("iraq", "l'Irak"), ("yemen", "le Yemen"), ("red sea", "la mer Rouge"),
-        ("sudan", "le Soudan"), ("somalia", "la Somalie"), ("ethiopia", "l'Ethiopie"),
-        ("egypt", "l'Egypte"), ("russia", "la Russie"), ("ukrain", "l'Ukraine"),
-        ("german", "l'Allemagne"), ("france", "la France"), ("saudi", "l'Arabie saoudite"),
-        ("qatar", "le Qatar"), ("united states", "les Etats-Unis"), ("pentagon", "les Etats-Unis")
-    ]
-    for kw, fr_name in keyword_map:
-        if kw in t:
-            return fr_name
-    if fallback_country in ("Turkey", "Global", "Regional", ""):
-        return "la scene internationale"
-    return COUNTRIES_FR.get(fallback_country, fallback_country)
-
-async def translate_to_french_reliable(text: str, country_fr: str, is_red: bool) -> str:
+async def translate_to_french_reliable(text: str) -> str:
     clean = strip_emojis_and_noise(text)
     if not clean or clean.lower().startswith("video intelligence") or clean.lower().startswith("dispatch from"):
-        return f"Point de situation en images sur l'actualite concernant {country_fr}."
+        return "Point de situation en images sur l'actualite internationale du jour."
 
     try:
         url = "https://translate.googleapis.com/translate_a/single"
@@ -129,42 +103,55 @@ async def translate_to_french_reliable(text: str, country_fr: str, is_red: bool)
     except Exception:
         pass
 
-    return f"Point de situation en images sur l'actualite concernant {country_fr}."
+    return "Point de situation en images sur l'actualite internationale du jour."
 
 async def build_french_editorial_kit_async(item: dict) -> dict:
     nl = chr(10)
     raw_title = str(item.get("title") or "")
-    fallback_country = str(item.get("country") or "Global")
-    country_fr = detect_country_fr_from_text(raw_title, fallback_country)
     cat = str(item.get("category") or "GENERAL").upper()
     is_red = (cat == "RED")
+    link = str(item.get("link") or "").strip()
 
-    fr_lead = await translate_to_french_reliable(raw_title, country_fr, is_red)
+    fr_lead = await translate_to_french_reliable(raw_title)
     if not fr_lead.endswith((".", "!", "?")):
         fr_lead += "."
 
-    if is_red:
-        tags = "#ActualiteInternationale #Geopolitique #Securite #Analyse"
+    closing_line = random.choice(FR_CLOSING_VARIATIONS)
+    if closing_line and len(fr_lead) < 180:
+        body_text = fr_lead + " " + closing_line
     else:
-        tags = "#Diplomatie #RelationsBilaterales #PolitiqueEtrangere #Cooperation"
+        body_text = fr_lead
 
-    c_slug = re.sub(r'[^a-zA-Z0-9]', '', country_fr.replace("les ", "").replace("le ", "").replace("la ", "").replace("l'", ""))
-    c_tag = f"#{c_slug}" if (c_slug and len(c_slug) > 2 and "sceneinternationale" not in c_slug.lower()) else "#International"
-    hashtags = f"{c_tag} {tags}"
+    pool = RED_TAGS_POOL if is_red else GEN_TAGS_POOL
+    picked_tags = random.sample(pool, k=min(4, len(pool)))
 
-    link = str(item.get("link") or "")
-    caption = fr_lead + nl + nl + hashtags
-    comment = (
-        "Que pensez-vous de cette evolution ? "
-        "Partagez votre analyse dans les commentaires." + nl +
-        "Lien de la video : " + link
-    )
-    full_bundle = caption + nl + nl + "--- COMMENTAIRE A COUPER ET COLLER SOUS LE POST ---" + nl + comment
+    lower_t = raw_title.lower()
+    detected_tag = ""
+    for kw, tag in COUNTRY_HASHTAGS_FR.items():
+        if kw in lower_t:
+            detected_tag = tag
+            break
+    if detected_tag and detected_tag not in picked_tags:
+        picked_tags.insert(0, detected_tag)
+
+    hashtags = " ".join(picked_tags)
+    link_label = random.choice(LINK_LABELS_FR)
+    link_line = f"{link_label} : {link}" if link else ""
+
+    # Randomized layout order (Caption -> Link -> Hashtags OR Caption -> Hashtags -> Link)
+    if random.choice([True, False]) and link_line:
+        full_post = body_text + nl + nl + link_line + nl + nl + hashtags
+    elif link_line:
+        full_post = body_text + nl + nl + hashtags + nl + nl + link_line
+    else:
+        full_post = body_text + nl + nl + hashtags
+
+    caption_only = body_text + nl + nl + hashtags
     return {
-        "caption": caption,
-        "comment": comment,
+        "caption": caption_only,
+        "comment": link_line,
         "hashtags": hashtags,
-        "full_bundle": full_bundle,
+        "full_bundle": full_post,
     }
 
 def init_tg_tables():
@@ -194,17 +181,6 @@ def init_tg_tables():
             )
         """)
         c.execute("INSERT INTO tg_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING")
-        c.execute("SELECT column_name FROM information_schema.columns WHERE table_name='tg_settings'")
-        cols = [r[0] for r in c.fetchall()]
-        if "general_schedule_time" not in cols:
-            c.execute("ALTER TABLE tg_settings ADD COLUMN general_schedule_time TEXT DEFAULT '09:00'")
-        if "tz_offset_minutes" not in cols:
-            c.execute("ALTER TABLE tg_settings ADD COLUMN tz_offset_minutes INT DEFAULT 180")
-        if "tz_name" not in cols:
-            c.execute("ALTER TABLE tg_settings ADD COLUMN tz_name TEXT DEFAULT 'Local Time'")
-        if "last_general_run_date" not in cols:
-            c.execute("ALTER TABLE tg_settings ADD COLUMN last_general_run_date TEXT DEFAULT ''")
-
         c.execute("""
             CREATE TABLE IF NOT EXISTS tg_sent_log (
                 id SERIAL PRIMARY KEY,
@@ -285,11 +261,10 @@ async def send_single_video_to_tg(item: dict, settings: dict = None, bucket_labe
         topic_id = (settings.get("general_topic_id") or "").strip()
 
     if not bot_token or not chat_id:
-        return {"status": "error", "detail": f"Missing Bot Token or {cat} Channel Chat ID in TG Settings."}
+        return {"status": "error", "detail": f"Missing Bot Token or {cat} Channel Chat ID."}
 
     kit = await build_french_editorial_kit_async(item)
-    # Strictly French caption + hashtags + French comment + video link (no headers, no emojis, no English)
-    clean_tg_caption = f"{kit['caption']}\n\n{kit['comment']}"
+    clean_tg_caption = kit["full_bundle"]
     if len(clean_tg_caption) > 1020:
         clean_tg_caption = clean_tg_caption[:1017] + "..."
 
@@ -411,11 +386,8 @@ async def daily_tg_scheduler_loop():
                 gen_hm = str(settings.get("general_schedule_time") or red_hm).strip()
 
                 if settings.get("last_run_date") != today_str and curr_hm == red_hm:
-                    logger.info(f"Running scheduled RED daily TG dispatch at {curr_hm} local time")
                     await run_daily_batch_dispatch(target_group="RED")
-
                 if settings.get("last_general_run_date") != today_str and curr_hm == gen_hm:
-                    logger.info(f"Running scheduled GENERAL daily TG dispatch at {curr_hm} local time")
                     await run_daily_batch_dispatch(target_group="GENERAL")
         except Exception as e:
             logger.error(f"Scheduler error: {e}")
